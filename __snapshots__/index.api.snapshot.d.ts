@@ -14,7 +14,6 @@ export interface ResolvedEntry {
   runtime: string | null;
   dts: string | null;
 }
-export declare function resolvePackageDir(_: string, _: string): string;
 export declare function resolvePackageEntries(_: string): ResolvedEntry[];
 export interface SnapshotExtensions {
   runtime: string;
@@ -29,7 +28,6 @@ export declare function snapshotFiles(_: {
   runtime?: string;
   dts?: string;
 }[], _: string, _?: ApiSnapshotOptions): SnapshotResult;
-export declare function snapshotInstalledPackage(_: string, _: string, _?: ApiSnapshotOptions): SnapshotResult;
 export interface SnapshotMismatch {
   entryName: string;
   runtimeDiff: string | null;

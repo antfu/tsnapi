@@ -1,1 +1,0 @@
-export { rollupPlugin as default }

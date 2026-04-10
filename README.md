@@ -30,14 +30,12 @@ These files are committed to your repo. When they change, you review the diff --
 ## Install
 
 ```bash
-npm i -D tsnapi
+pnpm add -D tsnapi
 ```
 
 ## Usage
 
-### As a bundler plugin
-
-`tsnapi` provides plugins for popular bundlers powered by [`unplugin`](https://github.com/unplugin/unplugin), which could work with all the major bundlers (Rollup, Vite, Webpack, esbuild, etc.).
+### As a Rolldown / tsdown plugin
 
 The most recommended way of using `tsnapi` is to use it with [`tsdown`](https://tsdown.dev) -- an elegant library bundler built on top of Rolldown:
 
@@ -55,7 +53,7 @@ export default defineConfig({
 })
 ```
 
-On first build, snapshot files are written. On subsequent builds, the plugin compares against existing snapshots and **fails the build a diff** if the API changed.
+On first build, snapshot files are written. On subsequent builds, the plugin compares against existing snapshots and **fails the build with a diff** if the API changed.
 
 To update snapshots when you intentionally change the API, set the `update` option to `true` or use the `--update-snapshot` / `-u` CLI flag:
 
@@ -88,13 +86,13 @@ tsnapi -u
 ### As a library
 
 ```ts
-import { snapshotPackage, snapshotInstalledPackage } from 'tsnapi'
+import { snapshotPackage } from 'tsnapi'
 
 // Snapshot current package
 const result = snapshotPackage(process.cwd())
 
 // Snapshot a dependency
-const result = snapshotInstalledPackage('vue', process.cwd())
+const result = snapshotPackage('node_modules/vue')
 
 if (result.hasChanges) {
   console.error(result.diff)

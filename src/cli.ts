@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import process from 'node:process'
-import { snapshotInstalledPackage, snapshotPackage } from './core/index.ts'
+import { snapshotPackage } from './core/index.ts'
 
 function main(): void {
   const args = process.argv.slice(2)
@@ -15,9 +15,6 @@ function main(): void {
     else if (arg === '--output-dir' || arg === '-o') {
       options.outputDir = args[++i]
     }
-    else if (arg === '--pkg' || arg === '-p') {
-      options.pkg = args[++i]
-    }
     else if (arg === '--help' || arg === '-h') {
       printHelp()
       return
@@ -31,19 +28,10 @@ function main(): void {
     }
   }
 
-  const cwd = positionals[0] ? process.cwd() : process.cwd()
-  const snapshotOptions = {
+  const result = snapshotPackage(positionals[0] ?? process.cwd(), {
     outputDir: options.outputDir as string | undefined,
     update: options.update as boolean | undefined,
-  }
-
-  let result
-  if (options.pkg) {
-    result = snapshotInstalledPackage(options.pkg as string, cwd, snapshotOptions)
-  }
-  else {
-    result = snapshotPackage(positionals[0] ?? cwd, snapshotOptions)
-  }
+  })
 
   if (result.hasChanges) {
     if (result.diff)
@@ -58,12 +46,10 @@ function printHelp(): void {
 
   Usage:
     tsnapi [dir]              Snapshot package at directory (default: cwd)
-    tsnapi --pkg <name>       Snapshot an installed package
 
   Options:
     -u, --update-snapshot     Update snapshots instead of comparing
     -o, --output-dir <dir>    Snapshot output directory (default: __snapshots__)
-    -p, --pkg <name>          Snapshot a package from node_modules
     -h, --help                Show this help
 `.trim())
 }
