@@ -12,7 +12,8 @@ export interface Options {
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export interface Options {
+      "// Interfaces
+      export interface Options {
         entry: string[];
         outDir?: string;
         format?: 'esm' | 'cjs';
@@ -28,7 +29,8 @@ export type Entry = string | string[];
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export type Entry = string | string[];
+      "// Types
+      export type Entry = string | string[];
       export type Format = 'esm' | 'cjs' | 'iife';
       "
     `)
@@ -40,7 +42,8 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export declare function build(_: BuildConfig, _?: Options): Promise<void>;
+      "// Functions
+      export declare function build(_: BuildConfig, _?: Options): Promise<void>;
       "
     `)
   })
@@ -52,7 +55,8 @@ export declare const DEFAULT_CONFIG: Options;
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export declare const DEFAULT_CONFIG: Options;
+      "// Variables
+      export declare const DEFAULT_CONFIG: Options;
       export declare const VERSION: string;
       "
     `)
@@ -69,7 +73,8 @@ export declare enum LogLevel {
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export declare enum LogLevel {
+      "// Enums
+      export declare enum LogLevel {
         Debug = 0,
         Info = 1,
         Warn = 2,
@@ -89,10 +94,13 @@ export interface Middle {
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export type Alpha = number;
+      "// Interfaces
       export interface Middle {
         value: boolean;
       }
+
+      // Types
+      export type Alpha = number;
       export type Zebra = string;
       "
     `)
@@ -108,7 +116,8 @@ export { VERSION, COUNT, DEBUG, TYPED };
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export declare const COUNT: number;
+      "// Variables
+      export declare const COUNT: number;
       export declare const DEBUG: boolean;
       export declare const TYPED: string;
       export declare const VERSION: string;
@@ -127,11 +136,14 @@ export { _build as build, type _Options as Options };
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export declare function build(_: _Options): Promise<void>;
+      "// Interfaces
       export interface Options {
         outputDir?: string;
         update?: boolean;
       }
+
+      // Functions
+      export declare function build(_: _Options): Promise<void>;
       "
     `)
   })
@@ -143,7 +155,8 @@ export type { Foo, Bar as Baz } from './types.js';
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export { foo, bar as baz } from './other.js';
+      "// Re-exports
+      export { foo, bar as baz } from './other.js';
       export type { Foo, Bar as Baz } from './types.js';
       "
     `)
@@ -166,11 +179,14 @@ export { SnapshotFile as a, formatMismatchError as c };
       chunkSources: new Map([['./index-abc123.d.mts', chunkCode]]),
     })
     expect(result).toMatchInlineSnapshot(`
-      "export declare function formatError(_: SnapshotMismatch[]): string;
+      "// Interfaces
       export interface SnapshotFile {
         runtime: string;
         dts: string;
       }
+
+      // Functions
+      export declare function formatError(_: SnapshotMismatch[]): string;
       "
     `)
   })
@@ -182,7 +198,8 @@ export { rolldownPlugin as default };
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "declare function _default(_?: ApiSnapshotOptions): { name: string };
+      "// Default Export
+      declare function _default(_?: ApiSnapshotOptions): { name: string };
       export default _default
       "
     `)
@@ -199,11 +216,14 @@ export { ApiSnapshot, type ApiSnapshotOptions };
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export declare function ApiSnapshot(_?: ApiSnapshotOptions): Plugin;
+      "// Interfaces
       export interface ApiSnapshotOptions {
         outputDir?: string;
         update?: boolean;
       }
+
+      // Functions
+      export declare function ApiSnapshot(_?: ApiSnapshotOptions): Plugin;
       "
     `)
   })
@@ -214,7 +234,8 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
 `
     const result = extractDts('test.d.mts', code, { omitArgumentNames: false })
     expect(result).toMatchInlineSnapshot(`
-      "export declare function build(config: BuildConfig, options?: Options): Promise<void>;
+      "// Functions
+      export declare function build(config: BuildConfig, options?: Options): Promise<void>;
       "
     `)
   })
@@ -225,7 +246,8 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
 `
     const result = extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "export declare function build(_: BuildConfig, _?: Options): Promise<void>;
+      "// Functions
+      export declare function build(_: BuildConfig, _?: Options): Promise<void>;
       "
     `)
   })

@@ -1,13 +1,22 @@
-export declare function formatOutput(_: string): string;
-export type Formatter = (input: string) => string;
+// Interfaces
 export interface Options {
   verbose?: boolean;
   timeout?: number;
 }
-export declare function process(_: string, _?: InternalOptions): string;
+
+// Types
+export type Formatter = (input: string) => string;
+
+// Classes
 export declare class Service {
   private name;
   constructor(name: string);
   run(input: string): string;
 }
+
+// Functions
+export declare function formatOutput(_: string): string;
+export declare function process(_: string, _?: InternalOptions): string;
+
+// Variables
 export declare const VERSION: string;

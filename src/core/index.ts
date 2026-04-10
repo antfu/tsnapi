@@ -1,7 +1,7 @@
 import type { SnapshotExtensions } from './snapshot.ts'
 import type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.ts'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { extractDts } from './extract-dts.ts'
 import { extractRuntime } from './extract-runtime.ts'
@@ -9,6 +9,7 @@ import { resolvePackageEntries } from './resolve.ts'
 import {
   compareSnapshots,
   formatMismatchError,
+  generateHeader,
   readSnapshot,
   writeSnapshot,
 } from './snapshot.ts'
@@ -17,8 +18,21 @@ export { extractDts } from './extract-dts.ts'
 export { extractRuntime } from './extract-runtime.ts'
 export { resolvePackageEntries } from './resolve.ts'
 export type { SnapshotExtensions, SnapshotFile, SnapshotMismatch } from './snapshot.ts'
-export { compareSnapshots, formatMismatchError, readSnapshot, writeSnapshot } from './snapshot.ts'
+export { compareSnapshots, formatMismatchError, generateHeader, readSnapshot, stripHeader, writeSnapshot } from './snapshot.ts'
 export type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.ts'
+
+function readPackageName(cwd: string): string {
+  const pkgPath = join(cwd, 'package.json')
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+      if (pkg.name)
+        return pkg.name
+    }
+    catch {}
+  }
+  return 'unknown'
+}
 
 function resolveOptions(options?: ApiSnapshotOptions): {
   outputDir: string
@@ -60,6 +74,8 @@ export function generateApiSnapshot(cwd: string, options?: ApiSnapshotOptions): 
   const entries = resolvePackageEntries(cwd)
   const result: Record<string, { runtime: string, dts: string }> = {}
   const extractOptions = { omitArgumentNames: options?.omitArgumentNames }
+  const showHeader = options?.header ?? true
+  const packageName = showHeader ? readPackageName(cwd) : ''
 
   for (const entry of entries) {
     const runtime = entry.runtime
@@ -68,7 +84,11 @@ export function generateApiSnapshot(cwd: string, options?: ApiSnapshotOptions): 
     const dts = entry.dts
       ? extractDts(entry.dts, readFileSync(entry.dts, 'utf-8'), extractOptions)
       : ''
-    result[entry.name] = { runtime, dts }
+    const prefix = showHeader ? generateHeader(packageName, entry.name) : ''
+    result[entry.name] = {
+      runtime: prefix + (runtime.trim() || '/* no exports */'),
+      dts: prefix + (dts.trim() || '/* no exports */'),
+    }
   }
 
   return result
@@ -106,6 +126,8 @@ function snapshotEntries(
   const { outputDir, ext, update } = resolveOptions(options)
   const resolvedOutputDir = resolve(cwd, outputDir)
   const extractOptions = { omitArgumentNames: options?.omitArgumentNames }
+  const showHeader = options?.header ?? true
+  const packageName = showHeader ? readPackageName(cwd) : ''
 
   const mismatches: SnapshotResult['mismatches'] = []
   const allMismatchDetails: import('./snapshot.ts').SnapshotMismatch[] = []
@@ -120,11 +142,12 @@ function snapshotEntries(
       ? extractDts(entry.dts, readFileSync(entry.dts, 'utf-8'), extractOptions)
       : ''
 
+    const header = showHeader ? generateHeader(packageName, entry.name) : undefined
     const current = { runtime, dts }
     const existing = readSnapshot(resolvedOutputDir, stem, ext)
 
     if (!existing || update) {
-      writeSnapshot(resolvedOutputDir, stem, current, ext)
+      writeSnapshot(resolvedOutputDir, stem, current, ext, header)
     }
     else {
       const mismatch = compareSnapshots(stem, existing, current)
@@ -135,7 +158,7 @@ function snapshotEntries(
           dtsChanged: !!mismatch.dtsDiff,
         })
         allMismatchDetails.push(mismatch)
-        writeSnapshot(resolvedOutputDir, stem, current, ext)
+        writeSnapshot(resolvedOutputDir, stem, current, ext, header)
       }
     }
   }

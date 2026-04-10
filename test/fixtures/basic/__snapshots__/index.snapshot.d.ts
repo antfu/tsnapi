@@ -1,10 +1,17 @@
-export declare const DEBUG: boolean;
-export declare function fetchData(_: string, _?: RequestInit): Promise<Response>;
-export type Formatter = (input: string) => string;
-export declare function greet(_: string): string;
+// Interfaces
 export interface GreetOptions {
   prefix?: string;
   suffix?: string;
 }
+
+// Types
+export type Formatter = (input: string) => string;
+
+// Functions
+export declare function fetchData(_: string, _?: RequestInit): Promise<Response>;
+export declare function greet(_: string): string;
 export declare function range(_: number, _: number): Generator<number>;
+
+// Variables
+export declare const DEBUG: boolean;
 export declare const VERSION: string;

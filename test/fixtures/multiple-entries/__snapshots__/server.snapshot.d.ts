@@ -1,8 +1,15 @@
-export declare function createServer(_: ServerOptions): Server;
+// Interfaces
 export interface Middleware {
   name: string;
   handler: (req: unknown, res: unknown, next: () => void) => void;
 }
+export interface ServerOptions {
+  port: number;
+  host?: string;
+  cors?: boolean;
+}
+
+// Classes
 export declare class Server {
   private middlewares;
   private options;
@@ -11,8 +18,6 @@ export declare class Server {
   listen(): Promise<void>;
   close(): void;
 }
-export interface ServerOptions {
-  port: number;
-  host?: string;
-  cors?: boolean;
-}
+
+// Functions
+export declare function createServer(_: ServerOptions): Server;
