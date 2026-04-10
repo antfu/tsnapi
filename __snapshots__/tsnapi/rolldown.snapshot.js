@@ -1,1 +1,2 @@
-export function default(options) { /* ... */ }
+function _default(options) { /* ... */ }
+export default _default

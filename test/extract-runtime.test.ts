@@ -234,6 +234,44 @@ export { resolvePackageEntries as a, resolvePackageDir as i };
     `)
   })
 
+  it('handles export { X as default } with valid syntax', () => {
+    const code = `
+function rolldownPlugin(options) {
+  return { name: 'test' };
+}
+export { rolldownPlugin as default };
+`
+    const result = extractRuntime('test.mjs', code)
+    expect(result).toMatchInlineSnapshot(`
+      "function _default(options) { /* ... */ }
+      export default _default
+      "
+    `)
+  })
+
+  it('handles export { X as default } for class', () => {
+    const code = `
+var MyClass = class {
+  constructor(config) {
+    this.config = config;
+  }
+  run() {
+    console.log('running');
+  }
+};
+export { MyClass as default };
+`
+    const result = extractRuntime('test.mjs', code)
+    expect(result).toMatchInlineSnapshot(`
+      "class _default {
+        constructor(config) { /* ... */ }
+        run() { /* ... */ }
+      }
+      export default _default
+      "
+    `)
+  })
+
   it('recovers function from var X = function(...) pattern', () => {
     const code = `
 var compute = function(a, b) {

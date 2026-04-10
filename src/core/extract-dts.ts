@@ -9,6 +9,20 @@ function getExportName(node: any): string {
 }
 
 /**
+ * Format a resolved declaration as an export entry.
+ * Handles `default` specially since `export declare function default()` is invalid syntax.
+ */
+function formatDtsExportEntry(exportedName: string, text: string): { name: string, text: string } {
+  if (exportedName === 'default') {
+    // Remove `export` prefix, rename `default` to `_default`, then add `export default _default`
+    const withoutExport = text.replace(/^export\s+/, '')
+    const renamed = withoutExport.replace(/\bdefault\b/, '_default')
+    return { name: '\x00default', text: `${renamed}\nexport default _default` }
+  }
+  return { name: exportedName, text }
+}
+
+/**
  * Extract type declaration skeletons from a DTS chunk.
  * Returns a formatted `.d.ts` snapshot string.
  *
@@ -170,7 +184,7 @@ function processExportNamedDeclaration(
       const resolved = declMap.get(localName)
       if (resolved) {
         const text = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport)
-        entries.push({ name: exportedName, text })
+        entries.push(formatDtsExportEntry(exportedName, text))
       }
       else {
         // Try resolving through imports into chunk files
@@ -180,7 +194,12 @@ function processExportNamedDeclaration(
         }
         else {
           // Fallback: just output the specifier
-          entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+          if (exportedName === 'default') {
+            entries.push({ name: '\x00default', text: `export default ${localName}` })
+          }
+          else {
+            entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+          }
         }
       }
     }
@@ -231,7 +250,7 @@ function resolveFromChunkDts(
     return undefined
 
   const text = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport)
-  return { name: exportedName, text }
+  return formatDtsExportEntry(exportedName, text)
 }
 
 /**

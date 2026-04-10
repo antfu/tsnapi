@@ -9,6 +9,18 @@ function getExportName(node: any): string {
 }
 
 /**
+ * Format a resolved declaration as an export entry.
+ * Handles `default` specially since `export function default()` is invalid syntax.
+ */
+function formatExportEntry(exportedName: string, skeleton: string): { name: string, text: string } {
+  if (exportedName === 'default') {
+    const renamed = skeleton.replace(/\bdefault\b/, '_default')
+    return { name: '\x00default', text: `${renamed}\nexport default _default` }
+  }
+  return { name: exportedName, text: `export ${skeleton}` }
+}
+
+/**
  * Extract runtime export skeletons from a JS chunk.
  * Returns a formatted `.ts` snapshot string showing the API surface without implementations.
  *
@@ -73,7 +85,7 @@ export function extractRuntime(fileName: string, code: string, chunkSources?: Ma
             const decl = declMap.get(localName)
             if (decl) {
               const skeleton = extractDeclarationSkeleton(s, decl, exportedName)
-              entries.push({ name: exportedName, text: `export ${skeleton}` })
+              entries.push(formatExportEntry(exportedName, skeleton))
             }
             else {
               // Try resolving through imports into chunk files
@@ -82,7 +94,12 @@ export function extractRuntime(fileName: string, code: string, chunkSources?: Ma
                 entries.push(resolved)
               }
               else {
-                entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+                if (exportedName === 'default') {
+                  entries.push({ name: '\x00default', text: `export default ${localName}` })
+                }
+                else {
+                  entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+                }
               }
             }
           }
@@ -150,7 +167,7 @@ function resolveFromChunkRuntime(
     return undefined
 
   const skeleton = extractDeclarationSkeleton(chunkS, decl, exportedName)
-  return { name: exportedName, text: `export ${skeleton}` }
+  return formatExportEntry(exportedName, skeleton)
 }
 
 /**
