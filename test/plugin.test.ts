@@ -42,7 +42,7 @@ export class App {
     })
     await bundle.write({ dir: join(FIXTURE_DIR, 'dist') })
 
-    const snapshotPath = join(SNAPSHOT_DIR, 'index.api.snapshot.js')
+    const snapshotPath = join(SNAPSHOT_DIR, 'index.snapshot.js')
     expect(existsSync(snapshotPath)).toBe(true)
 
     const content = readFileSync(snapshotPath, 'utf-8')
@@ -121,7 +121,7 @@ export function hello() { return 'hi'; }
     await bundle2.write({ dir: join(FIXTURE_DIR, 'dist') })
 
     // Verify updated snapshot contains new param
-    const content = readFileSync(join(SNAPSHOT_DIR, 'index.api.snapshot.js'), 'utf-8')
+    const content = readFileSync(join(SNAPSHOT_DIR, 'index.snapshot.js'), 'utf-8')
     expect(content).toContain('hello(name)')
   })
 })

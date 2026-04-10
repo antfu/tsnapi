@@ -28,8 +28,8 @@ describe('fixture: basic', () => {
   it('snapshots functions, constants, and types', async () => {
     await buildFixture('basic')
 
-    const runtime = readSnap('basic', 'index.api.snapshot.js')
-    const dts = readSnap('basic', 'index.api.snapshot.d.ts')
+    const runtime = readSnap('basic', 'index.snapshot.js')
+    const dts = readSnap('basic', 'index.snapshot.d.ts')
 
     // Runtime: functions with empty bodies, constants without values
     expect(runtime).toContain('greet')
@@ -55,8 +55,8 @@ describe('fixture: class-inheritance', () => {
   it('snapshots abstract classes, inheritance, enums', async () => {
     await buildFixture('class-inheritance')
 
-    const runtime = readSnap('class-inheritance', 'index.api.snapshot.js')
-    const dts = readSnap('class-inheritance', 'index.api.snapshot.d.ts')
+    const runtime = readSnap('class-inheritance', 'index.snapshot.js')
+    const dts = readSnap('class-inheritance', 'index.snapshot.d.ts')
 
     // Runtime: classes should be recovered from var X = class { ... }
     expect(runtime).toContain('class BaseLogger')
@@ -79,8 +79,8 @@ describe('fixture: importing-libs', () => {
   it('snapshots code that imports from node:fs and node:path', async () => {
     await buildFixture('importing-libs')
 
-    const runtime = readSnap('importing-libs', 'index.api.snapshot.js')
-    const dts = readSnap('importing-libs', 'index.api.snapshot.d.ts')
+    const runtime = readSnap('importing-libs', 'index.snapshot.js')
+    const dts = readSnap('importing-libs', 'index.snapshot.d.ts')
 
     expect(runtime).toContain('readFile')
     expect(runtime).toContain('writeFile')
@@ -99,8 +99,8 @@ describe('fixture: sub-exports', () => {
   it('snapshots re-exports from sub-modules', async () => {
     await buildFixture('sub-exports')
 
-    const runtime = readSnap('sub-exports', 'index.api.snapshot.js')
-    const dts = readSnap('sub-exports', 'index.api.snapshot.d.ts')
+    const runtime = readSnap('sub-exports', 'index.snapshot.js')
+    const dts = readSnap('sub-exports', 'index.snapshot.d.ts')
 
     expect(runtime).toContain('createApp')
     expect(runtime).toContain('createRouter')
@@ -111,8 +111,8 @@ describe('fixture: sub-exports', () => {
     expect(dts).toContain('RouterOptions')
 
     // Utils sub-entry
-    const utilsRuntime = readSnap('sub-exports', 'utils.api.snapshot.js')
-    const utilsDts = readSnap('sub-exports', 'utils.api.snapshot.d.ts')
+    const utilsRuntime = readSnap('sub-exports', 'utils.snapshot.js')
+    const utilsDts = readSnap('sub-exports', 'utils.snapshot.d.ts')
 
     expect(utilsRuntime).toContain('slugify')
     expect(utilsRuntime).toContain('capitalize')
@@ -128,8 +128,8 @@ describe('fixture: re-exports', () => {
   it('snapshots aliased re-exports with correct public names', async () => {
     await buildFixture('re-exports')
 
-    const runtime = readSnap('re-exports', 'index.api.snapshot.js')
-    const dts = readSnap('re-exports', 'index.api.snapshot.d.ts')
+    const runtime = readSnap('re-exports', 'index.snapshot.js')
+    const dts = readSnap('re-exports', 'index.snapshot.d.ts')
 
     // Aliased exports should use public names, not internal names
     expect(runtime).toContain('Service')
@@ -156,8 +156,8 @@ describe('fixture: multiple-entries', () => {
     await buildFixture('multiple-entries')
 
     // Client entry
-    const clientRuntime = readSnap('multiple-entries', 'client.api.snapshot.js')
-    const clientDts = readSnap('multiple-entries', 'client.api.snapshot.d.ts')
+    const clientRuntime = readSnap('multiple-entries', 'client.snapshot.js')
+    const clientDts = readSnap('multiple-entries', 'client.snapshot.d.ts')
 
     expect(clientRuntime).toContain('HttpClient')
     expect(clientRuntime).toContain('createClient')
@@ -165,18 +165,18 @@ describe('fixture: multiple-entries', () => {
     expect(clientDts).toContain('HttpClient')
 
     // Server entry
-    const serverRuntime = readSnap('multiple-entries', 'server.api.snapshot.js')
-    const serverDts = readSnap('multiple-entries', 'server.api.snapshot.d.ts')
+    const serverRuntime = readSnap('multiple-entries', 'server.snapshot.js')
+    const serverDts = readSnap('multiple-entries', 'server.snapshot.d.ts')
 
     expect(serverRuntime).toContain('Server')
     expect(serverRuntime).toContain('createServer')
     expect(serverDts).toContain('ServerOptions')
     expect(serverDts).toContain('Middleware')
 
-    expect(existsSync(join(snapshotDir('multiple-entries'), 'client.api.snapshot.js'))).toBe(true)
-    expect(existsSync(join(snapshotDir('multiple-entries'), 'client.api.snapshot.d.ts'))).toBe(true)
-    expect(existsSync(join(snapshotDir('multiple-entries'), 'server.api.snapshot.js'))).toBe(true)
-    expect(existsSync(join(snapshotDir('multiple-entries'), 'server.api.snapshot.d.ts'))).toBe(true)
+    expect(existsSync(join(snapshotDir('multiple-entries'), 'client.snapshot.js'))).toBe(true)
+    expect(existsSync(join(snapshotDir('multiple-entries'), 'client.snapshot.d.ts'))).toBe(true)
+    expect(existsSync(join(snapshotDir('multiple-entries'), 'server.snapshot.js'))).toBe(true)
+    expect(existsSync(join(snapshotDir('multiple-entries'), 'server.snapshot.d.ts'))).toBe(true)
 
     // Idempotent
     await buildFixture('multiple-entries')

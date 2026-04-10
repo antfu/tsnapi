@@ -49,7 +49,7 @@ function printHelp(): void {
 
   Options:
     -u, --update-snapshot     Update snapshots instead of comparing
-    -o, --output-dir <dir>    Snapshot output directory (default: __snapshots__)
+    -o, --output-dir <dir>    Snapshot output directory (default: __snapshots__/tsnapi)
     -h, --help                Show this help
 `.trim())
 }

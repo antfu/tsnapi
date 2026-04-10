@@ -3,6 +3,7 @@ export {
   extractDts,
   extractRuntime,
   formatMismatchError,
+  generateApiSnapshot,
   readSnapshot,
   resolvePackageEntries,
   snapshotFiles,

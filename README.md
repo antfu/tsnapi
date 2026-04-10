@@ -22,8 +22,8 @@ When maintaining a library, it's easy to accidentally:
 
 `tsnapi` makes these changes visible in your git diff. Every build produces a pair of snapshot files per entry point:
 
-- **`.api.snapshot.js`** -- what your package exports at runtime
-- **`.api.snapshot.d.ts`** -- what your package exports as types
+- **`.snapshot.js`** -- what your package exports at runtime
+- **`.snapshot.d.ts`** -- what your package exports as types
 
 These files are committed to your repo. When they change, you review the diff -- just like any other code change.
 
@@ -83,6 +83,35 @@ tsnapi
 tsnapi -u
 ```
 
+### With Vitest
+
+Use `generateApiSnapshot` to extract the API surface as strings, then use Vitest's built-in snapshot system:
+
+```ts
+// api.test.ts
+import { expect, it } from 'vitest'
+import { generateApiSnapshot } from 'tsnapi'
+
+const api = generateApiSnapshot(process.cwd())
+
+it('runtime API', () => {
+  expect(api['.'].runtime).toMatchInlineSnapshot()
+})
+
+it('type declarations', () => {
+  expect(api['.'].dts).toMatchInlineSnapshot()
+})
+```
+
+Run `vitest -u` to update the inline snapshots when you intentionally change the API.
+
+For packages with multiple entry points, each entry is keyed by its export path:
+
+```ts
+const api = generateApiSnapshot(process.cwd())
+expect(api['./utils'].runtime).toMatchSnapshot()
+```
+
 ### As a library
 
 ```ts
@@ -90,9 +119,6 @@ import { snapshotPackage } from 'tsnapi'
 
 // Snapshot current package
 const result = snapshotPackage(process.cwd())
-
-// Snapshot a dependency
-const result = snapshotPackage('node_modules/vue')
 
 if (result.hasChanges) {
   console.error(result.diff)
@@ -103,12 +129,12 @@ if (result.hasChanges) {
 
 ```ts
 interface ApiSnapshotOptions {
-  /** Snapshot output directory. @default '__snapshots__' */
+  /** Snapshot output directory. @default '__snapshots__/tsnapi' */
   outputDir?: string
-  /** Runtime snapshot extension. @default '.api.snapshot.js' */
-  runtimeExtension?: string
-  /** DTS snapshot extension. @default '.api.snapshot.d.ts' */
-  dtsExtension?: string
+  /** Runtime snapshot extension. @default '.snapshot.js' */
+  extensionRuntime?: string
+  /** DTS snapshot extension. @default '.snapshot.d.ts' */
+  extensionDts?: string
   /** Update mode. Auto-detected from --update-snapshot / -u / UPDATE_SNAPSHOT=1 */
   update?: boolean
 }

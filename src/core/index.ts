@@ -25,10 +25,10 @@ function resolveOptions(options?: ApiSnapshotOptions): {
   ext: SnapshotExtensions
   update: boolean
 } {
-  const outputDir = options?.outputDir ?? '__snapshots__'
+  const outputDir = options?.outputDir ?? '__snapshots__/tsnapi'
   const ext: SnapshotExtensions = {
-    runtime: options?.runtimeExtension ?? '.api.snapshot.js',
-    dts: options?.dtsExtension ?? '.api.snapshot.d.ts',
+    runtime: options?.extensionRuntime ?? '.snapshot.js',
+    dts: options?.extensionDts ?? '.snapshot.d.ts',
   }
   const update = resolveUpdateMode(options?.update)
   return { outputDir, ext, update }
@@ -41,6 +41,36 @@ function resolveUpdateMode(explicit?: boolean): boolean {
   if (env === '1' || env === 'true')
     return true
   return process.argv.includes('--update-snapshot') || process.argv.includes('-u')
+}
+
+/**
+ * Extract the public API surface of a package as snapshot strings,
+ * without writing to disk or comparing against existing snapshots.
+ *
+ * Returns a record keyed by entry name (e.g. `'.'`, `'./utils'`),
+ * each containing `runtime` and `dts` snapshot strings.
+ *
+ * Useful for integrating with Vitest's snapshot system:
+ * ```ts
+ * const api = generateApiSnapshot(process.cwd())
+ * expect(api['.'].dts).toMatchSnapshot()
+ * ```
+ */
+export function generateApiSnapshot(cwd: string): Record<string, { runtime: string, dts: string }> {
+  const entries = resolvePackageEntries(cwd)
+  const result: Record<string, { runtime: string, dts: string }> = {}
+
+  for (const entry of entries) {
+    const runtime = entry.runtime
+      ? extractRuntime(entry.runtime, readFileSync(entry.runtime, 'utf-8'))
+      : ''
+    const dts = entry.dts
+      ? extractDts(entry.dts, readFileSync(entry.dts, 'utf-8'))
+      : ''
+    result[entry.name] = { runtime, dts }
+  }
+
+  return result
 }
 
 /**
