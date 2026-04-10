@@ -71,8 +71,8 @@ export function readSnapshot(
   }
 
   return {
-    runtime: readFileSync(runtimePath, 'utf-8'),
-    dts: readFileSync(dtsPath, 'utf-8'),
+    runtime: readFileSync(runtimePath, 'utf-8').replace(/\r\n/g, '\n'),
+    dts: readFileSync(dtsPath, 'utf-8').replace(/\r\n/g, '\n'),
   }
 }
 
