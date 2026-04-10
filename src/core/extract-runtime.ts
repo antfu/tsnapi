@@ -2,10 +2,19 @@ import MagicString from 'magic-string'
 import { parseSync } from 'oxc-parser'
 
 /**
+ * Get the name from a ModuleExportName node (Identifier or StringLiteral).
+ */
+function getExportName(node: any): string {
+  return node?.name ?? node?.value ?? ''
+}
+
+/**
  * Extract runtime export skeletons from a JS chunk.
  * Returns a formatted `.ts` snapshot string showing the API surface without implementations.
+ *
+ * @param chunkSources - Map of chunk source paths to their code, for resolving import-reexport patterns
  */
-export function extractRuntime(fileName: string, code: string): string {
+export function extractRuntime(fileName: string, code: string, chunkSources?: Map<string, string>): string {
   const { program } = parseSync(fileName, code)
   const s = new MagicString(code)
   const entries: { name: string, text: string }[] = []
@@ -14,6 +23,30 @@ export function extractRuntime(fileName: string, code: string): string {
   const declMap = new Map<string, any>()
   for (const stmt of program.body) {
     collectDeclarations(stmt as any, declMap)
+  }
+
+  // Track imports for resolving re-exports through chunks
+  const importMap = new Map<string, { source: string, imported: string }>()
+  if (chunkSources) {
+    for (const stmt of program.body) {
+      if (stmt.type === 'ImportDeclaration' && (stmt as any).source) {
+        const source = (stmt as any).source.value as string
+        for (const spec of (stmt as any).specifiers ?? []) {
+          if (spec.type === 'ImportSpecifier') {
+            importMap.set(
+              getExportName(spec.local),
+              { source, imported: getExportName(spec.imported) },
+            )
+          }
+          else if (spec.type === 'ImportDefaultSpecifier') {
+            importMap.set(
+              getExportName(spec.local),
+              { source, imported: 'default' },
+            )
+          }
+        }
+      }
+    }
   }
 
   for (const stmt of program.body) {
@@ -27,23 +60,30 @@ export function extractRuntime(fileName: string, code: string): string {
         if (source) {
           // Re-export from another module: export { foo } from '...'
           const text = s.slice(stmt.start, stmt.end).trim()
-          const firstName = (stmt as any).specifiers[0]?.exported?.name
-            ?? (stmt as any).specifiers[0]?.local?.name ?? ''
+          const firstName = getExportName((stmt as any).specifiers[0]?.exported)
+            || getExportName((stmt as any).specifiers[0]?.local)
           entries.push({ name: firstName, text })
         }
         else {
           // Local re-export: export { foo, bar }
           // Resolve each specifier to its declaration
           for (const spec of (stmt as any).specifiers) {
-            const localName = spec.local?.name ?? ''
-            const exportedName = spec.exported?.name ?? localName
+            const localName = getExportName(spec.local)
+            const exportedName = getExportName(spec.exported) || localName
             const decl = declMap.get(localName)
             if (decl) {
               const skeleton = extractDeclarationSkeleton(s, decl, exportedName)
               entries.push({ name: exportedName, text: `export ${skeleton}` })
             }
             else {
-              entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+              // Try resolving through imports into chunk files
+              const resolved = resolveFromChunkRuntime(localName, exportedName, importMap, chunkSources)
+              if (resolved) {
+                entries.push(resolved)
+              }
+              else {
+                entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+              }
             }
           }
         }
@@ -73,6 +113,86 @@ export function extractRuntime(fileName: string, code: string): string {
   entries.sort((a, b) => a.name.localeCompare(b.name))
 
   return `${entries.map(e => e.text).join('\n')}\n`
+}
+
+/**
+ * Resolve an import binding through a chunk file to get the expanded declaration.
+ */
+function resolveFromChunkRuntime(
+  localName: string,
+  exportedName: string,
+  importMap: Map<string, { source: string, imported: string }>,
+  chunkSources?: Map<string, string>,
+): { name: string, text: string } | undefined {
+  if (!chunkSources)
+    return undefined
+  const importInfo = importMap.get(localName)
+  if (!importInfo)
+    return undefined
+  const chunkCode = chunkSources.get(importInfo.source)
+  if (!chunkCode)
+    return undefined
+
+  const { program } = parseSync(importInfo.source, chunkCode)
+  const chunkS = new MagicString(chunkCode)
+  const chunkDeclMap = new Map<string, any>()
+  for (const stmt of program.body) {
+    collectDeclarations(stmt as any, chunkDeclMap)
+  }
+
+  // Find the local declaration name for the chunk's exported name
+  const chunkLocalName = resolveChunkExportLocal(program, importInfo.imported, chunkDeclMap)
+  if (!chunkLocalName)
+    return undefined
+
+  const decl = chunkDeclMap.get(chunkLocalName)
+  if (!decl)
+    return undefined
+
+  const skeleton = extractDeclarationSkeleton(chunkS, decl, exportedName)
+  return { name: exportedName, text: `export ${skeleton}` }
+}
+
+/**
+ * Given a chunk's exported name, find the local declaration name.
+ * For `export { foo as bar }`, if importedName is 'bar', returns 'foo'.
+ * For `export function foo()`, if importedName is 'foo', returns 'foo'.
+ */
+function resolveChunkExportLocal(
+  program: any,
+  importedName: string,
+  declMap: Map<string, any>,
+): string | undefined {
+  for (const stmt of program.body) {
+    if (stmt.type === 'ExportNamedDeclaration') {
+      // Check export specifiers: export { foo as bar }
+      if (stmt.specifiers) {
+        for (const spec of stmt.specifiers) {
+          if (getExportName(spec.exported) === importedName) {
+            return getExportName(spec.local)
+          }
+        }
+      }
+      // Check direct export declarations: export function foo()
+      const decl = stmt.declaration
+      if (decl) {
+        if (decl.id?.name === importedName)
+          return importedName
+        if (decl.type === 'VariableDeclaration') {
+          for (const declarator of decl.declarations ?? []) {
+            if (declarator.id?.name === importedName)
+              return importedName
+          }
+        }
+      }
+    }
+    else if (stmt.type === 'ExportDefaultDeclaration' && importedName === 'default') {
+      const decl = stmt.declaration
+      if (decl?.id?.name && declMap.has(decl.id.name))
+        return decl.id.name
+    }
+  }
+  return undefined
 }
 
 /**

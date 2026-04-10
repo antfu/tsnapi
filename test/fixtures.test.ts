@@ -124,6 +124,33 @@ describe('fixture: sub-exports', () => {
   })
 })
 
+describe('fixture: re-exports', () => {
+  it('snapshots aliased re-exports with correct public names', async () => {
+    await buildFixture('re-exports')
+
+    const runtime = readSnap('re-exports', 'index.api.snapshot.js')
+    const dts = readSnap('re-exports', 'index.api.snapshot.d.ts')
+
+    // Aliased exports should use public names, not internal names
+    expect(runtime).toContain('Service')
+    expect(runtime).toContain('process')
+    expect(runtime).toContain('VERSION')
+    expect(runtime).toContain('formatOutput')
+    expect(runtime).not.toContain('InternalService')
+    expect(runtime).not.toContain('internalProcess')
+    expect(runtime).not.toContain('INTERNAL_VERSION')
+
+    expect(dts).toContain('export declare class Service')
+    expect(dts).toContain('export interface Options')
+    expect(dts).toContain('Formatter')
+    // Export declarations use public names (not internal names)
+    expect(dts).not.toContain('export interface InternalOptions')
+
+    // Idempotent
+    await buildFixture('re-exports')
+  })
+})
+
 describe('fixture: multiple-entries', () => {
   it('snapshots multiple independent entry points', async () => {
     await buildFixture('multiple-entries')

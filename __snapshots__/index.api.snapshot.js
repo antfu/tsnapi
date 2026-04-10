@@ -1,11 +1,11 @@
-export { compareSnapshots }
-export { extractDts }
-export { extractRuntime }
-export { formatMismatchError }
-export { readSnapshot }
-export { resolvePackageDir }
-export { resolvePackageEntries }
-export { snapshotFiles }
-export { snapshotInstalledPackage }
-export { snapshotPackage }
-export { writeSnapshot }
+export function compareSnapshots(entryName, existing, current) { /* ... */ }
+export function extractDts(fileName, code, chunkSources) { /* ... */ }
+export function extractRuntime(fileName, code, chunkSources) { /* ... */ }
+export function formatMismatchError(mismatches, outputDir, ext) { /* ... */ }
+export function readSnapshot(outputDir, entryName, ext) { /* ... */ }
+export function resolvePackageDir(name, cwd) { /* ... */ }
+export function resolvePackageEntries(cwd) { /* ... */ }
+export function snapshotFiles(files, cwd, options) { /* ... */ }
+export function snapshotInstalledPackage(name, cwd, options) { /* ... */ }
+export function snapshotPackage(cwd, options) { /* ... */ }
+export function writeSnapshot(outputDir, entryName, snapshot, ext) { /* ... */ }

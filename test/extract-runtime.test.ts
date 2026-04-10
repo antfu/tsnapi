@@ -162,6 +162,78 @@ export { Logger };
     `)
   })
 
+  it('resolves aliased local exports to declarations', () => {
+    const code = `
+function internalGreet(name) {
+  return 'hello ' + name;
+}
+const _version = '1.0.0';
+class _App {
+  constructor(config) {
+    this.config = config;
+  }
+  start() {
+    console.log('started');
+  }
+}
+export { _App as App, _version as VERSION, internalGreet as greet };
+`
+    const result = extractRuntime('test.mjs', code)
+    expect(result).toMatchInlineSnapshot(`
+      "export class App {
+        constructor(config) { /* ... */ }
+        start() { /* ... */ }
+      }
+      export function greet(name) { /* ... */ }
+      export var VERSION /* const */
+      "
+    `)
+  })
+
+  it('handles aliased export without local declaration', () => {
+    const code = `
+import { something } from './other.js';
+export { something as publicName };
+`
+    const result = extractRuntime('test.mjs', code)
+    expect(result).toMatchInlineSnapshot(`
+      "export { something as publicName }
+      "
+    `)
+  })
+
+  it('extracts re-exports from another module with aliases', () => {
+    const code = `export { default as MyLib, Options } from './lib.js';`
+    const result = extractRuntime('test.mjs', code)
+    expect(result).toMatchInlineSnapshot(`
+      "export { default as MyLib, Options } from './lib.js';
+      "
+    `)
+  })
+
+  it('resolves exports through chunk imports', () => {
+    const entryCode = `
+import { a as resolveEntries, i as resolveDir } from "./core-abc123.mjs";
+export { resolveDir, resolveEntries };
+`
+    const chunkCode = `
+function resolvePackageEntries(cwd) {
+  return [];
+}
+function resolvePackageDir(name, cwd) {
+  return name;
+}
+export { resolvePackageEntries as a, resolvePackageDir as i };
+`
+    const chunkSources = new Map([['./core-abc123.mjs', chunkCode]])
+    const result = extractRuntime('index.mjs', entryCode, chunkSources)
+    expect(result).toMatchInlineSnapshot(`
+      "export function resolveDir(name, cwd) { /* ... */ }
+      export function resolveEntries(cwd) { /* ... */ }
+      "
+    `)
+  })
+
   it('recovers function from var X = function(...) pattern', () => {
     const code = `
 var compute = function(a, b) {

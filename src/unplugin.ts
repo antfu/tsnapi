@@ -45,22 +45,40 @@ function createPluginHooks(options: ApiSnapshotOptions = {}): {
         const jsChunks = new Map<string, { code: string, fileName: string }>()
         const dtsChunks = new Map<string, { code: string, fileName: string }>()
 
+        // Build chunk source maps for resolving import-reexport patterns
+        const jsChunkSources = new Map<string, string>()
+        const dtsChunkSources = new Map<string, string>()
+
         for (const [fileName, chunk] of Object.entries(bundle) as [string, any][]) {
           if (chunk.type === 'asset')
             continue
-          const stem = entryNameFromFileName(fileName)
-          if (DTS_RE.test(fileName))
-            dtsChunks.set(stem, { code: chunk.code, fileName })
-          else
-            jsChunks.set(stem, { code: chunk.code, fileName })
+          if (chunk.isEntry) {
+            const stem = entryNameFromFileName(fileName)
+            if (DTS_RE.test(fileName))
+              dtsChunks.set(stem, { code: chunk.code, fileName })
+            else
+              jsChunks.set(stem, { code: chunk.code, fileName })
+          }
+          else {
+            // Non-entry chunks: make available for import resolution
+            if (DTS_RE.test(fileName)) {
+              dtsChunkSources.set(`./${fileName}`, chunk.code)
+              // DTS imports often reference chunks with .mjs extension instead of .d.mts
+              const mjsPath = `./${fileName.replace(DTS_RE, '.mjs')}`
+              dtsChunkSources.set(mjsPath, chunk.code)
+            }
+            else {
+              jsChunkSources.set(`./${fileName}`, chunk.code)
+            }
+          }
         }
 
         const mismatches: SnapshotMismatch[] = []
 
         for (const [stem, jsChunk] of jsChunks) {
           const dtsChunk = dtsChunks.get(stem)
-          const runtime = extractRuntime(jsChunk.fileName, jsChunk.code)
-          const dts = dtsChunk ? extractDts(dtsChunk.fileName, dtsChunk.code) : ''
+          const runtime = extractRuntime(jsChunk.fileName, jsChunk.code, jsChunkSources)
+          const dts = dtsChunk ? extractDts(dtsChunk.fileName, dtsChunk.code, dtsChunkSources) : ''
           const current = { runtime, dts }
           const existing = readSnapshot(resolvedOutputDir, stem, ext)
 
