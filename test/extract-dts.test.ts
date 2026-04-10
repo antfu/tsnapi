@@ -174,6 +174,19 @@ export { SnapshotFile as a, formatMismatchError as c };
     `)
   })
 
+  it('handles export { X as default } with valid syntax', () => {
+    const code = `
+declare function rolldownPlugin(options?: ApiSnapshotOptions): { name: string };
+export { rolldownPlugin as default };
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "declare function _default(_?: ApiSnapshotOptions): { name: string };
+      export default _default
+      "
+    `)
+  })
+
   it('resolves export specifiers to non-exported declarations', () => {
     const code = `
 interface ApiSnapshotOptions {
