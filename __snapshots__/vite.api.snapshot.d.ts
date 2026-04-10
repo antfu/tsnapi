@@ -1,0 +1,1 @@
+export { vitePlugin as default }

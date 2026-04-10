@@ -1,0 +1,14 @@
+name: Release
+
+permissions:
+  contents: write
+  id-token: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    uses: sxzz/workflows/.github/workflows/release.yml@v1

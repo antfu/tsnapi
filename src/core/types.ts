@@ -1,0 +1,44 @@
+export interface ApiSnapshotOptions {
+  /**
+   * Snapshot output directory, relative to the project root.
+   * @default '__snapshots__'
+   */
+  outputDir?: string
+
+  /**
+   * Extension for runtime snapshot files.
+   * @default '.api.snapshot.js'
+   */
+  runtimeExtension?: string
+
+  /**
+   * Extension for DTS snapshot files.
+   * @default '.api.snapshot.d.ts'
+   */
+  dtsExtension?: string
+
+  /**
+   * Update snapshots instead of comparing.
+   * When not set, auto-detected from `--update-snapshot` / `-u` CLI flags
+   * or `UPDATE_SNAPSHOT=1` environment variable.
+   */
+  update?: boolean
+}
+
+export interface SnapshotResult {
+  /** Whether any snapshots mismatched */
+  hasChanges: boolean
+  /** Per-entry mismatch details */
+  mismatches: { name: string, runtimeChanged: boolean, dtsChanged: boolean }[]
+  /** Formatted diff output for terminal (if mismatched) */
+  diff: string | null
+}
+
+export interface ResolvedEntry {
+  /** Export path, e.g. '.', './utils' */
+  name: string
+  /** Resolved JS file path */
+  runtime: string | null
+  /** Resolved DTS file path */
+  dts: string | null
+}
