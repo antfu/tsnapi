@@ -1,6 +1,18 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { snapshotPackage } from './core/index.ts'
+
+const _dirname = typeof __dirname !== 'undefined'
+  ? __dirname
+  : dirname(fileURLToPath(import.meta.url))
+
+function getVersion(): string {
+  const pkg = JSON.parse(readFileSync(resolve(_dirname, '..', 'package.json'), 'utf-8'))
+  return pkg.version
+}
 
 function main(): void {
   const args = process.argv.slice(2)
@@ -14,6 +26,10 @@ function main(): void {
     }
     else if (arg === '--output-dir' || arg === '-o') {
       options.outputDir = args[++i]
+    }
+    else if (arg === '--version' || arg === '-V') {
+      console.log(getVersion())
+      return
     }
     else if (arg === '--help' || arg === '-h') {
       printHelp()
@@ -50,6 +66,7 @@ function printHelp(): void {
   Options:
     -u, --update-snapshot     Update snapshots instead of comparing
     -o, --output-dir <dir>    Snapshot output directory (default: __snapshots__/tsnapi)
+    -V, --version             Show version number
     -h, --help                Show this help
 `.trim())
 }
