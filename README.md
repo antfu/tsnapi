@@ -11,6 +11,8 @@ Captures your public API surface -- both runtime exports and type declarations -
 
 Think of it like Vitest's snapshot testing, but for your package's public contract.
 
+For example, you can check the generated snapshots for the package itself: [`__snapshots__/tsnapi`](/__snapshots__/tsnapi).
+
 ## Why
 
 When maintaining a library, it's easy to accidentally:
