@@ -1,12 +1,14 @@
 import type { SnapshotExtensions, SnapshotMismatch } from './core/snapshot.ts'
 import type { ApiSnapshotOptions } from './core/types.ts'
-import { dirname, isAbsolute, resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { extractDts } from './core/extract-dts.ts'
 import { extractRuntime } from './core/extract-runtime.ts'
 import {
   compareSnapshots,
   formatMismatchError,
+  generateHeader,
   readSnapshot,
   writeSnapshot,
 } from './core/snapshot.ts'
@@ -23,6 +25,7 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
     outputDir = '__snapshots__/tsnapi',
     extensionRuntime = '.snapshot.js',
     extensionDts = '.snapshot.d.ts',
+    header: showHeader = true,
     omitArgumentNames,
     update,
   } = options
@@ -74,23 +77,36 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
           }
         }
 
+        // Read package name for header
+        let packageName = 'unknown'
+        if (showHeader) {
+          const pkgPath = join(projectRoot, 'package.json')
+          if (existsSync(pkgPath)) {
+            try {
+              packageName = JSON.parse(readFileSync(pkgPath, 'utf-8')).name ?? 'unknown'
+            }
+            catch {}
+          }
+        }
+
         const mismatches: SnapshotMismatch[] = []
 
         for (const [stem, jsChunk] of jsChunks) {
           const dtsChunk = dtsChunks.get(stem)
           const runtime = extractRuntime(jsChunk.fileName, jsChunk.code, { chunkSources: jsChunkSources, ...extractOptions })
           const dts = dtsChunk ? extractDts(dtsChunk.fileName, dtsChunk.code, { chunkSources: dtsChunkSources, ...extractOptions }) : ''
+          const header = showHeader ? generateHeader(packageName, stem === 'index' ? '.' : `./${stem}`) : undefined
           const current = { runtime, dts }
           const existing = readSnapshot(resolvedOutputDir, stem, ext)
 
           if (!existing || shouldUpdate) {
-            writeSnapshot(resolvedOutputDir, stem, current, ext)
+            writeSnapshot(resolvedOutputDir, stem, current, ext, header)
           }
           else {
             const mismatch = compareSnapshots(stem, existing, current)
             if (mismatch) {
               mismatches.push(mismatch)
-              writeSnapshot(resolvedOutputDir, stem, current, ext)
+              writeSnapshot(resolvedOutputDir, stem, current, ext, header)
             }
           }
         }

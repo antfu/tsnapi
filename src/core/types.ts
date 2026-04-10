@@ -18,6 +18,12 @@ export interface ApiSnapshotOptions {
   extensionDts?: string
 
   /**
+   * Add a header comment to snapshot files indicating how they were generated.
+   * @default true
+   */
+  header?: boolean
+
+  /**
    * Omit argument names from function signatures.
    * When true, runtime snapshots show empty parameter lists and
    * DTS snapshots replace parameter names with `_`.

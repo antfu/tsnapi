@@ -12,14 +12,14 @@ function getExportName(node: any): string {
  * Format a resolved declaration as an export entry.
  * Handles `default` specially since `export declare function default()` is invalid syntax.
  */
-function formatDtsExportEntry(exportedName: string, text: string): { name: string, text: string } {
+function formatDtsExportEntry(exportedName: string, text: string, kind: DtsEntryKind): DtsEntry {
   if (exportedName === 'default') {
     // Remove `export` prefix, rename `default` to `_default`, then add `export default _default`
     const withoutExport = text.replace(/^export\s+/, '')
     const renamed = withoutExport.replace(/\bdefault\b/, '_default')
-    return { name: '\x00default', text: `${renamed}\nexport default _default` }
+    return { name: '\x00default', text: `${renamed}\nexport default _default`, kind: 'default' }
   }
-  return { name: exportedName, text }
+  return { name: exportedName, text, kind }
 }
 
 /**
@@ -28,6 +28,63 @@ function formatDtsExportEntry(exportedName: string, text: string): { name: strin
  *
  * @param chunkSources - Map of chunk source paths to their code, for resolving import-reexport patterns
  */
+type DtsEntryKind = 'interface' | 'type' | 'enum' | 'class' | 'function' | 'variable' | 'default' | 're-export' | 'other'
+
+interface DtsEntry {
+  name: string
+  text: string
+  kind: DtsEntryKind
+}
+
+/**
+ * Derive the kind from a declaration AST node type.
+ */
+function kindFromDeclType(declType: string): DtsEntryKind {
+  switch (declType) {
+    case 'TSInterfaceDeclaration': return 'interface'
+    case 'TSTypeAliasDeclaration': return 'type'
+    case 'TSEnumDeclaration': return 'enum'
+    case 'TSDeclareFunction':
+    case 'FunctionDeclaration': return 'function'
+    case 'ClassDeclaration': return 'class'
+    case 'VariableDeclaration': return 'variable'
+    default: return 'other'
+  }
+}
+
+const KIND_ORDER: DtsEntryKind[] = ['interface', 'type', 'enum', 'class', 'function', 'variable', 'default', 're-export', 'other']
+const KIND_LABELS: Record<DtsEntryKind, string> = {
+  'interface': 'Interfaces',
+  'type': 'Types',
+  'enum': 'Enums',
+  'class': 'Classes',
+  'function': 'Functions',
+  'variable': 'Variables',
+  'default': 'Default Export',
+  're-export': 'Re-exports',
+  'other': 'Other',
+}
+
+function formatGroupedEntries(entries: DtsEntry[]): string {
+  const groups = new Map<DtsEntryKind, DtsEntry[]>()
+  for (const entry of entries) {
+    const list = groups.get(entry.kind) ?? []
+    list.push(entry)
+    groups.set(entry.kind, list)
+  }
+
+  const sections: string[] = []
+  for (const kind of KIND_ORDER) {
+    const group = groups.get(kind)
+    if (!group || group.length === 0)
+      continue
+    group.sort((a, b) => a.name.localeCompare(b.name))
+    sections.push(`// ${KIND_LABELS[kind]}\n${group.map(e => e.text).join('\n')}`)
+  }
+
+  return `${sections.join('\n\n')}\n`
+}
+
 export function extractDts(fileName: string, code: string, options?: import('./extract-runtime.ts').ExtractOptions): string {
   const chunkSources = options?.chunkSources
   const omitArgs = options?.omitArgumentNames ?? true
@@ -38,7 +95,7 @@ export function extractDts(fileName: string, code: string, options?: import('./e
 
   const { program } = parseSync(fileName, stripped)
   const s = new MagicString(stripped)
-  const entries: { name: string, text: string }[] = []
+  const entries: DtsEntry[] = []
 
   // Build a map of top-level declarations (including non-exported ones)
   // for resolving export { ... } specifiers
@@ -78,18 +135,16 @@ export function extractDts(fileName: string, code: string, options?: import('./e
     else if (stmt.type === 'ExportDefaultDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
       if (text) {
-        entries.push({ name: '\x00default', text })
+        entries.push({ name: '\x00default', text, kind: 'default' })
       }
     }
     else if (stmt.type === 'ExportAllDeclaration') {
       const text = s.slice(stmt.start, stmt.end).trim()
-      entries.push({ name: `\x00*${(stmt as any).source?.value ?? ''}`, text })
+      entries.push({ name: `\x00*${(stmt as any).source?.value ?? ''}`, text, kind: 're-export' })
     }
   }
 
-  entries.sort((a, b) => a.name.localeCompare(b.name))
-
-  return `${entries.map(e => e.text).join('\n')}\n`
+  return formatGroupedEntries(entries)
 }
 
 /**
@@ -125,7 +180,7 @@ function collectDtsDeclarations(stmt: any, map: Map<string, { stmt: any, decl: a
 function processExportNamedDeclaration(
   stmt: any,
   s: MagicString,
-  entries: { name: string, text: string }[],
+  entries: DtsEntry[],
   declMap: Map<string, { stmt: any, decl: any }>,
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
@@ -133,38 +188,39 @@ function processExportNamedDeclaration(
 ): void {
   const decl = stmt.declaration
   if (decl) {
+    const kind = kindFromDeclType(decl.type)
     if (decl.type === 'TSInterfaceDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
-      entries.push({ name: decl.id?.name ?? '', text })
+      entries.push({ name: decl.id?.name ?? '', text, kind })
     }
     else if (decl.type === 'TSTypeAliasDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
-      entries.push({ name: decl.id?.name ?? '', text })
+      entries.push({ name: decl.id?.name ?? '', text, kind })
     }
     else if (decl.type === 'TSEnumDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
-      entries.push({ name: decl.id?.name ?? '', text })
+      entries.push({ name: decl.id?.name ?? '', text, kind })
     }
     else if (decl.type === 'TSDeclareFunction') {
       const name = decl.id?.name ?? ''
       const text = extractTSDeclareFunction(s, stmt, decl, omitArgs)
-      entries.push({ name, text })
+      entries.push({ name, text, kind })
     }
     else if (decl.type === 'FunctionDeclaration') {
       const name = decl.id?.name ?? ''
       const text = extractTSDeclareFunction(s, stmt, decl, omitArgs)
-      entries.push({ name, text })
+      entries.push({ name, text, kind })
     }
     else if (decl.type === 'ClassDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
       const name = decl.id?.name ?? ''
-      entries.push({ name, text })
+      entries.push({ name, text, kind })
     }
     else if (decl.type === 'VariableDeclaration') {
       for (const declarator of decl.declarations ?? []) {
         const name = declarator.id?.name ?? ''
         const text = widenVariableDecl(s, decl, declarator, 'export ')
-        entries.push({ name, text })
+        entries.push({ name, text, kind })
       }
     }
   }
@@ -174,7 +230,7 @@ function processExportNamedDeclaration(
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
       const firstName = getExportName(stmt.specifiers[0]?.exported)
         || getExportName(stmt.specifiers[0]?.local)
-      entries.push({ name: firstName, text })
+      entries.push({ name: firstName, text, kind: 're-export' })
       return
     }
     // Handle `export { A, type B }` — resolve each specifier to its declaration
@@ -186,8 +242,8 @@ function processExportNamedDeclaration(
 
       const resolved = declMap.get(localName)
       if (resolved) {
-        const text = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport, omitArgs)
-        entries.push(formatDtsExportEntry(exportedName, text))
+        const { text, kind } = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport, omitArgs)
+        entries.push(formatDtsExportEntry(exportedName, text, kind))
       }
       else {
         // Try resolving through imports into chunk files
@@ -198,10 +254,10 @@ function processExportNamedDeclaration(
         else {
           // Fallback: just output the specifier
           if (exportedName === 'default') {
-            entries.push({ name: '\x00default', text: `export default ${localName}` })
+            entries.push({ name: '\x00default', text: `export default ${localName}`, kind: 'default' })
           }
           else {
-            entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+            entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }`, kind: 'other' })
           }
         }
       }
@@ -219,7 +275,7 @@ function resolveFromChunkDts(
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
-): { name: string, text: string } | undefined {
+): DtsEntry | undefined {
   if (!chunkSources)
     return undefined
   const importInfo = importMap.get(localName)
@@ -253,8 +309,8 @@ function resolveFromChunkDts(
   if (!resolved)
     return undefined
 
-  const text = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport, omitArgs)
-  return formatDtsExportEntry(exportedName, text)
+  const { text, kind } = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport, omitArgs)
+  return formatDtsExportEntry(exportedName, text, kind)
 }
 
 /**
@@ -307,16 +363,16 @@ function extractResolvedDeclaration(
   exportedName: string,
   isTypeExport: boolean,
   omitArgs = true,
-): string {
+): { text: string, kind: DtsEntryKind } {
   const { decl } = resolved
+  const kind = kindFromDeclType(decl.type)
 
   if (decl.type === 'TSInterfaceDeclaration') {
     const body = s.slice(decl.start, decl.end)
-    // Rename if needed
     const text = exportedName !== (decl.id?.name ?? '')
       ? body.replace(decl.id.name, exportedName)
       : body
-    return normalizeWhitespace(`export ${text}`)
+    return { text: normalizeWhitespace(`export ${text}`), kind }
   }
 
   if (decl.type === 'TSTypeAliasDeclaration') {
@@ -324,7 +380,7 @@ function extractResolvedDeclaration(
     const text = exportedName !== (decl.id?.name ?? '')
       ? body.replace(decl.id.name, exportedName)
       : body
-    return normalizeWhitespace(`export ${text}`)
+    return { text: normalizeWhitespace(`export ${text}`), kind }
   }
 
   if (decl.type === 'TSEnumDeclaration') {
@@ -332,7 +388,7 @@ function extractResolvedDeclaration(
     const text = exportedName !== (decl.id?.name ?? '')
       ? body.replace(decl.id.name, exportedName)
       : body
-    return normalizeWhitespace(`export ${text}`)
+    return { text: normalizeWhitespace(`export ${text}`), kind }
   }
 
   if (decl.type === 'TSDeclareFunction' || decl.type === 'FunctionDeclaration') {
@@ -347,9 +403,8 @@ function extractResolvedDeclaration(
     if (exportedName !== (decl.id?.name ?? '')) {
       text = text.replace(decl.id.name, exportedName)
     }
-    // Add `export` and ensure `declare` is present
     const prefix = text.trimStart().startsWith('declare') ? 'export ' : 'export declare '
-    return normalizeWhitespace(`${prefix}${text.trimStart()}`)
+    return { text: normalizeWhitespace(`${prefix}${text.trimStart()}`), kind }
   }
 
   if (decl.type === 'ClassDeclaration') {
@@ -358,21 +413,21 @@ function extractResolvedDeclaration(
       ? body.replace(decl.id.name, exportedName)
       : body
     const prefix = text.trimStart().startsWith('declare') ? 'export ' : 'export declare '
-    return normalizeWhitespace(`${prefix}${text.trimStart()}`)
+    return { text: normalizeWhitespace(`${prefix}${text.trimStart()}`), kind }
   }
 
   if (decl.type === 'VariableDeclaration') {
     const declarator = decl._declarator ?? decl.declarations?.[0]
     if (declarator) {
-      return widenVariableDecl(s, decl, declarator, 'export ', exportedName)
+      return { text: widenVariableDecl(s, decl, declarator, 'export ', exportedName), kind }
     }
   }
 
   // Fallback
   if (isTypeExport) {
-    return `export type { ${exportedName} }`
+    return { text: `export type { ${exportedName} }`, kind: 'type' }
   }
-  return `export { ${exportedName} }`
+  return { text: `export { ${exportedName} }`, kind: 'other' }
 }
 
 /**
