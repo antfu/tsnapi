@@ -116,6 +116,64 @@ export { VERSION, COUNT, DEBUG, TYPED };
     `)
   })
 
+  it('resolves aliased export specifiers', () => {
+    const code = `
+interface _Options {
+  outputDir?: string;
+  update?: boolean;
+}
+declare function _build(config: _Options): Promise<void>;
+export { _build as build, type _Options as Options };
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "export declare function build(_: _Options): Promise<void>;
+      export interface Options {
+        outputDir?: string;
+        update?: boolean;
+      }
+      "
+    `)
+  })
+
+  it('preserves re-exports from another module', () => {
+    const code = `
+export { foo, bar as baz } from './other.js';
+export type { Foo, Bar as Baz } from './types.js';
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "export { foo, bar as baz } from './other.js';
+      export type { Foo, Bar as Baz } from './types.js';
+      "
+    `)
+  })
+
+  it('resolves exports through chunk imports', () => {
+    const entryCode = `
+import { a as SnapshotFile, c as formatError } from "./index-abc123.d.mts";
+export { SnapshotFile, formatError };
+`
+    const chunkCode = `
+interface SnapshotFile {
+  runtime: string;
+  dts: string;
+}
+declare function formatMismatchError(mismatches: SnapshotMismatch[]): string;
+export { SnapshotFile as a, formatMismatchError as c };
+`
+    const chunkSources = new Map([['./index-abc123.d.mts', chunkCode]])
+    const result = extractDts('index.d.mts', entryCode, chunkSources)
+    expect(result).toMatchInlineSnapshot(`
+      "export declare function formatError(_: SnapshotMismatch[]): string;
+      export interface SnapshotFile {
+        runtime: string;
+        dts: string;
+      }
+      "
+    `)
+  })
+
   it('resolves export specifiers to non-exported declarations', () => {
     const code = `
 interface ApiSnapshotOptions {

@@ -2,10 +2,19 @@ import MagicString from 'magic-string'
 import { parseSync } from 'oxc-parser'
 
 /**
+ * Get the name from a ModuleExportName node (Identifier or StringLiteral).
+ */
+function getExportName(node: any): string {
+  return node?.name ?? node?.value ?? ''
+}
+
+/**
  * Extract type declaration skeletons from a DTS chunk.
  * Returns a formatted `.d.ts` snapshot string.
+ *
+ * @param chunkSources - Map of chunk source paths to their code, for resolving import-reexport patterns
  */
-export function extractDts(fileName: string, code: string): string {
+export function extractDts(fileName: string, code: string, chunkSources?: Map<string, string>): string {
   // Strip comments
   const stripped = code
     .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -22,9 +31,33 @@ export function extractDts(fileName: string, code: string): string {
     collectDtsDeclarations(stmt as any, declMap)
   }
 
+  // Track imports for resolving re-exports through chunks
+  const importMap = new Map<string, { source: string, imported: string }>()
+  if (chunkSources) {
+    for (const stmt of program.body) {
+      if (stmt.type === 'ImportDeclaration' && (stmt as any).source) {
+        const source = (stmt as any).source.value as string
+        for (const spec of (stmt as any).specifiers ?? []) {
+          if (spec.type === 'ImportSpecifier') {
+            importMap.set(
+              getExportName(spec.local),
+              { source, imported: getExportName(spec.imported) },
+            )
+          }
+          else if (spec.type === 'ImportDefaultSpecifier') {
+            importMap.set(
+              getExportName(spec.local),
+              { source, imported: 'default' },
+            )
+          }
+        }
+      }
+    }
+  }
+
   for (const stmt of program.body) {
     if (stmt.type === 'ExportNamedDeclaration') {
-      processExportNamedDeclaration(stmt as any, s, entries, declMap)
+      processExportNamedDeclaration(stmt as any, s, entries, declMap, importMap, chunkSources)
     }
     else if (stmt.type === 'ExportDefaultDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
@@ -78,6 +111,8 @@ function processExportNamedDeclaration(
   s: MagicString,
   entries: { name: string, text: string }[],
   declMap: Map<string, { stmt: any, decl: any }>,
+  importMap: Map<string, { source: string, imported: string }>,
+  chunkSources?: Map<string, string>,
 ): void {
   const decl = stmt.declaration
   if (decl) {
@@ -117,10 +152,18 @@ function processExportNamedDeclaration(
     }
   }
   else if (stmt.specifiers && stmt.specifiers.length > 0) {
+    if (stmt.source) {
+      // Re-export from another module: export { foo } from '...'
+      const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
+      const firstName = getExportName(stmt.specifiers[0]?.exported)
+        || getExportName(stmt.specifiers[0]?.local)
+      entries.push({ name: firstName, text })
+      return
+    }
     // Handle `export { A, type B }` — resolve each specifier to its declaration
     for (const spec of stmt.specifiers) {
-      const localName = spec.local?.name ?? ''
-      const exportedName = spec.exported?.name ?? localName
+      const localName = getExportName(spec.local)
+      const exportedName = getExportName(spec.exported) || localName
       const isTypeExport = spec.exportKind === 'type'
         || s.slice(spec.start, spec.end).trimStart().startsWith('type ')
 
@@ -130,11 +173,105 @@ function processExportNamedDeclaration(
         entries.push({ name: exportedName, text })
       }
       else {
-        // Fallback: just output the specifier
-        entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+        // Try resolving through imports into chunk files
+        const chunkResolved = resolveFromChunkDts(localName, exportedName, isTypeExport, importMap, chunkSources)
+        if (chunkResolved) {
+          entries.push(chunkResolved)
+        }
+        else {
+          // Fallback: just output the specifier
+          entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+        }
       }
     }
   }
+}
+
+/**
+ * Resolve an import binding through a chunk DTS file to get the expanded declaration.
+ */
+function resolveFromChunkDts(
+  localName: string,
+  exportedName: string,
+  isTypeExport: boolean,
+  importMap: Map<string, { source: string, imported: string }>,
+  chunkSources?: Map<string, string>,
+): { name: string, text: string } | undefined {
+  if (!chunkSources)
+    return undefined
+  const importInfo = importMap.get(localName)
+  if (!importInfo)
+    return undefined
+  const chunkCode = chunkSources.get(importInfo.source)
+  if (!chunkCode)
+    return undefined
+
+  // Strip comments from chunk code
+  const stripped = chunkCode
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '')
+
+  // Use .d.mts extension for parsing since the code is TypeScript DTS
+  // (import source paths may use .mjs but the actual chunk code is .d.mts)
+  const parseFileName = importInfo.source.replace(/\.mjs$/, '.d.mts')
+  const { program } = parseSync(parseFileName, stripped)
+  const chunkS = new MagicString(stripped)
+  const chunkDeclMap = new Map<string, { stmt: any, decl: any }>()
+  for (const stmt of program.body) {
+    collectDtsDeclarations(stmt as any, chunkDeclMap)
+  }
+
+  // Find the local declaration name for the chunk's exported name
+  const chunkLocalName = resolveChunkExportLocalDts(program, importInfo.imported, chunkDeclMap)
+  if (!chunkLocalName)
+    return undefined
+
+  const resolved = chunkDeclMap.get(chunkLocalName)
+  if (!resolved)
+    return undefined
+
+  const text = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport)
+  return { name: exportedName, text }
+}
+
+/**
+ * Given a chunk's exported name, find the local declaration name.
+ */
+function resolveChunkExportLocalDts(
+  program: any,
+  importedName: string,
+  declMap: Map<string, { stmt: any, decl: any }>,
+): string | undefined {
+  for (const stmt of program.body) {
+    if (stmt.type === 'ExportNamedDeclaration') {
+      // Check export specifiers: export { foo as bar }
+      if (stmt.specifiers) {
+        for (const spec of stmt.specifiers) {
+          if (getExportName(spec.exported) === importedName) {
+            return getExportName(spec.local)
+          }
+        }
+      }
+      // Check direct export declarations
+      const decl = stmt.declaration
+      if (decl) {
+        if (decl.id?.name === importedName)
+          return importedName
+        if (decl.type === 'VariableDeclaration') {
+          for (const declarator of decl.declarations ?? []) {
+            if (declarator.id?.name === importedName)
+              return importedName
+          }
+        }
+      }
+    }
+    else if (stmt.type === 'ExportDefaultDeclaration' && importedName === 'default') {
+      const decl = stmt.declaration
+      if (decl?.id?.name && declMap.has(decl.id.name))
+        return decl.id.name
+    }
+  }
+  return undefined
 }
 
 /**

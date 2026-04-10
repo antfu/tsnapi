@@ -1,28 +1,48 @@
-export declare function a(_: string): ResolvedEntry[];
-export interface c {
+export interface ApiSnapshotOptions {
+  outputDir?: string;
+  runtimeExtension?: string;
+  dtsExtension?: string;
+  update?: boolean;
+}
+export declare function compareSnapshots(_: string, _: SnapshotFile, _: SnapshotFile): SnapshotMismatch | null;
+export declare function extractDts(_: string, _: string, _?: Map<string, string>): string;
+export declare function extractRuntime(_: string, _: string, _?: Map<string, string>): string;
+export declare function formatMismatchError(_: SnapshotMismatch[], _: string, _: SnapshotExtensions): string;
+export declare function readSnapshot(_: string, _: string, _: SnapshotExtensions): SnapshotFile | null;
+export interface ResolvedEntry {
+  name: string;
+  runtime: string | null;
+  dts: string | null;
+}
+export declare function resolvePackageDir(_: string, _: string): string;
+export declare function resolvePackageEntries(_: string): ResolvedEntry[];
+export interface SnapshotExtensions {
   runtime: string;
   dts: string;
 }
-export declare function d(_: string, _: SnapshotFile, _: SnapshotFile): SnapshotMismatch | null;
-export declare function f(_: SnapshotMismatch[], _: string, _: SnapshotExtensions): string;
-export declare function i(_: string, _: string): string;
-export interface l {
+export interface SnapshotFile {
   runtime: string;
   dts: string;
 }
-export declare function m(_: string, _: string, _: SnapshotFile, _: SnapshotExtensions): void;
-export declare function n(_: string, _: string, _?: ApiSnapshotOptions): SnapshotResult;
-export declare function o(_: string, _: string): string;
-export declare function p(_: string, _: string, _: SnapshotExtensions): SnapshotFile | null;
-export declare function r(_: string, _?: ApiSnapshotOptions): SnapshotResult;
-export declare function s(_: string, _: string): string;
-export declare function t(_: {
+export declare function snapshotFiles(_: {
   name: string;
   runtime?: string;
   dts?: string;
 }[], _: string, _?: ApiSnapshotOptions): SnapshotResult;
-export interface u {
+export declare function snapshotInstalledPackage(_: string, _: string, _?: ApiSnapshotOptions): SnapshotResult;
+export interface SnapshotMismatch {
   entryName: string;
   runtimeDiff: string | null;
   dtsDiff: string | null;
 }
+export declare function snapshotPackage(_: string, _?: ApiSnapshotOptions): SnapshotResult;
+export interface SnapshotResult {
+  hasChanges: boolean;
+  mismatches: {
+    name: string;
+    runtimeChanged: boolean;
+    dtsChanged: boolean;
+  }[];
+  diff: string | null;
+}
+export declare function writeSnapshot(_: string, _: string, _: SnapshotFile, _: SnapshotExtensions): void;
