@@ -21,7 +21,7 @@ async function buildFixture(fixture: string): Promise<void> {
 
   await build({
     cwd: fixtureDir,
-    silent: true,
+    logLevel: 'silent',
   })
 }
 
