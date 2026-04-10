@@ -23,10 +23,12 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
     outputDir = '__snapshots__/tsnapi',
     extensionRuntime = '.snapshot.js',
     extensionDts = '.snapshot.d.ts',
+    omitArgumentNames,
     update,
   } = options
 
   const ext: SnapshotExtensions = { runtime: extensionRuntime, dts: extensionDts }
+  const extractOptions = { omitArgumentNames }
 
   return {
     name: 'tsnapi',
@@ -76,8 +78,8 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
 
         for (const [stem, jsChunk] of jsChunks) {
           const dtsChunk = dtsChunks.get(stem)
-          const runtime = extractRuntime(jsChunk.fileName, jsChunk.code, jsChunkSources)
-          const dts = dtsChunk ? extractDts(dtsChunk.fileName, dtsChunk.code, dtsChunkSources) : ''
+          const runtime = extractRuntime(jsChunk.fileName, jsChunk.code, { chunkSources: jsChunkSources, ...extractOptions })
+          const dts = dtsChunk ? extractDts(dtsChunk.fileName, dtsChunk.code, { chunkSources: dtsChunkSources, ...extractOptions }) : ''
           const current = { runtime, dts }
           const existing = readSnapshot(resolvedOutputDir, stem, ext)
 

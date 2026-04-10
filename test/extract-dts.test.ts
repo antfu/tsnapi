@@ -162,8 +162,9 @@ interface SnapshotFile {
 declare function formatMismatchError(mismatches: SnapshotMismatch[]): string;
 export { SnapshotFile as a, formatMismatchError as c };
 `
-    const chunkSources = new Map([['./index-abc123.d.mts', chunkCode]])
-    const result = extractDts('index.d.mts', entryCode, chunkSources)
+    const result = extractDts('index.d.mts', entryCode, {
+      chunkSources: new Map([['./index-abc123.d.mts', chunkCode]]),
+    })
     expect(result).toMatchInlineSnapshot(`
       "export declare function formatError(_: SnapshotMismatch[]): string;
       export interface SnapshotFile {
@@ -203,6 +204,28 @@ export { ApiSnapshot, type ApiSnapshotOptions };
         outputDir?: string;
         update?: boolean;
       }
+      "
+    `)
+  })
+
+  it('preserves argument names when omitArgumentNames is false', () => {
+    const code = `
+export declare function build(config: BuildConfig, options?: Options): Promise<void>;
+`
+    const result = extractDts('test.d.mts', code, { omitArgumentNames: false })
+    expect(result).toMatchInlineSnapshot(`
+      "export declare function build(config: BuildConfig, options?: Options): Promise<void>;
+      "
+    `)
+  })
+
+  it('replaces argument names with _ by default', () => {
+    const code = `
+export declare function build(config: BuildConfig, options?: Options): Promise<void>;
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "export declare function build(_: BuildConfig, _?: Options): Promise<void>;
       "
     `)
   })

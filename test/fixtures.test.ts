@@ -2,6 +2,7 @@ import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { build } from 'tsdown'
 import { describe, expect, it } from 'vitest'
+import { generateApiSnapshot } from '../src/core/index.ts'
 
 const FIXTURES_DIR = join(import.meta.dirname, 'fixtures')
 
@@ -34,7 +35,7 @@ describe('fixture: basic', () => {
     // Runtime: functions with empty bodies, constants without values
     expect(runtime).toContain('greet')
     expect(runtime).toContain('fetchData')
-    expect(runtime).toContain('{ /* ... */ }')
+    expect(runtime).toContain('{}')
     expect(runtime).toContain('VERSION')
     expect(runtime).toContain('DEBUG')
     expect(runtime).toContain('range')
@@ -148,6 +149,85 @@ describe('fixture: re-exports', () => {
 
     // Idempotent
     await buildFixture('re-exports')
+  })
+})
+
+describe('generateApiSnapshot', () => {
+  it('basic fixture', async () => {
+    await buildFixture('basic')
+    const api = generateApiSnapshot(join(FIXTURES_DIR, 'basic'))
+
+    expect(api['.']).toBeDefined()
+    expect(api['.'].runtime).toMatchInlineSnapshot(`
+      "export var DEBUG /* const */
+      export async function fetchData(_, _) {}
+      export function greet(_) {}
+      export function* range(_, _) {}
+      export var VERSION /* const */
+      "
+    `)
+    expect(api['.'].dts).toMatchInlineSnapshot(`
+      "export declare const DEBUG: boolean;
+      export declare function fetchData(_: string, _?: RequestInit): Promise<Response>;
+      export type Formatter = (input: string) => string;
+      export declare function greet(_: string): string;
+      export interface GreetOptions {
+        prefix?: string;
+        suffix?: string;
+      }
+      export declare function range(_: number, _: number): Generator<number>;
+      export declare const VERSION: string;
+      "
+    `)
+  })
+
+  it('sub-exports fixture with multiple entries', async () => {
+    await buildFixture('sub-exports')
+    const api = generateApiSnapshot(join(FIXTURES_DIR, 'sub-exports'))
+
+    expect(Object.keys(api).sort()).toEqual(['.', './utils'])
+
+    expect(api['.'].runtime).toMatchInlineSnapshot(`
+      "export function createApp(_) {}
+      export function createRouter(_) {}
+      export var VERSION /* const */
+      "
+    `)
+
+    expect(api['./utils'].runtime).toMatchInlineSnapshot(`
+      "export function capitalize(_) {}
+      export function slugify(_) {}
+      "
+    `)
+
+    expect(api['./utils'].dts).toMatchInlineSnapshot(`
+      "export declare function capitalize(_: string): string;
+      export declare function slugify(_: string): string;
+      export type StringTransform = (input: string) => string;
+      "
+    `)
+  })
+
+  it('re-exports fixture uses public names', async () => {
+    await buildFixture('re-exports')
+    const api = generateApiSnapshot(join(FIXTURES_DIR, 're-exports'))
+
+    expect(api['.'].runtime).toMatchInlineSnapshot(`
+      "export function formatOutput(_) {}
+      export function process(_, _) {}
+      export class Service {
+        name
+        constructor(_) {}
+        run(_) {}
+      }
+      export var VERSION /* const */
+      "
+    `)
+
+    // Should use public names, not internal names
+    expect(api['.'].dts).not.toContain('export interface InternalOptions')
+    expect(api['.'].dts).toContain('export interface Options')
+    expect(api['.'].dts).toContain('export declare class Service')
   })
 })
 

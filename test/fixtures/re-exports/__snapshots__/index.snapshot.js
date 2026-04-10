@@ -1,8 +1,8 @@
-export function formatOutput(value) { /* ... */ }
-export function process(data, options) { /* ... */ }
+export function formatOutput(_) {}
+export function process(_, _) {}
 export class Service {
   name
-  constructor(name) { /* ... */ }
-  run(input) { /* ... */ }
+  constructor(_) {}
+  run(_) {}
 }
 export var VERSION /* const */

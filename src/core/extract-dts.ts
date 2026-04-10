@@ -28,7 +28,9 @@ function formatDtsExportEntry(exportedName: string, text: string): { name: strin
  *
  * @param chunkSources - Map of chunk source paths to their code, for resolving import-reexport patterns
  */
-export function extractDts(fileName: string, code: string, chunkSources?: Map<string, string>): string {
+export function extractDts(fileName: string, code: string, options?: import('./extract-runtime.ts').ExtractOptions): string {
+  const chunkSources = options?.chunkSources
+  const omitArgs = options?.omitArgumentNames ?? true
   // Strip comments
   const stripped = code
     .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -71,7 +73,7 @@ export function extractDts(fileName: string, code: string, chunkSources?: Map<st
 
   for (const stmt of program.body) {
     if (stmt.type === 'ExportNamedDeclaration') {
-      processExportNamedDeclaration(stmt as any, s, entries, declMap, importMap, chunkSources)
+      processExportNamedDeclaration(stmt as any, s, entries, declMap, importMap, chunkSources, omitArgs)
     }
     else if (stmt.type === 'ExportDefaultDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
@@ -127,6 +129,7 @@ function processExportNamedDeclaration(
   declMap: Map<string, { stmt: any, decl: any }>,
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
+  omitArgs = true,
 ): void {
   const decl = stmt.declaration
   if (decl) {
@@ -144,12 +147,12 @@ function processExportNamedDeclaration(
     }
     else if (decl.type === 'TSDeclareFunction') {
       const name = decl.id?.name ?? ''
-      const text = extractTSDeclareFunction(s, stmt, decl)
+      const text = extractTSDeclareFunction(s, stmt, decl, omitArgs)
       entries.push({ name, text })
     }
     else if (decl.type === 'FunctionDeclaration') {
       const name = decl.id?.name ?? ''
-      const text = extractTSDeclareFunction(s, stmt, decl)
+      const text = extractTSDeclareFunction(s, stmt, decl, omitArgs)
       entries.push({ name, text })
     }
     else if (decl.type === 'ClassDeclaration') {
@@ -183,12 +186,12 @@ function processExportNamedDeclaration(
 
       const resolved = declMap.get(localName)
       if (resolved) {
-        const text = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport)
+        const text = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport, omitArgs)
         entries.push(formatDtsExportEntry(exportedName, text))
       }
       else {
         // Try resolving through imports into chunk files
-        const chunkResolved = resolveFromChunkDts(localName, exportedName, isTypeExport, importMap, chunkSources)
+        const chunkResolved = resolveFromChunkDts(localName, exportedName, isTypeExport, importMap, chunkSources, omitArgs)
         if (chunkResolved) {
           entries.push(chunkResolved)
         }
@@ -215,6 +218,7 @@ function resolveFromChunkDts(
   isTypeExport: boolean,
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
+  omitArgs = true,
 ): { name: string, text: string } | undefined {
   if (!chunkSources)
     return undefined
@@ -249,7 +253,7 @@ function resolveFromChunkDts(
   if (!resolved)
     return undefined
 
-  const text = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport)
+  const text = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport, omitArgs)
   return formatDtsExportEntry(exportedName, text)
 }
 
@@ -302,6 +306,7 @@ function extractResolvedDeclaration(
   resolved: { stmt: any, decl: any },
   exportedName: string,
   isTypeExport: boolean,
+  omitArgs = true,
 ): string {
   const { decl } = resolved
 
@@ -332,9 +337,11 @@ function extractResolvedDeclaration(
 
   if (decl.type === 'TSDeclareFunction' || decl.type === 'FunctionDeclaration') {
     const clone = new MagicString(s.original)
-    const params = decl.params ?? []
-    for (const param of params) {
-      replaceParamNames(clone, param)
+    if (omitArgs) {
+      const params = decl.params ?? []
+      for (const param of params) {
+        replaceParamNames(clone, param)
+      }
     }
     let text = clone.slice(decl.start, decl.end)
     if (exportedName !== (decl.id?.name ?? '')) {
@@ -459,13 +466,16 @@ function extractTSDeclareFunction(
   s: MagicString,
   stmt: any,
   decl: any,
+  omitArgs = true,
 ): string {
-  // Replace parameter names with `_` but keep type annotations
   const clone = new MagicString(s.original)
 
-  const params = decl.params ?? []
-  for (const param of params) {
-    replaceParamNames(clone, param)
+  if (omitArgs) {
+    // Replace parameter names with `_` but keep type annotations
+    const params = decl.params ?? []
+    for (const param of params) {
+      replaceParamNames(clone, param)
+    }
   }
 
   return normalizeWhitespace(clone.slice(stmt.start, stmt.end))

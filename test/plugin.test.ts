@@ -47,7 +47,7 @@ export class App {
 
     const content = readFileSync(snapshotPath, 'utf-8')
     expect(content).toContain('export class App')
-    expect(content).toContain('export function greet(name)')
+    expect(content).toContain('export function greet(_)')
     expect(content).toContain('export var VERSION /* const */')
   })
 
@@ -120,8 +120,8 @@ export function hello() { return 'hi'; }
     })
     await bundle2.write({ dir: join(FIXTURE_DIR, 'dist') })
 
-    // Verify updated snapshot contains new param
+    // Verify updated snapshot reflects the new param
     const content = readFileSync(join(SNAPSHOT_DIR, 'index.snapshot.js'), 'utf-8')
-    expect(content).toContain('hello(name)')
+    expect(content).toContain('hello(_)')
   })
 })
