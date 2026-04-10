@@ -1,9 +1,7 @@
+<img src="./tsnapi.svg" alt="tsnapi" height="150" />
+
 # tsnapi
 
-<br>
-<code>&nbsp;t<b>s</b> <b>ap</b>i&nbsp;</code><br>
-<code>&nbsp;&nbsp;snap&nbsp;&nbsp;</code>
-<br><br>
 
 Library public API snapshot testing for runtime exports and type declarations.
 
