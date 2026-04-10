@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 import { extractDts } from './extract-dts.ts'
 import { extractRuntime } from './extract-runtime.ts'
-import { resolvePackageDir, resolvePackageEntries } from './resolve.ts'
+import { resolvePackageEntries } from './resolve.ts'
 import {
   compareSnapshots,
   formatMismatchError,
@@ -15,7 +15,7 @@ import {
 
 export { extractDts } from './extract-dts.ts'
 export { extractRuntime } from './extract-runtime.ts'
-export { resolvePackageDir, resolvePackageEntries } from './resolve.ts'
+export { resolvePackageEntries } from './resolve.ts'
 export type { SnapshotExtensions, SnapshotFile, SnapshotMismatch } from './snapshot.ts'
 export { compareSnapshots, formatMismatchError, readSnapshot, writeSnapshot } from './snapshot.ts'
 export type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.ts'
@@ -48,16 +48,6 @@ function resolveUpdateMode(explicit?: boolean): boolean {
  */
 export function snapshotPackage(cwd: string, options?: ApiSnapshotOptions): SnapshotResult {
   const entries = resolvePackageEntries(cwd)
-  return snapshotEntries(entries, cwd, options)
-}
-
-/**
- * Snapshot an installed package from node_modules.
- */
-export function snapshotInstalledPackage(name: string, cwd: string, options?: ApiSnapshotOptions): SnapshotResult {
-  const pkgDir = resolvePackageDir(name, cwd)
-  const entries = resolvePackageEntries(pkgDir)
-  // Output snapshots relative to the caller's cwd, not the package dir
   return snapshotEntries(entries, cwd, options)
 }
 

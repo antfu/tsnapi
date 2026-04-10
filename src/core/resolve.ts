@@ -1,6 +1,6 @@
 import type { ResolvedEntry } from './types.ts'
 import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 
 const DTS_RE = /\.d\.[cm]?ts$/
 const JS_RE = /\.[cm]?[jt]sx?$/
@@ -33,32 +33,6 @@ export function resolvePackageEntries(cwd: string): ResolvedEntry[] {
   }
 
   return entries
-}
-
-/**
- * Resolve the root directory of an installed package.
- */
-export function resolvePackageDir(name: string, cwd: string): string {
-  // Try common node_modules locations
-  const candidates = [
-    join(cwd, 'node_modules', name),
-    // pnpm nested structure
-    join(cwd, 'node_modules', '.pnpm', `${name}@*`, 'node_modules', name),
-  ]
-
-  for (const candidate of candidates) {
-    if (existsSync(join(candidate, 'package.json')))
-      return candidate
-  }
-
-  // Use Node's resolution
-  try {
-    const pkgJsonPath = require.resolve(`${name}/package.json`, { paths: [cwd] })
-    return dirname(pkgJsonPath)
-  }
-  catch {
-    throw new Error(`Cannot find package "${name}" from ${cwd}`)
-  }
 }
 
 function resolveExportsField(

@@ -4,10 +4,8 @@ export {
   extractRuntime,
   formatMismatchError,
   readSnapshot,
-  resolvePackageDir,
   resolvePackageEntries,
   snapshotFiles,
-  snapshotInstalledPackage,
   snapshotPackage,
   writeSnapshot,
 } from './core/index.ts'

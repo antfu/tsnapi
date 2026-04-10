@@ -1,1 +1,1 @@
-export var default
+export function default(options) { /* ... */ }
