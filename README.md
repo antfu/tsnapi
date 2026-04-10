@@ -5,7 +5,7 @@
 <code>&nbsp;&nbsp;snap&nbsp;&nbsp;</code>
 <br><br>
 
-Library public API snapshot testing for runtime exports and type declarations. 
+Library public API snapshot testing for runtime exports and type declarations.
 
 Captures your public API surface -- both runtime exports and type declarations -- into human-readable snapshot files that you commit alongside your code. When the API changes unexpectedly, you'll know.
 
@@ -65,6 +65,7 @@ UPDATE_SNAPSHOT=1 tsdown
 
 or add the `update` option to the plugin:
 
+<!-- eslint-skip -->
 ```ts
 plugins: [
   ApiSnapshot({ update: true })
@@ -88,9 +89,9 @@ tsnapi -u
 Use `generateApiSnapshot` to extract the API surface as strings, then use Vitest's built-in snapshot system:
 
 ```ts
+import { generateApiSnapshot } from 'tsnapi'
 // api.test.ts
 import { expect, it } from 'vitest'
-import { generateApiSnapshot } from 'tsnapi'
 
 const api = generateApiSnapshot(process.cwd())
 

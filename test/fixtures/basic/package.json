@@ -1,7 +1,7 @@
 {
   "name": "fixture-basic",
-  "private": true,
   "type": "module",
+  "private": true,
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",

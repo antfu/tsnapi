@@ -12,9 +12,11 @@ function getExportName(node: any): string {
  * Format a resolved declaration as an export entry.
  * Handles `default` specially since `export function default()` is invalid syntax.
  */
+const RE_DEFAULT_WORD = /\bdefault\b/
+
 function formatExportEntry(exportedName: string, skeleton: string): { name: string, text: string } {
   if (exportedName === 'default') {
-    const renamed = skeleton.replace(/\bdefault\b/, '_default')
+    const renamed = skeleton.replace(RE_DEFAULT_WORD, '_default')
     return { name: '\x00default', text: `${renamed}\nexport default _default` }
   }
   return { name: exportedName, text: `export ${skeleton}` }

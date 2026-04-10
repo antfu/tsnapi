@@ -12,11 +12,15 @@ function getExportName(node: any): string {
  * Format a resolved declaration as an export entry.
  * Handles `default` specially since `export declare function default()` is invalid syntax.
  */
+const RE_EXPORT_PREFIX = /^export\s+/
+const RE_DEFAULT_WORD = /\bdefault\b/
+const RE_MJS_EXT = /\.mjs$/
+
 function formatDtsExportEntry(exportedName: string, text: string, kind: DtsEntryKind): DtsEntry {
   if (exportedName === 'default') {
     // Remove `export` prefix, rename `default` to `_default`, then add `export default _default`
-    const withoutExport = text.replace(/^export\s+/, '')
-    const renamed = withoutExport.replace(/\bdefault\b/, '_default')
+    const withoutExport = text.replace(RE_EXPORT_PREFIX, '')
+    const renamed = withoutExport.replace(RE_DEFAULT_WORD, '_default')
     return { name: '\x00default', text: `${renamed}\nexport default _default`, kind: 'default' }
   }
   return { name: exportedName, text, kind }
@@ -292,7 +296,7 @@ function resolveFromChunkDts(
 
   // Use .d.mts extension for parsing since the code is TypeScript DTS
   // (import source paths may use .mjs but the actual chunk code is .d.mts)
-  const parseFileName = importInfo.source.replace(/\.mjs$/, '.d.mts')
+  const parseFileName = importInfo.source.replace(RE_MJS_EXT, '.d.mts')
   const { program } = parseSync(parseFileName, stripped)
   const chunkS = new MagicString(stripped)
   const chunkDeclMap = new Map<string, { stmt: any, decl: any }>()
