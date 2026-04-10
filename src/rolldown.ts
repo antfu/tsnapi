@@ -20,13 +20,13 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
   generateBundle: { order: 'post', handler: (this: any, outputOptions: any, bundle: any) => void }
 } {
   const {
-    outputDir = '__snapshots__',
-    runtimeExtension = '.api.snapshot.js',
-    dtsExtension = '.api.snapshot.d.ts',
+    outputDir = '__snapshots__/tsnapi',
+    extensionRuntime = '.snapshot.js',
+    extensionDts = '.snapshot.d.ts',
     update,
   } = options
 
-  const ext: SnapshotExtensions = { runtime: runtimeExtension, dts: dtsExtension }
+  const ext: SnapshotExtensions = { runtime: extensionRuntime, dts: extensionDts }
 
   return {
     name: 'tsnapi',

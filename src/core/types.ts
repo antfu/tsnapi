@@ -1,21 +1,21 @@
 export interface ApiSnapshotOptions {
   /**
    * Snapshot output directory, relative to the project root.
-   * @default '__snapshots__'
+   * @default '__snapshots__/tsnapi'
    */
   outputDir?: string
 
   /**
    * Extension for runtime snapshot files.
-   * @default '.api.snapshot.js'
+   * @default '.snapshot.js'
    */
-  runtimeExtension?: string
+  extensionRuntime?: string
 
   /**
    * Extension for DTS snapshot files.
-   * @default '.api.snapshot.d.ts'
+   * @default '.snapshot.d.ts'
    */
-  dtsExtension?: string
+  extensionDts?: string
 
   /**
    * Update snapshots instead of comparing.
