@@ -1,5 +1,5 @@
 export var DEBUG /* const */
-export async function fetchData(url, options) { /* ... */ }
-export function greet(name) { /* ... */ }
-export function* range(start, end) { /* ... */ }
+export async function fetchData(_, _) {}
+export function greet(_) {}
+export function* range(_, _) {}
 export var VERSION /* const */

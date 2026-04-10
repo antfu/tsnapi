@@ -18,6 +18,14 @@ export interface ApiSnapshotOptions {
   extensionDts?: string
 
   /**
+   * Omit argument names from function signatures.
+   * When true, runtime snapshots show empty parameter lists and
+   * DTS snapshots replace parameter names with `_`.
+   * @default true
+   */
+  omitArgumentNames?: boolean
+
+  /**
    * Update snapshots instead of comparing.
    * When not set, auto-detected from `--update-snapshot` / `-u` CLI flags
    * or `UPDATE_SNAPSHOT=1` environment variable.

@@ -1,9 +1,9 @@
-export function createServer(options) { /* ... */ }
+export function createServer(_) {}
 export class Server {
   middlewares
   options
-  constructor(options) { /* ... */ }
-  use(middleware) { /* ... */ }
-  async listen() { /* ... */ }
-  close() { /* ... */ }
+  constructor(_) {}
+  use(_) {}
+  async listen() {}
+  close() {}
 }

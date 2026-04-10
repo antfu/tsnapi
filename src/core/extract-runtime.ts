@@ -20,13 +20,18 @@ function formatExportEntry(exportedName: string, skeleton: string): { name: stri
   return { name: exportedName, text: `export ${skeleton}` }
 }
 
+export interface ExtractOptions {
+  chunkSources?: Map<string, string>
+  omitArgumentNames?: boolean
+}
+
 /**
  * Extract runtime export skeletons from a JS chunk.
  * Returns a formatted `.ts` snapshot string showing the API surface without implementations.
- *
- * @param chunkSources - Map of chunk source paths to their code, for resolving import-reexport patterns
  */
-export function extractRuntime(fileName: string, code: string, chunkSources?: Map<string, string>): string {
+export function extractRuntime(fileName: string, code: string, options?: ExtractOptions): string {
+  const chunkSources = options?.chunkSources
+  const omitArgs = options?.omitArgumentNames ?? true
   const { program } = parseSync(fileName, code)
   const s = new MagicString(code)
   const entries: { name: string, text: string }[] = []
@@ -65,7 +70,7 @@ export function extractRuntime(fileName: string, code: string, chunkSources?: Ma
     if (stmt.type === 'ExportNamedDeclaration') {
       const decl = (stmt as any).declaration
       if (decl) {
-        processDeclaration(s, decl, entries, 'export ')
+        processDeclaration(s, decl, entries, 'export ', omitArgs)
       }
       else if ((stmt as any).specifiers?.length > 0) {
         const source = (stmt as any).source
@@ -84,12 +89,12 @@ export function extractRuntime(fileName: string, code: string, chunkSources?: Ma
             const exportedName = getExportName(spec.exported) || localName
             const decl = declMap.get(localName)
             if (decl) {
-              const skeleton = extractDeclarationSkeleton(s, decl, exportedName)
+              const skeleton = extractDeclarationSkeleton(s, decl, exportedName, omitArgs)
               entries.push(formatExportEntry(exportedName, skeleton))
             }
             else {
               // Try resolving through imports into chunk files
-              const resolved = resolveFromChunkRuntime(localName, exportedName, importMap, chunkSources)
+              const resolved = resolveFromChunkRuntime(localName, exportedName, importMap, chunkSources, omitArgs)
               if (resolved) {
                 entries.push(resolved)
               }
@@ -109,11 +114,11 @@ export function extractRuntime(fileName: string, code: string, chunkSources?: Ma
     else if (stmt.type === 'ExportDefaultDeclaration') {
       const decl = (stmt as any).declaration
       if (decl?.type === 'FunctionDeclaration' || decl?.type === 'FunctionExpression') {
-        const sig = extractFunctionSignature(s, decl)
+        const sig = extractFunctionSignature(s, decl, undefined, omitArgs)
         entries.push({ name: '\x00default', text: `export default ${sig}` })
       }
       else if (decl?.type === 'ClassDeclaration' || decl?.type === 'ClassExpression') {
-        const skeleton = extractClassSkeleton(s, decl)
+        const skeleton = extractClassSkeleton(s, decl, undefined, omitArgs)
         entries.push({ name: '\x00default', text: `export default ${skeleton}` })
       }
       else {
@@ -140,6 +145,7 @@ function resolveFromChunkRuntime(
   exportedName: string,
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
+  omitArgs = true,
 ): { name: string, text: string } | undefined {
   if (!chunkSources)
     return undefined
@@ -166,7 +172,7 @@ function resolveFromChunkRuntime(
   if (!decl)
     return undefined
 
-  const skeleton = extractDeclarationSkeleton(chunkS, decl, exportedName)
+  const skeleton = extractDeclarationSkeleton(chunkS, decl, exportedName, omitArgs)
   return formatExportEntry(exportedName, skeleton)
 }
 
@@ -238,23 +244,23 @@ function collectDeclarations(stmt: any, map: Map<string, any>): void {
 /**
  * Extract a skeleton from a declaration, optionally renaming it.
  */
-function extractDeclarationSkeleton(s: MagicString, decl: any, exportedName: string): string {
+function extractDeclarationSkeleton(s: MagicString, decl: any, exportedName: string, omitArgs = true): string {
   if (decl.type === 'FunctionDeclaration') {
-    return extractFunctionSignature(s, decl, exportedName)
+    return extractFunctionSignature(s, decl, exportedName, omitArgs)
   }
   if (decl.type === 'ClassDeclaration') {
-    return extractClassSkeleton(s, decl, exportedName)
+    return extractClassSkeleton(s, decl, exportedName, omitArgs)
   }
   if (decl.type === 'VariableDeclaration') {
     const declarator = decl._declarator ?? decl.declarations?.[0]
     // Detect `var X = class { ... }` pattern
     const init = declarator?.init
     if (init?.type === 'ClassExpression' || init?.type === 'ClassDeclaration') {
-      return extractClassSkeleton(s, init, exportedName)
+      return extractClassSkeleton(s, init, exportedName, omitArgs)
     }
     // Detect `var X = function(...) { ... }` pattern
     if (init?.type === 'FunctionExpression') {
-      return extractFunctionSignature(s, init, exportedName)
+      return extractFunctionSignature(s, init, exportedName, omitArgs)
     }
     return extractVariableDeclaration(s, decl.kind, declarator, exportedName)
   }
@@ -266,15 +272,16 @@ function processDeclaration(
   decl: any,
   entries: { name: string, text: string }[],
   prefix: string,
+  omitArgs = true,
 ): void {
   if (decl.type === 'FunctionDeclaration') {
     const name = decl.id?.name ?? 'anonymous'
-    const sig = extractFunctionSignature(s, decl)
+    const sig = extractFunctionSignature(s, decl, undefined, omitArgs)
     entries.push({ name, text: `${prefix}${sig}` })
   }
   else if (decl.type === 'ClassDeclaration') {
     const name = decl.id?.name ?? 'anonymous'
-    const skeleton = extractClassSkeleton(s, decl)
+    const skeleton = extractClassSkeleton(s, decl, undefined, omitArgs)
     entries.push({ name, text: `${prefix}${skeleton}` })
   }
   else if (decl.type === 'VariableDeclaration') {
@@ -283,12 +290,12 @@ function processDeclaration(
       const init = declarator.init
       // Detect `var/const X = class { ... }` pattern
       if (init?.type === 'ClassExpression' || init?.type === 'ClassDeclaration') {
-        const skeleton = extractClassSkeleton(s, init, name)
+        const skeleton = extractClassSkeleton(s, init, name, omitArgs)
         entries.push({ name, text: `${prefix}${skeleton}` })
       }
       // Detect `var/const X = function(...) { ... }` pattern
       else if (init?.type === 'FunctionExpression') {
-        const sig = extractFunctionSignature(s, init, name)
+        const sig = extractFunctionSignature(s, init, name, omitArgs)
         entries.push({ name, text: `${prefix}${sig}` })
       }
       else {
@@ -299,13 +306,27 @@ function processDeclaration(
   }
 }
 
-function extractFunctionSignature(_s: MagicString, decl: any, nameOverride?: string): string {
+function extractFunctionSignature(_s: MagicString, decl: any, nameOverride?: string, omitArgs = true): string {
   const async = decl.async ? 'async ' : ''
   const generator = decl.generator ? '*' : ''
   const name = nameOverride ?? decl.id?.name ?? ''
-  const params = extractParams(_s, decl.params)
+  const params = omitArgs ? anonymizeParams(decl.params) : extractParams(_s, decl.params)
 
-  return `${async}function${generator ? `* ` : ' '}${name}(${params}) { /* ... */ }`
+  const body = '{}'
+  return `${async}function${generator ? `* ` : ' '}${name}(${params}) ${body}`
+}
+
+/**
+ * Replace all parameter names with `_`, preserving rest elements.
+ */
+function anonymizeParams(params: any): string {
+  if (!params || !Array.isArray(params) || params.length === 0)
+    return ''
+  return params.map((p: any) => {
+    if (p?.type === 'RestElement')
+      return '..._'
+    return '_'
+  }).join(', ')
 }
 
 function extractParams(s: MagicString, params: any): string {
@@ -343,7 +364,7 @@ function extractParamText(s: MagicString, param: any): string {
   return s.slice(param.start, param.end)
 }
 
-function extractClassSkeleton(s: MagicString, decl: any, nameOverride?: string): string {
+function extractClassSkeleton(s: MagicString, decl: any, nameOverride?: string, omitArgs = true): string {
   const name = nameOverride ?? decl.id?.name ?? ''
   const superClass = decl.superClass
     ? ` extends ${s.slice(decl.superClass.start, decl.superClass.end)}`
@@ -355,7 +376,7 @@ function extractClassSkeleton(s: MagicString, decl: any, nameOverride?: string):
   if (body?.body) {
     for (const member of body.body) {
       if (member.type === 'MethodDefinition' || member.type === 'PropertyDefinition') {
-        const memberText = extractClassMember(s, member)
+        const memberText = extractClassMember(s, member, omitArgs)
         if (memberText)
           members.push(memberText)
       }
@@ -371,7 +392,7 @@ function extractClassSkeleton(s: MagicString, decl: any, nameOverride?: string):
   return `class ${name}${superClass} {\n${bodyText}\n}`
 }
 
-function extractClassMember(s: MagicString, member: any): string | null {
+function extractClassMember(s: MagicString, member: any, omitArgs = true): string | null {
   const isStatic = member.static ? 'static ' : ''
   const accessibility = member.accessibility ? `${member.accessibility} ` : ''
 
@@ -386,19 +407,19 @@ function extractClassMember(s: MagicString, member: any): string | null {
 
     const async = value.async ? 'async ' : ''
     const generator = value.generator ? '*' : ''
-    const params = extractParams(s, value.params)
+    const params = omitArgs ? anonymizeParams(value.params) : extractParams(s, value.params)
 
     if (member.kind === 'constructor') {
-      return `${accessibility}constructor(${params}) { /* ... */ }`
+      return `${accessibility}constructor(${params}) {}`
     }
     if (member.kind === 'get') {
-      return `${isStatic}${accessibility}get ${key}() { /* ... */ }`
+      return `${isStatic}${accessibility}get ${key}() {}`
     }
     if (member.kind === 'set') {
-      return `${isStatic}${accessibility}set ${key}(${params}) { /* ... */ }`
+      return `${isStatic}${accessibility}set ${key}(${params}) {}`
     }
 
-    return `${isStatic}${accessibility}${async}${generator}${key}(${params}) { /* ... */ }`
+    return `${isStatic}${accessibility}${async}${generator}${key}(${params}) {}`
   }
 
   if (member.type === 'PropertyDefinition') {

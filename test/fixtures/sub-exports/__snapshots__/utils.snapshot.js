@@ -1,2 +1,2 @@
-export function capitalize(text) { /* ... */ }
-export function slugify(text) { /* ... */ }
+export function capitalize(_) {}
+export function slugify(_) {}

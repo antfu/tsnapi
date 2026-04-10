@@ -2,13 +2,14 @@ export interface ApiSnapshotOptions {
   outputDir?: string;
   extensionRuntime?: string;
   extensionDts?: string;
+  omitArgumentNames?: boolean;
   update?: boolean;
 }
 export declare function compareSnapshots(_: string, _: SnapshotFile, _: SnapshotFile): SnapshotMismatch | null;
-export declare function extractDts(_: string, _: string, _?: Map<string, string>): string;
-export declare function extractRuntime(_: string, _: string, _?: Map<string, string>): string;
+export declare function extractDts(_: string, _: string, _?: ExtractOptions): string;
+export declare function extractRuntime(_: string, _: string, _?: ExtractOptions): string;
 export declare function formatMismatchError(_: SnapshotMismatch[], _: string, _: SnapshotExtensions): string;
-export declare function generateApiSnapshot(_: string): Record<string, {
+export declare function generateApiSnapshot(_: string, _?: ApiSnapshotOptions): Record<string, {
   runtime: string;
   dts: string;
 }>;

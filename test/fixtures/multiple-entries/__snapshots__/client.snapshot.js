@@ -1,7 +1,7 @@
-export function createClient(options) { /* ... */ }
+export function createClient(_) {}
 export class HttpClient {
   options
-  constructor(options) { /* ... */ }
-  async get(path) { /* ... */ }
-  async post(path, body) { /* ... */ }
+  constructor(_) {}
+  async get(_) {}
+  async post(_, _) {}
 }

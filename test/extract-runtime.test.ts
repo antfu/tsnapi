@@ -15,8 +15,8 @@ export async function fetchData(url, options) {
 `
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export async function fetchData(url, options) { /* ... */ }
-      export function hello(name) { /* ... */ }
+      "export async function fetchData(_, _) {}
+      export function hello(_) {}
       "
     `)
   })
@@ -62,10 +62,10 @@ export class MyService {
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export class MyService {
-        constructor(config) { /* ... */ }
-        async run(input) { /* ... */ }
-        static create(options) { /* ... */ }
-        get name() { /* ... */ }
+        constructor(_) {}
+        async run(_) {}
+        static create(_) {}
+        get name() {}
       }
       "
     `)
@@ -88,7 +88,7 @@ export default function main(args) {
 `
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export default function main(args) { /* ... */ }
+      "export default function main(_) {}
       "
     `)
   })
@@ -101,9 +101,9 @@ export function middle() {}
 `
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export function alpha() { /* ... */ }
-      export function middle() { /* ... */ }
-      export function zebra() { /* ... */ }
+      "export function alpha() {}
+      export function middle() {}
+      export function zebra() {}
       "
     `)
   })
@@ -127,10 +127,10 @@ export { App, VERSION, greet };
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export class App {
-        constructor(config) { /* ... */ }
-        start() { /* ... */ }
+        constructor(_) {}
+        start() {}
       }
-      export function greet(name) { /* ... */ }
+      export function greet(_) {}
       export var VERSION /* const */
       "
     `)
@@ -154,9 +154,9 @@ export { Logger };
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export class Logger {
-        constructor(prefix) { /* ... */ }
-        log(msg) { /* ... */ }
-        static create(opts) { /* ... */ }
+        constructor(_) {}
+        log(_) {}
+        static create(_) {}
       }
       "
     `)
@@ -181,10 +181,10 @@ export { _App as App, _version as VERSION, internalGreet as greet };
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export class App {
-        constructor(config) { /* ... */ }
-        start() { /* ... */ }
+        constructor(_) {}
+        start() {}
       }
-      export function greet(name) { /* ... */ }
+      export function greet(_) {}
       export var VERSION /* const */
       "
     `)
@@ -225,11 +225,12 @@ function resolvePackageDir(name, cwd) {
 }
 export { resolvePackageEntries as a, resolvePackageDir as i };
 `
-    const chunkSources = new Map([['./core-abc123.mjs', chunkCode]])
-    const result = extractRuntime('index.mjs', entryCode, chunkSources)
+    const result = extractRuntime('index.mjs', entryCode, {
+      chunkSources: new Map([['./core-abc123.mjs', chunkCode]]),
+    })
     expect(result).toMatchInlineSnapshot(`
-      "export function resolveDir(name, cwd) { /* ... */ }
-      export function resolveEntries(cwd) { /* ... */ }
+      "export function resolveDir(_, _) {}
+      export function resolveEntries(_) {}
       "
     `)
   })
@@ -243,7 +244,7 @@ export { rolldownPlugin as default };
 `
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "function _default(options) { /* ... */ }
+      "function _default(_) {}
       export default _default
       "
     `)
@@ -264,8 +265,8 @@ export { MyClass as default };
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "class _default {
-        constructor(config) { /* ... */ }
-        run() { /* ... */ }
+        constructor(_) {}
+        run() {}
       }
       export default _default
       "
@@ -281,7 +282,32 @@ export { compute };
 `
     const result = extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export function compute(a, b) { /* ... */ }
+      "export function compute(_, _) {}
+      "
+    `)
+  })
+
+  it('preserves argument names when omitArgumentNames is false', () => {
+    const code = `
+export function greet(name) {
+  return 'hello ' + name;
+}
+export class App {
+  constructor(config) {
+    this.config = config;
+  }
+  run(input, options) {
+    return input;
+  }
+}
+`
+    const result = extractRuntime('test.mjs', code, { omitArgumentNames: false })
+    expect(result).toMatchInlineSnapshot(`
+      "export class App {
+        constructor(config) {}
+        run(input, options) {}
+      }
+      export function greet(name) {}
       "
     `)
   })

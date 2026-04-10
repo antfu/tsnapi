@@ -56,16 +56,17 @@ function resolveUpdateMode(explicit?: boolean): boolean {
  * expect(api['.'].dts).toMatchSnapshot()
  * ```
  */
-export function generateApiSnapshot(cwd: string): Record<string, { runtime: string, dts: string }> {
+export function generateApiSnapshot(cwd: string, options?: ApiSnapshotOptions): Record<string, { runtime: string, dts: string }> {
   const entries = resolvePackageEntries(cwd)
   const result: Record<string, { runtime: string, dts: string }> = {}
+  const extractOptions = { omitArgumentNames: options?.omitArgumentNames }
 
   for (const entry of entries) {
     const runtime = entry.runtime
-      ? extractRuntime(entry.runtime, readFileSync(entry.runtime, 'utf-8'))
+      ? extractRuntime(entry.runtime, readFileSync(entry.runtime, 'utf-8'), extractOptions)
       : ''
     const dts = entry.dts
-      ? extractDts(entry.dts, readFileSync(entry.dts, 'utf-8'))
+      ? extractDts(entry.dts, readFileSync(entry.dts, 'utf-8'), extractOptions)
       : ''
     result[entry.name] = { runtime, dts }
   }
@@ -104,6 +105,7 @@ function snapshotEntries(
 ): SnapshotResult {
   const { outputDir, ext, update } = resolveOptions(options)
   const resolvedOutputDir = resolve(cwd, outputDir)
+  const extractOptions = { omitArgumentNames: options?.omitArgumentNames }
 
   const mismatches: SnapshotResult['mismatches'] = []
   const allMismatchDetails: import('./snapshot.ts').SnapshotMismatch[] = []
@@ -112,10 +114,10 @@ function snapshotEntries(
     const stem = entryNameToStem(entry.name)
 
     const runtime = entry.runtime
-      ? extractRuntime(entry.runtime, readFileSync(entry.runtime, 'utf-8'))
+      ? extractRuntime(entry.runtime, readFileSync(entry.runtime, 'utf-8'), extractOptions)
       : ''
     const dts = entry.dts
-      ? extractDts(entry.dts, readFileSync(entry.dts, 'utf-8'))
+      ? extractDts(entry.dts, readFileSync(entry.dts, 'utf-8'), extractOptions)
       : ''
 
     const current = { runtime, dts }
