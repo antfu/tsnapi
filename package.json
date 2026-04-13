@@ -48,11 +48,12 @@
   },
   "dependencies": {
     "@vitest/utils": "^4.1.4",
+    "cac": "^7.0.0",
     "magic-string": "^0.30.21",
     "oxc-parser": "^0.124.0"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^8.1.1",
+    "@antfu/eslint-config": "^8.2.0",
     "@antfu/ni": "^30.0.0",
     "@oxc-project/types": "^0.124.0",
     "@types/node": "^25.6.0",
