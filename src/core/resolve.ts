@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 
 const DTS_RE = /\.d\.[cm]?ts$/
 const JS_RE = /\.[cm]?[jt]sx?$/
+const RUNTIME_CONDITIONS = ['import', 'module-sync', 'default', 'require'] as const
 
 /**
  * Resolve package.json exports field into runtime + DTS file pairs.
@@ -61,14 +62,14 @@ function resolveExportsField(
   const isConditions = keys.some(k => ['import', 'require', 'default', 'types', 'module-sync'].includes(k))
 
   if (isConditions) {
-    const runtime = resolveConditionValue(exports, ['import', 'module-sync', 'default', 'require'])
-    const dts = resolveConditionValue(exports, ['types'])
-
-    entries.push({
-      name: prefix,
-      runtime: runtime ? resolve(cwd, runtime) : null,
-      dts: dts ? resolve(cwd, dts) : null,
-    })
+    const resolvedBranches = resolveConditionBranches(exports)
+    for (const branch of resolvedBranches) {
+      entries.push({
+        name: prefix,
+        runtime: branch.runtime ? resolve(cwd, branch.runtime) : null,
+        dts: branch.dts ? resolve(cwd, branch.dts) : null,
+      })
+    }
     return
   }
 
@@ -85,17 +86,91 @@ function resolveExportsField(
   }
 }
 
-function resolveConditionValue(obj: any, conditions: string[]): string | null {
-  for (const cond of conditions) {
+function findRuntime(obj: any): string | null {
+  if (!obj || typeof obj !== 'object')
+    return null
+
+  for (const cond of RUNTIME_CONDITIONS) {
     const val = obj[cond]
     if (typeof val === 'string' && JS_RE.test(val))
       return val
     if (typeof val === 'object' && val !== null) {
-      // Nested conditions, e.g. { import: { types: "...", default: "..." } }
-      const nested = resolveConditionValue(val, ['default', 'import', 'require'])
+      const nested = findRuntime(val)
       if (nested)
         return nested
     }
   }
+
   return null
+}
+
+function findTypes(obj: any): string | null {
+  if (!obj || typeof obj !== 'object')
+    return null
+
+  if (typeof obj.types === 'string' && DTS_RE.test(obj.types))
+    return obj.types
+
+  for (const val of Object.values(obj)) {
+    if (typeof val === 'object' && val !== null) {
+      const nested = findTypes(val)
+      if (nested)
+        return nested
+    }
+  }
+
+  return null
+}
+
+function resolveConditionBranches(
+  obj: Record<string, any>,
+): { runtime: string | null, dts: string | null }[] {
+  const branches: { runtime: string | null, dts: string | null }[] = []
+  const topLevelTypes = typeof obj.types === 'string' && DTS_RE.test(obj.types)
+    ? obj.types
+    : null
+  for (const key of RUNTIME_CONDITIONS) {
+    if (!(key in obj))
+      continue
+
+    const branch = obj[key]
+    let runtime: string | null = null
+    let dts: string | null = null
+    if (typeof branch === 'string' && JS_RE.test(branch)) {
+      runtime = branch
+    }
+    else {
+      runtime = findRuntime(branch)
+    }
+    // { import: { default: ..., types: ... } }
+    dts = findTypes(branch) ?? topLevelTypes
+    if (!runtime)
+      continue
+
+    branches.push({ runtime, dts })
+  }
+
+  if (!branches.length) {
+    const runtime = findRuntime(obj)
+    const dts = findTypes(obj)
+    branches.push({ runtime, dts })
+  }
+  return dedupeBranches(branches)
+}
+
+function dedupeBranches(
+  branches: { runtime: string | null, dts: string | null }[],
+): { runtime: string | null, dts: string | null }[] {
+  const seen = new Set<string>()
+  const deduped: { runtime: string | null, dts: string | null }[] = []
+
+  for (const branch of branches) {
+    const key = `${branch.runtime ?? ''}|${branch.dts ?? ''}`
+    if (seen.has(key))
+      continue
+    seen.add(key)
+    deduped.push(branch)
+  }
+
+  return deduped
 }
