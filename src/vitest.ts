@@ -40,6 +40,11 @@ export function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOptions): 
   const pkgName = readPackageName(cwd) ?? 'unknown'
   const entries = resolvePackageEntries(cwd)
 
+  if (entries.length === 0) {
+    it.skip('no exports', () => {})
+    return
+  }
+
   let _api: Record<string, { runtime: string, dts: string }> | undefined
   function getApi(): Record<string, { runtime: string, dts: string }> {
     return _api ??= generateApiSnapshot(cwd, options)
