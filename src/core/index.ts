@@ -3,6 +3,7 @@ import type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
+import { hasArgvFlag } from './argv.ts'
 import { extractDts } from './extract-dts.ts'
 import { extractRuntime } from './extract-runtime.ts'
 import { resolvePackageEntries } from './resolve.ts'
@@ -48,13 +49,13 @@ function resolveOptions(options?: ApiSnapshotOptions): {
   return { outputDir, ext, update }
 }
 
-function resolveUpdateMode(explicit?: boolean): boolean {
+export function resolveUpdateMode(explicit?: boolean): boolean {
   if (explicit != null)
     return explicit
   const env = process.env.UPDATE_SNAPSHOT
   if (env === '1' || env === 'true')
     return true
-  return process.argv.includes('--update-snapshot') || process.argv.includes('-u')
+  return hasArgvFlag(process.argv.slice(2), '--update-snapshot', '-u')
 }
 
 /**
