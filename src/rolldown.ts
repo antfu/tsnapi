@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { extractDts } from './core/extract-dts.ts'
 import { extractRuntime } from './core/extract-runtime.ts'
+import { resolveUpdateMode } from './core/index.ts'
 import {
   compareSnapshots,
   formatMismatchError,
@@ -126,13 +127,4 @@ function entryNameFromFileName(fileName: string): string {
     .replace(DTS_RE, '')
     .replace(JS_EXT_RE, '')
     .replace(HASH_RE, '')
-}
-
-function resolveUpdateMode(explicit?: boolean): boolean {
-  if (explicit != null)
-    return explicit
-  const env = process.env.UPDATE_SNAPSHOT
-  if (env === '1' || env === 'true')
-    return true
-  return process.argv.includes('--update-snapshot') || process.argv.includes('-u')
 }
