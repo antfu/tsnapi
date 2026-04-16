@@ -2,7 +2,7 @@ import type { ApiSnapshotOptions } from './core/types.ts'
 import { existsSync, globSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { generateApiSnapshot } from './core/index.ts'
 import { resolvePackageEntries } from './core/resolve.ts'
 
@@ -12,6 +12,15 @@ export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgume
    * @default '__snapshots__/tsnapi'
    */
   outputDir?: string
+}
+
+export interface PackageContext {
+  cwd: string
+  workspaceRoot: string
+  packageRoot: string
+  packageName: string
+  /** Snapshot output directory, relative to the test file. Defaults from options or `'__snapshots__/tsnapi'`. */
+  outputDir: string
 }
 
 export interface DescribePackagesApiSnapshotsOptions extends SnapshotApiOptions {
@@ -25,6 +34,29 @@ export interface DescribePackagesApiSnapshotsOptions extends SnapshotApiOptions 
    * @default process.cwd()
    */
   cwd?: string
+  /**
+   * Called for each discovered package.
+   * Mutate `ctx` to customize the describe block name, snapshot output directory, etc.
+   * Return `false` to skip the package entirely.
+   * @example
+   * ```ts
+   * filter(ctx) {
+   *   // Strip org scope from describe name
+   *   ctx.packageName = ctx.packageName.replace(/^@.*\//, '')
+   * }
+   * ```
+   */
+  filter?: (ctx: PackageContext) => boolean | void
+  /**
+   * Hook called inside each package's `describe` block via Vitest's `beforeEach`.
+   * Receives the (possibly mutated) package context.
+   */
+  beforeEach?: (ctx: PackageContext) => void | Promise<void>
+  /**
+   * Hook called inside each package's `describe` block via Vitest's `afterEach`.
+   * Receives the (possibly mutated) package context.
+   */
+  afterEach?: (ctx: PackageContext) => void | Promise<void>
 }
 
 /**
@@ -77,11 +109,23 @@ export function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOptions): 
 export function describePackagesApiSnapshots(options?: DescribePackagesApiSnapshotsOptions): void {
   const cwd = options?.cwd ?? process.cwd()
   const dirs = options?.packages ?? resolveWorkspacePackages(cwd)
+  const defaultOutputDir = options?.outputDir ?? '__snapshots__/tsnapi'
 
   for (const dir of dirs) {
     const pkgName = readPackageName(dir) ?? dir
-    describe(pkgName, () => {
-      snapshotApiPerEntry(dir, options)
+    const ctx: PackageContext = { cwd, workspaceRoot: cwd, packageRoot: dir, packageName: pkgName, outputDir: defaultOutputDir }
+
+    if (options?.filter) {
+      if (options.filter(ctx) === false)
+        continue
+    }
+
+    describe(ctx.packageName, () => {
+      if (options?.beforeEach)
+        beforeEach(() => options.beforeEach!(ctx))
+      if (options?.afterEach)
+        afterEach(() => options.afterEach!(ctx))
+      snapshotApiPerEntry(dir, { ...options, outputDir: ctx.outputDir })
     })
   }
 }

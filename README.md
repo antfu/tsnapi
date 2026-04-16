@@ -143,6 +143,73 @@ describePackagesApiSnapshots({
 })
 ```
 
+`describePackagesApiSnapshots` accepts `filter`, `beforeEach`, and `afterEach` callbacks. Each receives a `PackageContext` object:
+
+```ts
+interface PackageContext {
+  cwd: string // the input cwd
+  workspaceRoot: string // the resolved workspace root
+  packageRoot: string // absolute path to the package directory
+  packageName: string // package name from package.json
+  outputDir: string // snapshot output directory (relative to test file)
+}
+```
+
+#### `filter`
+
+Called for each discovered package. The context is mutable — modify any property to customize behavior. Return `false` to skip the package entirely:
+
+```ts
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+describePackagesApiSnapshots({
+  filter(ctx) {
+    // Skip private packages
+    if (ctx.packageName.startsWith('@internal/'))
+      return false
+    // Strip org scope from describe block name
+    ctx.packageName = ctx.packageName.replace(/^@.*\//, '')
+    // Customize snapshot output directory per package
+    ctx.outputDir = `__snapshots__/${ctx.packageName}`
+  },
+})
+```
+
+#### `beforeEach` / `afterEach`
+
+Lifecycle hooks registered inside each package's `describe` block via Vitest's `beforeEach`/`afterEach`. They receive the (possibly mutated) context:
+
+```ts
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+describePackagesApiSnapshots({
+  beforeEach({ packageRoot, packageName }) {
+    console.log(`Testing ${packageName} at ${packageRoot}`)
+  },
+  afterEach({ packageName }) {
+    console.log(`Done testing ${packageName}`)
+  },
+})
+```
+
+For example, if you use [`tsdown-lock`](https://github.com/antfu-collective/tsdown-lock), you can use the `beforeEach` hook to guard against stale builds — ensuring each package's dist is in sync with its source before running snapshot tests:
+
+```ts
+import { checkBuildFreshness } from 'tsdown-lock'
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+describePackagesApiSnapshots({
+  async beforeEach({ packageRoot, packageName }) {
+    const result = await checkBuildFreshness({ cwd: packageRoot })
+    if (!result.fresh) {
+      throw new Error(
+        `Package "${packageName}" is out of date. Please rebuild before running snapshot tests.`
+      )
+    }
+  },
+})
+```
+
 Run `vitest -u` to update snapshots when you intentionally change the API.
 
 #### Low-level
