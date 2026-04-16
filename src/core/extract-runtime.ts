@@ -25,7 +25,7 @@ function formatExportEntry(exportedName: string, skeleton: string): { name: stri
 export interface ExtractOptions {
   chunkSources?: Map<string, string>
   omitArgumentNames?: boolean
-  typeWiden?: boolean
+  typeWidening?: boolean
 }
 
 /**
@@ -35,7 +35,7 @@ export interface ExtractOptions {
 export function extractRuntime(fileName: string, code: string, options?: ExtractOptions): string {
   const chunkSources = options?.chunkSources
   const omitArgs = options?.omitArgumentNames ?? true
-  const typeWiden = options?.typeWiden ?? true
+  const typeWidening = options?.typeWidening ?? true
   const { program } = parseSync(fileName, code)
   const s = new MagicString(code)
   const entries: { name: string, text: string }[] = []
@@ -74,7 +74,7 @@ export function extractRuntime(fileName: string, code: string, options?: Extract
     if (stmt.type === 'ExportNamedDeclaration') {
       const decl = (stmt as any).declaration
       if (decl) {
-        processDeclaration(s, decl, entries, 'export ', omitArgs, typeWiden)
+        processDeclaration(s, decl, entries, 'export ', omitArgs, typeWidening)
       }
       else if ((stmt as any).specifiers?.length > 0) {
         const source = (stmt as any).source
@@ -93,12 +93,12 @@ export function extractRuntime(fileName: string, code: string, options?: Extract
             const exportedName = getExportName(spec.exported) || localName
             const decl = declMap.get(localName)
             if (decl) {
-              const skeleton = extractDeclarationSkeleton(s, decl, exportedName, omitArgs, typeWiden)
+              const skeleton = extractDeclarationSkeleton(s, decl, exportedName, omitArgs, typeWidening)
               entries.push(formatExportEntry(exportedName, skeleton))
             }
             else {
               // Try resolving through imports into chunk files
-              const resolved = resolveFromChunkRuntime(localName, exportedName, importMap, chunkSources, omitArgs, typeWiden)
+              const resolved = resolveFromChunkRuntime(localName, exportedName, importMap, chunkSources, omitArgs, typeWidening)
               if (resolved) {
                 entries.push(resolved)
               }
@@ -150,7 +150,7 @@ function resolveFromChunkRuntime(
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
-  typeWiden = true,
+  typeWidening = true,
 ): { name: string, text: string } | undefined {
   if (!chunkSources)
     return undefined
@@ -177,7 +177,7 @@ function resolveFromChunkRuntime(
   if (!decl)
     return undefined
 
-  const skeleton = extractDeclarationSkeleton(chunkS, decl, exportedName, omitArgs, typeWiden)
+  const skeleton = extractDeclarationSkeleton(chunkS, decl, exportedName, omitArgs, typeWidening)
   return formatExportEntry(exportedName, skeleton)
 }
 
@@ -249,7 +249,7 @@ function collectDeclarations(stmt: any, map: Map<string, any>): void {
 /**
  * Extract a skeleton from a declaration, optionally renaming it.
  */
-function extractDeclarationSkeleton(s: MagicString, decl: any, exportedName: string, omitArgs = true, typeWiden = true): string {
+function extractDeclarationSkeleton(s: MagicString, decl: any, exportedName: string, omitArgs = true, typeWidening = true): string {
   if (decl.type === 'FunctionDeclaration') {
     return extractFunctionSignature(s, decl, exportedName, omitArgs)
   }
@@ -267,7 +267,7 @@ function extractDeclarationSkeleton(s: MagicString, decl: any, exportedName: str
     if (init?.type === 'FunctionExpression') {
       return extractFunctionSignature(s, init, exportedName, omitArgs)
     }
-    return extractVariableDeclaration(s, decl.kind, declarator, exportedName, typeWiden)
+    return extractVariableDeclaration(s, decl.kind, declarator, exportedName, typeWidening)
   }
   return exportedName
 }
@@ -278,7 +278,7 @@ function processDeclaration(
   entries: { name: string, text: string }[],
   prefix: string,
   omitArgs = true,
-  typeWiden = true,
+  typeWidening = true,
 ): void {
   if (decl.type === 'FunctionDeclaration') {
     const name = decl.id?.name ?? 'anonymous'
@@ -305,7 +305,7 @@ function processDeclaration(
         entries.push({ name, text: `${prefix}${sig}` })
       }
       else {
-        const text = extractVariableDeclaration(s, decl.kind, declarator, undefined, typeWiden)
+        const text = extractVariableDeclaration(s, decl.kind, declarator, undefined, typeWidening)
         entries.push({ name, text: `${prefix}${text}` })
       }
     }
@@ -455,10 +455,10 @@ function isPreservableLiteral(init: any): boolean {
   return false
 }
 
-function extractVariableDeclaration(_s: MagicString, kind: string, declarator: any, nameOverride?: string, typeWiden = true): string {
+function extractVariableDeclaration(_s: MagicString, kind: string, declarator: any, nameOverride?: string, typeWidening = true): string {
   const name = nameOverride ?? declarator.id?.name ?? _s.slice(declarator.id.start, declarator.id.end)
 
-  if (!typeWiden && declarator.init && isPreservableLiteral(declarator.init)) {
+  if (!typeWidening && declarator.init && isPreservableLiteral(declarator.init)) {
     const initText = _s.slice(declarator.init.start, declarator.init.end)
     if (kind === 'const' || kind === 'let') {
       return `var ${name} = ${initText} /* ${kind} */`

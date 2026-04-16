@@ -86,11 +86,70 @@ tsnapi -u
 
 ### With Vitest
 
-Use `generateApiSnapshot` to extract the API surface as strings, then use Vitest's built-in snapshot system:
+`tsnapi/vitest` provides higher-level Vitest integration that uses [`toMatchFileSnapshot`](https://vitest.dev/guide/snapshot#file-snapshots) to store snapshots as individual files.
+
+> **Note:** `tsnapi` reads built dist files, so make sure to build your packages before running the tests. We recommend updating your test script to build first:
+>
+> ```json
+> {
+>   "scripts": {
+>     "test": "pnpm run build && vitest"
+>   }
+> }
+> ```
+
+#### Single package
 
 ```ts
-import { generateApiSnapshot } from 'tsnapi'
 // api.test.ts
+import { fileURLToPath } from 'node:url'
+import { snapshotApiPerEntry } from 'tsnapi/vitest'
+import { describe } from 'vitest'
+
+const dir = fileURLToPath(new URL('../packages/my-lib', import.meta.url))
+
+describe('my-lib API', () => {
+  snapshotApiPerEntry(dir)
+})
+```
+
+This creates `it()` blocks for each entry point, asserting both runtime and DTS snapshots. Snapshot files are written to `__snapshots__/tsnapi/<package-name>/` relative to the test file. Run `vitest -u` to update snapshots when you intentionally change the API.
+
+#### Monorepo
+
+For monorepos, `describePackagesApiSnapshots` creates a `describe()` block per package. When `packages` is omitted, it auto-discovers workspace packages from `pnpm-workspace.yaml` or the `workspaces` field in `package.json`:
+
+```ts
+// api.test.ts
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+// Auto-discovers all workspace packages
+describePackagesApiSnapshots()
+```
+
+Or provide explicit package paths:
+
+```ts
+import { fileURLToPath } from 'node:url'
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+describePackagesApiSnapshots({
+  packages: [
+    fileURLToPath(new URL('../packages/core', import.meta.url)),
+    fileURLToPath(new URL('../packages/utils', import.meta.url)),
+  ],
+})
+```
+
+Run `vitest -u` to update snapshots when you intentionally change the API.
+
+#### Low-level
+
+You can also use `generateApiSnapshot` directly with Vitest's built-in snapshot system:
+
+```ts
+// api.test.ts
+import { generateApiSnapshot } from 'tsnapi'
 import { expect, it } from 'vitest'
 
 const api = generateApiSnapshot(process.cwd())
@@ -103,8 +162,6 @@ it('type declarations', () => {
   expect(api['.'].dts).toMatchInlineSnapshot()
 })
 ```
-
-Run `vitest -u` to update the inline snapshots when you intentionally change the API.
 
 For packages with multiple entry points, each entry is keyed by its export path:
 
@@ -139,20 +196,20 @@ interface ApiSnapshotOptions {
   /** Omit argument names from function signatures. @default true */
   omitArgumentNames?: boolean
   /** Widen literal types to base types, hiding implementation details. @default true */
-  typeWiden?: boolean
+  typeWidening?: boolean
   /** Update mode. Auto-detected from --update-snapshot / -u / UPDATE_SNAPSHOT=1 */
   update?: boolean
 }
 ```
 
-### `typeWiden`
+### `typeWidening`
 
-When `typeWiden` is `true` (default), literal values are widened to hide implementation details:
+When `typeWidening` is `true` (default), literal values are widened to hide implementation details:
 
 - **Runtime**: `export const VERSION = '1.0.0'` → `export var VERSION /* const */`
 - **DTS**: `declare const VERSION = "1.0.0"` → `export declare const VERSION: string;`
 
-When `typeWiden` is `false`, literal values are preserved in the snapshot:
+When `typeWidening` is `false`, literal values are preserved in the snapshot:
 
 - **Runtime**: `export const VERSION = '1.0.0'` → `export var VERSION = '1.0.0' /* const */`
 - **DTS**: `declare const VERSION = "1.0.0"` → `export declare const VERSION = "1.0.0";`

@@ -38,7 +38,7 @@ export interface ApiSnapshotOptions {
    * When false, literal values are preserved as-is.
    * @default true
    */
-  typeWiden?: boolean
+  typeWidening?: boolean
 
   /**
    * Update snapshots instead of comparing.

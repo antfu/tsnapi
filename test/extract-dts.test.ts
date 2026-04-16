@@ -228,7 +228,7 @@ export { ApiSnapshot, type ApiSnapshotOptions };
     `)
   })
 
-  it('preserves literal initializers when typeWiden is false', () => {
+  it('preserves literal initializers when typeWidening is false', () => {
     const code = `
 declare const VERSION = "2.0.0";
 declare const COUNT = 42;
@@ -236,7 +236,7 @@ declare const DEBUG = true;
 declare const TYPED: string;
 export { VERSION, COUNT, DEBUG, TYPED };
 `
-    const result = extractDts('test.d.mts', code, { typeWiden: false })
+    const result = extractDts('test.d.mts', code, { typeWidening: false })
     expect(result).toMatchInlineSnapshot(`
       "// Variables
       export declare const COUNT = 42;
@@ -247,7 +247,7 @@ export { VERSION, COUNT, DEBUG, TYPED };
     `)
   })
 
-  it('widens literal initializers by default (typeWiden: true)', () => {
+  it('widens literal initializers by default (typeWidening: true)', () => {
     const code = `
 declare const VERSION = "2.0.0";
 declare const COUNT = 42;
