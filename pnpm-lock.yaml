@@ -20,6 +20,9 @@ importers:
       oxc-parser:
         specifier: ^0.125.0
         version: 0.125.0
+      tinyglobby:
+        specifier: ^0.2.16
+        version: 0.2.16
     devDependencies:
       '@antfu/eslint-config':
         specifier: ^8.2.0
