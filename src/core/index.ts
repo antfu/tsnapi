@@ -74,7 +74,7 @@ export function resolveUpdateMode(explicit?: boolean): boolean {
 export function generateApiSnapshot(cwd: string, options?: ApiSnapshotOptions): Record<string, { runtime: string, dts: string }> {
   const entries = resolvePackageEntries(cwd)
   const result: Record<string, { runtime: string, dts: string }> = {}
-  const extractOptions = { omitArgumentNames: options?.omitArgumentNames }
+  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWiden: options?.typeWiden }
   const showHeader = options?.header ?? true
   const packageName = showHeader ? readPackageName(cwd) : ''
 
@@ -126,7 +126,7 @@ function snapshotEntries(
 ): SnapshotResult {
   const { outputDir, ext, update } = resolveOptions(options)
   const resolvedOutputDir = resolve(cwd, outputDir)
-  const extractOptions = { omitArgumentNames: options?.omitArgumentNames }
+  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWiden: options?.typeWiden }
   const showHeader = options?.header ?? true
   const packageName = showHeader ? readPackageName(cwd) : ''
 

@@ -136,10 +136,28 @@ interface ApiSnapshotOptions {
   extensionRuntime?: string
   /** DTS snapshot extension. @default '.snapshot.d.ts' */
   extensionDts?: string
+  /** Omit argument names from function signatures. @default true */
+  omitArgumentNames?: boolean
+  /** Widen literal types to base types, hiding implementation details. @default true */
+  typeWiden?: boolean
   /** Update mode. Auto-detected from --update-snapshot / -u / UPDATE_SNAPSHOT=1 */
   update?: boolean
 }
 ```
+
+### `typeWiden`
+
+When `typeWiden` is `true` (default), literal values are widened to hide implementation details:
+
+- **Runtime**: `export const VERSION = '1.0.0'` → `export var VERSION /* const */`
+- **DTS**: `declare const VERSION = "1.0.0"` → `export declare const VERSION: string;`
+
+When `typeWiden` is `false`, literal values are preserved in the snapshot:
+
+- **Runtime**: `export const VERSION = '1.0.0'` → `export var VERSION = '1.0.0' /* const */`
+- **DTS**: `declare const VERSION = "1.0.0"` → `export declare const VERSION = "1.0.0";`
+
+This applies to string, number, boolean, null, bigint, and array literals. Non-literal values (function calls, complex objects) are always stripped regardless of this setting.
 
 ## Credits
 

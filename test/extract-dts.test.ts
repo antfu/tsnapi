@@ -228,6 +228,40 @@ export { ApiSnapshot, type ApiSnapshotOptions };
     `)
   })
 
+  it('preserves literal initializers when typeWiden is false', () => {
+    const code = `
+declare const VERSION = "2.0.0";
+declare const COUNT = 42;
+declare const DEBUG = true;
+declare const TYPED: string;
+export { VERSION, COUNT, DEBUG, TYPED };
+`
+    const result = extractDts('test.d.mts', code, { typeWiden: false })
+    expect(result).toMatchInlineSnapshot(`
+      "// Variables
+      export declare const COUNT = 42;
+      export declare const DEBUG = true;
+      export declare const TYPED: string;
+      export declare const VERSION = "2.0.0";
+      "
+    `)
+  })
+
+  it('widens literal initializers by default (typeWiden: true)', () => {
+    const code = `
+declare const VERSION = "2.0.0";
+declare const COUNT = 42;
+export { VERSION, COUNT };
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Variables
+      export declare const COUNT: number;
+      export declare const VERSION: string;
+      "
+    `)
+  })
+
   it('preserves argument names when omitArgumentNames is false', () => {
     const code = `
 export declare function build(config: BuildConfig, options?: Options): Promise<void>;

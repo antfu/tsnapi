@@ -92,6 +92,7 @@ function formatGroupedEntries(entries: DtsEntry[]): string {
 export function extractDts(fileName: string, code: string, options?: import('./extract-runtime.ts').ExtractOptions): string {
   const chunkSources = options?.chunkSources
   const omitArgs = options?.omitArgumentNames ?? true
+  const typeWiden = options?.typeWiden ?? true
   const { program, comments } = parseSync(fileName, code)
   const s = new MagicString(code)
   for (const c of comments)
@@ -131,7 +132,7 @@ export function extractDts(fileName: string, code: string, options?: import('./e
 
   for (const stmt of program.body) {
     if (stmt.type === 'ExportNamedDeclaration') {
-      processExportNamedDeclaration(stmt as any, s, entries, declMap, importMap, chunkSources, omitArgs)
+      processExportNamedDeclaration(stmt as any, s, entries, declMap, importMap, chunkSources, omitArgs, typeWiden)
     }
     else if (stmt.type === 'ExportDefaultDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
@@ -186,6 +187,7 @@ function processExportNamedDeclaration(
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
+  typeWiden = true,
 ): void {
   const decl = stmt.declaration
   if (decl) {
@@ -220,7 +222,7 @@ function processExportNamedDeclaration(
     else if (decl.type === 'VariableDeclaration') {
       for (const declarator of decl.declarations ?? []) {
         const name = declarator.id?.name ?? ''
-        const text = widenVariableDecl(s, decl, declarator, 'export ')
+        const text = widenVariableDecl(s, decl, declarator, 'export ', undefined, typeWiden)
         entries.push({ name, text, kind })
       }
     }
@@ -243,12 +245,12 @@ function processExportNamedDeclaration(
 
       const resolved = declMap.get(localName)
       if (resolved) {
-        const { text, kind } = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport, omitArgs)
+        const { text, kind } = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport, omitArgs, typeWiden)
         entries.push(formatDtsExportEntry(exportedName, text, kind))
       }
       else {
         // Try resolving through imports into chunk files
-        const chunkResolved = resolveFromChunkDts(localName, exportedName, isTypeExport, importMap, chunkSources, omitArgs)
+        const chunkResolved = resolveFromChunkDts(localName, exportedName, isTypeExport, importMap, chunkSources, omitArgs, typeWiden)
         if (chunkResolved) {
           entries.push(chunkResolved)
         }
@@ -276,6 +278,7 @@ function resolveFromChunkDts(
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
+  typeWiden = true,
 ): DtsEntry | undefined {
   if (!chunkSources)
     return undefined
@@ -307,7 +310,7 @@ function resolveFromChunkDts(
   if (!resolved)
     return undefined
 
-  const { text, kind } = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport, omitArgs)
+  const { text, kind } = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport, omitArgs, typeWiden)
   return formatDtsExportEntry(exportedName, text, kind)
 }
 
@@ -361,6 +364,7 @@ function extractResolvedDeclaration(
   exportedName: string,
   isTypeExport: boolean,
   omitArgs = true,
+  typeWiden = true,
 ): { text: string, kind: DtsEntryKind } {
   const { decl } = resolved
   const kind = kindFromDeclType(decl.type)
@@ -417,7 +421,7 @@ function extractResolvedDeclaration(
   if (decl.type === 'VariableDeclaration') {
     const declarator = decl._declarator ?? decl.declarations?.[0]
     if (declarator) {
-      return { text: widenVariableDecl(s, decl, declarator, 'export ', exportedName), kind }
+      return { text: widenVariableDecl(s, decl, declarator, 'export ', exportedName, typeWiden), kind }
     }
   }
 
@@ -438,6 +442,7 @@ function widenVariableDecl(
   declarator: any,
   prefix: string,
   nameOverride?: string,
+  typeWiden = true,
 ): string {
   const name = nameOverride ?? declarator.id?.name ?? ''
   const kind = decl.kind ?? 'const'
@@ -452,6 +457,12 @@ function widenVariableDecl(
       ? idText.replace(declarator.id.name, nameOverride)
       : idText
     return normalizeWhitespace(`${prefix}${declare}${kind} ${renamed};`)
+  }
+
+  // When typeWiden is false, preserve the original initializer
+  if (!typeWiden && init) {
+    const initText = s.slice(init.start, init.end).trim()
+    return normalizeWhitespace(`${prefix}${declare}${kind} ${name} = ${initText};`)
   }
 
   // Widen literal initializers to their base type

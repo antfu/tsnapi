@@ -7,6 +7,7 @@ export interface ApiSnapshotOptions {
   extensionDts?: string;
   header?: boolean;
   omitArgumentNames?: boolean;
+  typeWiden?: boolean;
   update?: boolean;
 }
 export interface ResolvedEntry {

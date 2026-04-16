@@ -32,6 +32,15 @@ export interface ApiSnapshotOptions {
   omitArgumentNames?: boolean
 
   /**
+   * Widen literal types to their base types in snapshots.
+   * When true, `const VERSION = "2.0.0"` becomes `const VERSION: string` in DTS
+   * and values are stripped in runtime snapshots.
+   * When false, literal values are preserved as-is.
+   * @default true
+   */
+  typeWiden?: boolean
+
+  /**
    * Update snapshots instead of comparing.
    * When not set, auto-detected from `--update-snapshot` / `-u` CLI flags
    * or `UPDATE_SNAPSHOT=1` environment variable.
