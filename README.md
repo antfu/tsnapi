@@ -97,6 +97,8 @@ tsnapi -u
 >   }
 > }
 > ```
+>
+> If you are using [`tsdown`](https://tsdown.dev), you can use [`tsdown-lock`](https://github.com/antfu-collective/tsdown-lock) to set up the build guard automatically.
 
 #### Single package
 
