@@ -28,12 +28,12 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
     extensionDts = '.snapshot.d.ts',
     header: showHeader = true,
     omitArgumentNames,
-    typeWiden,
+    typeWidening,
     update,
   } = options
 
   const ext: SnapshotExtensions = { runtime: extensionRuntime, dts: extensionDts }
-  const extractOptions = { omitArgumentNames, typeWiden }
+  const extractOptions = { omitArgumentNames, typeWidening }
 
   return {
     name: 'tsnapi',
