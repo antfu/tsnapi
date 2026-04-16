@@ -59,7 +59,7 @@
     "@vitest/utils": "^4.1.4",
     "cac": "^7.0.0",
     "magic-string": "^0.30.21",
-    "oxc-parser": "^0.125.0",
+    "oxc-parser": "^0.126.0",
     "tinyglobby": "^0.2.16"
   },
   "devDependencies": {
