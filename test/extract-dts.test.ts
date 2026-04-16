@@ -353,4 +353,48 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
       "
     `)
   })
+
+  it('preserves this parameter in function declarations', () => {
+    const code = `
+export declare function handler(this: Context, event: Event, data: string): void;
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Functions
+      export declare function handler(this: Context, _: Event, _: string): void;
+      "
+    `)
+  })
+
+  it('preserves this parameter in nested function types', () => {
+    const code = `
+export declare function create(): {
+  handler: (this: any, options: string, bundle: number) => void;
+};
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Functions
+      export declare function create(): {
+        handler: (this: any, _: string, _: number) => void;
+      };
+      "
+    `)
+  })
+
+  it('preserves this parameter in class methods', () => {
+    const code = `
+export declare class Emitter {
+  emit(this: Emitter, event: string): void;
+}
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Classes
+      export declare class Emitter {
+        emit(this: Emitter, _: string): void;
+      }
+      "
+    `)
+  })
 })
