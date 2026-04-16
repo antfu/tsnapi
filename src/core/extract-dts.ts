@@ -1,5 +1,5 @@
 import MagicString from 'magic-string'
-import { parseSync } from 'oxc-parser'
+import { parse } from 'oxc-parser'
 
 /**
  * Get the name from a ModuleExportName node (Identifier or StringLiteral).
@@ -89,11 +89,11 @@ function formatGroupedEntries(entries: DtsEntry[]): string {
   return `${sections.join('\n\n')}\n`
 }
 
-export function extractDts(fileName: string, code: string, options?: import('./extract-runtime.ts').ExtractOptions): string {
+export async function extractDts(fileName: string, code: string, options?: import('./extract-runtime.ts').ExtractOptions): Promise<string> {
   const chunkSources = options?.chunkSources
   const omitArgs = options?.omitArgumentNames ?? true
   const typeWidening = options?.typeWidening ?? true
-  const { program, comments } = parseSync(fileName, code)
+  const { program, comments } = await parse(fileName, code)
   const s = new MagicString(code)
   for (const c of comments)
     s.remove(c.start, c.end)
@@ -139,7 +139,7 @@ export function extractDts(fileName: string, code: string, options?: import('./e
 
   for (const stmt of program.body) {
     if (stmt.type === 'ExportNamedDeclaration') {
-      processExportNamedDeclaration(stmt as any, s, entries, declMap, importMap, chunkSources, omitArgs, typeWidening)
+      await processExportNamedDeclaration(stmt as any, s, entries, declMap, importMap, chunkSources, omitArgs, typeWidening)
     }
     else if (stmt.type === 'ExportDefaultDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
@@ -186,7 +186,7 @@ function collectDtsDeclarations(stmt: any, map: Map<string, { stmt: any, decl: a
   }
 }
 
-function processExportNamedDeclaration(
+async function processExportNamedDeclaration(
   stmt: any,
   s: MagicString,
   entries: DtsEntry[],
@@ -195,7 +195,7 @@ function processExportNamedDeclaration(
   chunkSources?: Map<string, string>,
   omitArgs = true,
   typeWidening = true,
-): void {
+): Promise<void> {
   const decl = stmt.declaration
   if (decl) {
     const kind = kindFromDeclType(decl.type)
@@ -257,7 +257,7 @@ function processExportNamedDeclaration(
       }
       else {
         // Try resolving through imports into chunk files
-        const chunkResolved = resolveFromChunkDts(localName, exportedName, isTypeExport, importMap, chunkSources, omitArgs, typeWidening)
+        const chunkResolved = await resolveFromChunkDts(localName, exportedName, isTypeExport, importMap, chunkSources, omitArgs, typeWidening)
         if (chunkResolved) {
           entries.push(chunkResolved)
         }
@@ -278,7 +278,7 @@ function processExportNamedDeclaration(
 /**
  * Resolve an import binding through a chunk DTS file to get the expanded declaration.
  */
-function resolveFromChunkDts(
+async function resolveFromChunkDts(
   localName: string,
   exportedName: string,
   isTypeExport: boolean,
@@ -286,7 +286,7 @@ function resolveFromChunkDts(
   chunkSources?: Map<string, string>,
   omitArgs = true,
   typeWidening = true,
-): DtsEntry | undefined {
+): Promise<DtsEntry | undefined> {
   if (!chunkSources)
     return undefined
   const importInfo = importMap.get(localName)
@@ -299,7 +299,7 @@ function resolveFromChunkDts(
   // Use .d.mts extension for parsing since the code is TypeScript DTS
   // (import source paths may use .mjs but the actual chunk code is .d.mts)
   const parseFileName = importInfo.source.replace(RE_MJS_EXT, '.d.mts')
-  const { program, comments: chunkComments } = parseSync(parseFileName, chunkCode)
+  const { program, comments: chunkComments } = await parse(parseFileName, chunkCode)
   const chunkS = new MagicString(chunkCode)
   for (const c of chunkComments)
     chunkS.remove(c.start, c.end)

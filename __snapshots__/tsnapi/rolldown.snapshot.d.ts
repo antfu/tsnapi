@@ -5,7 +5,7 @@ declare function _default(_?: ApiSnapshotOptions): {
   name: string;
   generateBundle: {
     order: 'post';
-    handler: (this: any, _: any, _: any) => void;
+    handler: (this: any, _: any, _: any) => Promise<void>;
   };
 };
 export default _default

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { diff } from '@vitest/utils/diff'
 
@@ -34,45 +34,45 @@ export function stripHeader(content: string): string {
 /**
  * Write snapshot files for an entry point.
  */
-export function writeSnapshot(
+export async function writeSnapshot(
   outputDir: string,
   entryName: string,
   snapshot: SnapshotFile,
   ext: SnapshotExtensions,
   header?: string,
-): void {
-  mkdirSync(outputDir, { recursive: true })
+): Promise<void> {
+  await mkdir(outputDir, { recursive: true })
 
   const runtimePath = join(outputDir, `${entryName}${ext.runtime}`)
   const dtsPath = join(outputDir, `${entryName}${ext.dts}`)
 
-  ensureDir(runtimePath)
-  ensureDir(dtsPath)
+  await ensureDir(runtimePath)
+  await ensureDir(dtsPath)
 
   const prefix = header ?? ''
-  writeFileSync(runtimePath, prefix + normalizeSnapshotContent(snapshot.runtime), 'utf-8')
-  writeFileSync(dtsPath, prefix + normalizeSnapshotContent(snapshot.dts), 'utf-8')
+  await writeFile(runtimePath, prefix + normalizeSnapshotContent(snapshot.runtime), 'utf-8')
+  await writeFile(dtsPath, prefix + normalizeSnapshotContent(snapshot.dts), 'utf-8')
 }
 
 /**
  * Read existing snapshot files for an entry point.
  * Returns null if either file doesn't exist.
  */
-export function readSnapshot(
+export async function readSnapshot(
   outputDir: string,
   entryName: string,
   ext: SnapshotExtensions,
-): SnapshotFile | null {
+): Promise<SnapshotFile | null> {
   const runtimePath = join(outputDir, `${entryName}${ext.runtime}`)
   const dtsPath = join(outputDir, `${entryName}${ext.dts}`)
 
-  if (!existsSync(runtimePath) || !existsSync(dtsPath)) {
+  if (!await fileExists(runtimePath) || !await fileExists(dtsPath)) {
     return null
   }
 
   return {
-    runtime: readFileSync(runtimePath, 'utf-8').replace(/\r\n/g, '\n'),
-    dts: readFileSync(dtsPath, 'utf-8').replace(/\r\n/g, '\n'),
+    runtime: (await readFile(runtimePath, 'utf-8')).replace(/\r\n/g, '\n'),
+    dts: (await readFile(dtsPath, 'utf-8')).replace(/\r\n/g, '\n'),
   }
 }
 
@@ -164,7 +164,17 @@ function normalizeSnapshotContent(content: string): string {
   return trimmed || '/* no exports */'
 }
 
-function ensureDir(filePath: string): void {
+async function ensureDir(filePath: string): Promise<void> {
   const dir = dirname(filePath)
-  mkdirSync(dir, { recursive: true })
+  await mkdir(dir, { recursive: true })
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path)
+    return true
+  }
+  catch {
+    return false
+  }
 }

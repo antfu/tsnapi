@@ -1,5 +1,5 @@
 import type { ResolvedEntry } from './types.ts'
-import { existsSync, readFileSync } from 'node:fs'
+import { access, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 const DTS_RE = /\.d\.[cm]?ts$/
@@ -9,16 +9,16 @@ const RUNTIME_CONDITIONS = ['import', 'module-sync', 'default', 'require'] as co
 /**
  * Resolve package.json exports field into runtime + DTS file pairs.
  */
-export function resolvePackageEntries(cwd: string): ResolvedEntry[] {
+export async function resolvePackageEntries(cwd: string): Promise<ResolvedEntry[]> {
   const pkgPath = join(cwd, 'package.json')
-  if (!existsSync(pkgPath))
+  if (!await fileExists(pkgPath))
     throw new Error(`No package.json found at ${cwd}`)
 
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+  const pkg = JSON.parse(await readFile(pkgPath, 'utf-8'))
   const entries: ResolvedEntry[] = []
 
   if (pkg.exports) {
-    resolveExportsField(pkg.exports, cwd, entries)
+    await resolveExportsField(pkg.exports, cwd, entries)
   }
   else {
     // Fallback to main/module/types
@@ -28,7 +28,7 @@ export function resolvePackageEntries(cwd: string): ResolvedEntry[] {
       entries.push({
         name: '.',
         runtime: runtime ? resolve(cwd, runtime) : null,
-        dts: dts ? resolve(cwd, dts) : (runtime ? tryResolveDts(runtime, cwd) : null),
+        dts: dts ? resolve(cwd, dts) : (runtime ? await tryResolveDts(runtime, cwd) : null),
       })
     }
   }
@@ -36,12 +36,12 @@ export function resolvePackageEntries(cwd: string): ResolvedEntry[] {
   return entries
 }
 
-function resolveExportsField(
+async function resolveExportsField(
   exports: any,
   cwd: string,
   entries: ResolvedEntry[],
   prefix = '.',
-): void {
+): Promise<void> {
   // String shorthand: "exports": "./dist/index.mjs"
   if (typeof exports === 'string') {
     const resolved = resolve(cwd, exports)
@@ -49,7 +49,7 @@ function resolveExportsField(
       entries.push({ name: prefix, runtime: null, dts: resolved })
     }
     else {
-      entries.push({ name: prefix, runtime: resolved, dts: tryResolveDts(exports, cwd) })
+      entries.push({ name: prefix, runtime: resolved, dts: await tryResolveDts(exports, cwd) })
     }
     return
   }
@@ -67,7 +67,7 @@ function resolveExportsField(
       entries.push({
         name: prefix,
         runtime: branch.runtime ? resolve(cwd, branch.runtime) : null,
-        dts: branch.dts ? resolve(cwd, branch.dts) : (branch.runtime ? tryResolveDts(branch.runtime, cwd) : null),
+        dts: branch.dts ? resolve(cwd, branch.dts) : (branch.runtime ? await tryResolveDts(branch.runtime, cwd) : null),
       })
     }
     return
@@ -82,7 +82,7 @@ function resolveExportsField(
       continue
 
     const subpath = key.startsWith('.') ? key : `./${key}`
-    resolveExportsField(value, cwd, entries, subpath)
+    await resolveExportsField(value, cwd, entries, subpath)
   }
 }
 
@@ -158,7 +158,7 @@ function resolveConditionBranches(
   return dedupeBranches(branches)
 }
 
-function tryResolveDts(runtimePath: string, cwd: string): string | null {
+async function tryResolveDts(runtimePath: string, cwd: string): Promise<string | null> {
   const candidates: string[] = []
   if (runtimePath.endsWith('.mjs'))
     candidates.push(runtimePath.replace(/\.mjs$/, '.d.mts'))
@@ -168,10 +168,20 @@ function tryResolveDts(runtimePath: string, cwd: string): string | null {
 
   for (const candidate of candidates) {
     const abs = resolve(cwd, candidate)
-    if (existsSync(abs))
+    if (await fileExists(abs))
       return abs
   }
   return null
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path)
+    return true
+  }
+  catch {
+    return false
+  }
 }
 
 function dedupeBranches(

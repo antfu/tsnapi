@@ -10,8 +10,8 @@ cli
   .command('[dir]', 'Snapshot exported API and types for TypeScript libraries')
   .option('-u, --update', 'Update snapshots instead of comparing')
   .option('-o, --output-dir <dir>', 'Snapshot output directory (default: __snapshots__/tsnapi)')
-  .action((dir: string | undefined, options: { update?: boolean, outputDir?: string }) => {
-    const result = snapshotPackage(dir ?? process.cwd(), {
+  .action(async (dir: string | undefined, options: { update?: boolean, outputDir?: string }) => {
+    const result = await snapshotPackage(dir ?? process.cwd(), {
       outputDir: options.outputDir,
       update: options.update,
     })

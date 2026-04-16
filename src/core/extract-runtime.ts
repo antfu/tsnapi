@@ -1,5 +1,5 @@
 import MagicString from 'magic-string'
-import { parseSync } from 'oxc-parser'
+import { parse } from 'oxc-parser'
 
 /**
  * Get the name from a ModuleExportName node (Identifier or StringLiteral).
@@ -32,11 +32,11 @@ export interface ExtractOptions {
  * Extract runtime export skeletons from a JS chunk.
  * Returns a formatted `.ts` snapshot string showing the API surface without implementations.
  */
-export function extractRuntime(fileName: string, code: string, options?: ExtractOptions): string {
+export async function extractRuntime(fileName: string, code: string, options?: ExtractOptions): Promise<string> {
   const chunkSources = options?.chunkSources
   const omitArgs = options?.omitArgumentNames ?? true
   const typeWidening = options?.typeWidening ?? true
-  const { program } = parseSync(fileName, code)
+  const { program } = await parse(fileName, code)
   const s = new MagicString(code)
   const entries: { name: string, text: string }[] = []
 
@@ -98,7 +98,7 @@ export function extractRuntime(fileName: string, code: string, options?: Extract
             }
             else {
               // Try resolving through imports into chunk files
-              const resolved = resolveFromChunkRuntime(localName, exportedName, importMap, chunkSources, omitArgs, typeWidening)
+              const resolved = await resolveFromChunkRuntime(localName, exportedName, importMap, chunkSources, omitArgs, typeWidening)
               if (resolved) {
                 entries.push(resolved)
               }
@@ -144,14 +144,14 @@ export function extractRuntime(fileName: string, code: string, options?: Extract
 /**
  * Resolve an import binding through a chunk file to get the expanded declaration.
  */
-function resolveFromChunkRuntime(
+async function resolveFromChunkRuntime(
   localName: string,
   exportedName: string,
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
   typeWidening = true,
-): { name: string, text: string } | undefined {
+): Promise<{ name: string, text: string } | undefined> {
   if (!chunkSources)
     return undefined
   const importInfo = importMap.get(localName)
@@ -161,7 +161,7 @@ function resolveFromChunkRuntime(
   if (!chunkCode)
     return undefined
 
-  const { program } = parseSync(importInfo.source, chunkCode)
+  const { program } = await parse(importInfo.source, chunkCode)
   const chunkS = new MagicString(chunkCode)
   const chunkDeclMap = new Map<string, any>()
   for (const stmt of program.body) {

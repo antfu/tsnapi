@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { extractDts } from '../src/core/extract-dts.ts'
 
 describe('extractDts', () => {
-  it('extracts interface exports', () => {
+  it('extracts interface exports', async () => {
     const code = `
 export interface Options {
   entry: string[];
@@ -10,7 +10,7 @@ export interface Options {
   format?: 'esm' | 'cjs';
 }
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Interfaces
       export interface Options {
@@ -22,12 +22,12 @@ export interface Options {
     `)
   })
 
-  it('extracts type alias exports', () => {
+  it('extracts type alias exports', async () => {
     const code = `
 export type Format = 'esm' | 'cjs' | 'iife';
 export type Entry = string | string[];
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Types
       export type Entry = string | string[];
@@ -36,11 +36,11 @@ export type Entry = string | string[];
     `)
   })
 
-  it('extracts function declaration exports', () => {
+  it('extracts function declaration exports', async () => {
     const code = `
 export declare function build(config: BuildConfig, options?: Options): Promise<void>;
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Functions
       export declare function build(_: BuildConfig, _?: Options): Promise<void>;
@@ -48,12 +48,12 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
     `)
   })
 
-  it('extracts variable exports', () => {
+  it('extracts variable exports', async () => {
     const code = `
 export declare const VERSION: string;
 export declare const DEFAULT_CONFIG: Options;
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Variables
       export declare const DEFAULT_CONFIG: Options;
@@ -62,7 +62,7 @@ export declare const DEFAULT_CONFIG: Options;
     `)
   })
 
-  it('extracts enum exports', () => {
+  it('extracts enum exports', async () => {
     const code = `
 export declare enum LogLevel {
   Debug = 0,
@@ -71,7 +71,7 @@ export declare enum LogLevel {
   Error = 3,
 }
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Enums
       export declare enum LogLevel {
@@ -84,7 +84,7 @@ export declare enum LogLevel {
     `)
   })
 
-  it('sorts exports alphabetically', () => {
+  it('sorts exports alphabetically', async () => {
     const code = `
 export type Zebra = string;
 export type Alpha = number;
@@ -92,7 +92,7 @@ export interface Middle {
   value: boolean;
 }
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Interfaces
       export interface Middle {
@@ -106,7 +106,7 @@ export interface Middle {
     `)
   })
 
-  it('widens literal initializers to base types', () => {
+  it('widens literal initializers to base types', async () => {
     const code = `
 declare const VERSION = "2.0.0";
 declare const COUNT = 42;
@@ -114,7 +114,7 @@ declare const DEBUG = true;
 declare const TYPED: string;
 export { VERSION, COUNT, DEBUG, TYPED };
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Variables
       export declare const COUNT: number;
@@ -125,7 +125,7 @@ export { VERSION, COUNT, DEBUG, TYPED };
     `)
   })
 
-  it('resolves aliased export specifiers', () => {
+  it('resolves aliased export specifiers', async () => {
     const code = `
 interface _Options {
   outputDir?: string;
@@ -134,7 +134,7 @@ interface _Options {
 declare function _build(config: _Options): Promise<void>;
 export { _build as build, type _Options as Options };
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Interfaces
       export interface Options {
@@ -148,12 +148,12 @@ export { _build as build, type _Options as Options };
     `)
   })
 
-  it('preserves re-exports from another module', () => {
+  it('preserves re-exports from another module', async () => {
     const code = `
 export { foo, bar as baz } from './other.js';
 export type { Foo, Bar as Baz } from './types.js';
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Re-exports
       export { foo, bar as baz } from './other.js';
@@ -162,7 +162,7 @@ export type { Foo, Bar as Baz } from './types.js';
     `)
   })
 
-  it('resolves exports through chunk imports', () => {
+  it('resolves exports through chunk imports', async () => {
     const entryCode = `
 import { a as SnapshotFile, c as formatError } from "./index-abc123.d.mts";
 export { SnapshotFile, formatError };
@@ -175,7 +175,7 @@ interface SnapshotFile {
 declare function formatMismatchError(mismatches: SnapshotMismatch[]): string;
 export { SnapshotFile as a, formatMismatchError as c };
 `
-    const result = extractDts('index.d.mts', entryCode, {
+    const result = await extractDts('index.d.mts', entryCode, {
       chunkSources: new Map([['./index-abc123.d.mts', chunkCode]]),
     })
     expect(result).toMatchInlineSnapshot(`
@@ -191,12 +191,12 @@ export { SnapshotFile as a, formatMismatchError as c };
     `)
   })
 
-  it('handles export { X as default } with valid syntax', () => {
+  it('handles export { X as default } with valid syntax', async () => {
     const code = `
 declare function rolldownPlugin(options?: ApiSnapshotOptions): { name: string };
 export { rolldownPlugin as default };
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Default Export
       declare function _default(_?: ApiSnapshotOptions): { name: string };
@@ -205,7 +205,7 @@ export { rolldownPlugin as default };
     `)
   })
 
-  it('resolves export specifiers to non-exported declarations', () => {
+  it('resolves export specifiers to non-exported declarations', async () => {
     const code = `
 interface ApiSnapshotOptions {
   outputDir?: string;
@@ -214,7 +214,7 @@ interface ApiSnapshotOptions {
 declare function ApiSnapshot(options?: ApiSnapshotOptions): Plugin;
 export { ApiSnapshot, type ApiSnapshotOptions };
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Interfaces
       export interface ApiSnapshotOptions {
@@ -228,7 +228,7 @@ export { ApiSnapshot, type ApiSnapshotOptions };
     `)
   })
 
-  it('preserves literal initializers when typeWidening is false', () => {
+  it('preserves literal initializers when typeWidening is false', async () => {
     const code = `
 declare const VERSION = "2.0.0";
 declare const COUNT = 42;
@@ -236,7 +236,7 @@ declare const DEBUG = true;
 declare const TYPED: string;
 export { VERSION, COUNT, DEBUG, TYPED };
 `
-    const result = extractDts('test.d.mts', code, { typeWidening: false })
+    const result = await extractDts('test.d.mts', code, { typeWidening: false })
     expect(result).toMatchInlineSnapshot(`
       "// Variables
       export declare const COUNT = 42;
@@ -247,13 +247,13 @@ export { VERSION, COUNT, DEBUG, TYPED };
     `)
   })
 
-  it('widens literal initializers by default (typeWidening: true)', () => {
+  it('widens literal initializers by default (typeWidening: true)', async () => {
     const code = `
 declare const VERSION = "2.0.0";
 declare const COUNT = 42;
 export { VERSION, COUNT };
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Variables
       export declare const COUNT: number;
@@ -262,11 +262,11 @@ export { VERSION, COUNT };
     `)
   })
 
-  it('preserves argument names when omitArgumentNames is false', () => {
+  it('preserves argument names when omitArgumentNames is false', async () => {
     const code = `
 export declare function build(config: BuildConfig, options?: Options): Promise<void>;
 `
-    const result = extractDts('test.d.mts', code, { omitArgumentNames: false })
+    const result = await extractDts('test.d.mts', code, { omitArgumentNames: false })
     expect(result).toMatchInlineSnapshot(`
       "// Functions
       export declare function build(config: BuildConfig, options?: Options): Promise<void>;
@@ -274,12 +274,12 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
     `)
   })
 
-  it('handles string literals containing //', () => {
+  it('handles string literals containing //', async () => {
     const code = `
 export type ErrorMsg = "To learn more, see https://example.com/docs";
 export declare const URL_PATTERN: "https://example.com/api";
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Types
       export type ErrorMsg = "To learn more, see https://example.com/docs";
@@ -290,13 +290,13 @@ export declare const URL_PATTERN: "https://example.com/api";
     `)
   })
 
-  it('strips line comments via AST', () => {
+  it('strips line comments via AST', async () => {
     const code = `
 // This is a line comment
 export type Foo = string;
 export declare const bar: number; // trailing comment
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Types
       export type Foo = string;
@@ -307,7 +307,7 @@ export declare const bar: number; // trailing comment
     `)
   })
 
-  it('strips block comments via AST', () => {
+  it('strips block comments via AST', async () => {
     const code = `
 /* block comment */
 export type Foo = string;
@@ -317,7 +317,7 @@ export interface Bar {
   baz: string;
 }
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Interfaces
       export interface Bar {
@@ -330,11 +330,11 @@ export interface Bar {
     `)
   })
 
-  it('preserves template literals containing //', () => {
+  it('preserves template literals containing //', async () => {
     const code = `
 export type Protocol = \`https://\${string}\`;
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Types
       export type Protocol = \`https://\${string}\`;
@@ -342,11 +342,11 @@ export type Protocol = \`https://\${string}\`;
     `)
   })
 
-  it('replaces argument names with _ by default', () => {
+  it('replaces argument names with _ by default', async () => {
     const code = `
 export declare function build(config: BuildConfig, options?: Options): Promise<void>;
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Functions
       export declare function build(_: BuildConfig, _?: Options): Promise<void>;
@@ -354,11 +354,11 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
     `)
   })
 
-  it('preserves this parameter in function declarations', () => {
+  it('preserves this parameter in function declarations', async () => {
     const code = `
 export declare function handler(this: Context, event: Event, data: string): void;
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Functions
       export declare function handler(this: Context, _: Event, _: string): void;
@@ -366,13 +366,13 @@ export declare function handler(this: Context, event: Event, data: string): void
     `)
   })
 
-  it('preserves this parameter in nested function types', () => {
+  it('preserves this parameter in nested function types', async () => {
     const code = `
 export declare function create(): {
   handler: (this: any, options: string, bundle: number) => void;
 };
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Functions
       export declare function create(): {
@@ -382,13 +382,13 @@ export declare function create(): {
     `)
   })
 
-  it('preserves this parameter in class methods', () => {
+  it('preserves this parameter in class methods', async () => {
     const code = `
 export declare class Emitter {
   emit(this: Emitter, event: string): void;
 }
 `
-    const result = extractDts('test.d.mts', code)
+    const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
       "// Classes
       export declare class Emitter {
