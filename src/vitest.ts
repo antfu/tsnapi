@@ -1,5 +1,5 @@
 import type { ApiSnapshotOptions } from './core/types.ts'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { globSync } from 'tinyglobby'
@@ -150,10 +150,10 @@ function resolveWorkspacePackages(cwd: string): string[] {
 
   const dirs: string[] = []
   for (const pattern of patterns) {
-    const matches = globSync(pattern, { cwd })
+    const matches = globSync(pattern, { cwd, onlyDirectories: true })
     for (const match of matches) {
       const abs = resolve(cwd, match)
-      if (statSync(abs, { throwIfNoEntry: false })?.isDirectory() && existsSync(join(abs, 'package.json'))) {
+      if (existsSync(join(abs, 'package.json'))) {
         dirs.push(abs)
       }
     }
