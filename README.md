@@ -86,11 +86,60 @@ tsnapi -u
 
 ### With Vitest
 
-Use `generateApiSnapshot` to extract the API surface as strings, then use Vitest's built-in snapshot system:
+`tsnapi/vitest` provides higher-level Vitest integration that uses [`toMatchFileSnapshot`](https://vitest.dev/guide/snapshot#file-snapshots) to store snapshots as individual files.
+
+#### Single package
 
 ```ts
-import { generateApiSnapshot } from 'tsnapi'
 // api.test.ts
+import { fileURLToPath } from 'node:url'
+import { snapshotApiPerEntry } from 'tsnapi/vitest'
+import { describe } from 'vitest'
+
+describe('my-lib API', () => {
+  snapshotApiPerEntry(
+    fileURLToPath(new URL('../packages/my-lib', import.meta.url))
+  )
+})
+```
+
+This creates `it()` blocks for each entry point, asserting both runtime and DTS snapshots. Snapshot files are written to `__snapshots__/tsnapi/<package-name>/` relative to the test file. Run `vitest -u` to update snapshots when you intentionally change the API.
+
+#### Monorepo
+
+For monorepos, `describePackagesApiSnapshots` creates a `describe()` block per package. When `packages` is omitted, it auto-discovers workspace packages from `pnpm-workspace.yaml` or the `workspaces` field in `package.json`:
+
+```ts
+// api.test.ts
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+// Auto-discovers all workspace packages
+describePackagesApiSnapshots()
+```
+
+Or provide explicit package paths:
+
+```ts
+import { fileURLToPath } from 'node:url'
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+describePackagesApiSnapshots({
+  packages: [
+    fileURLToPath(new URL('../packages/core', import.meta.url)),
+    fileURLToPath(new URL('../packages/utils', import.meta.url)),
+  ],
+})
+```
+
+Run `vitest -u` to update snapshots when you intentionally change the API.
+
+#### Low-level
+
+You can also use `generateApiSnapshot` directly with Vitest's built-in snapshot system:
+
+```ts
+// api.test.ts
+import { generateApiSnapshot } from 'tsnapi'
 import { expect, it } from 'vitest'
 
 const api = generateApiSnapshot(process.cwd())
@@ -103,8 +152,6 @@ it('type declarations', () => {
   expect(api['.'].dts).toMatchInlineSnapshot()
 })
 ```
-
-Run `vitest -u` to update the inline snapshots when you intentionally change the API.
 
 For packages with multiple entry points, each entry is keyed by its export path:
 

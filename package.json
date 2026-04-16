@@ -26,6 +26,7 @@
     ".": "./dist/index.mjs",
     "./cli": "./dist/cli.mjs",
     "./rolldown": "./dist/rolldown.mjs",
+    "./vitest": "./dist/vitest.mjs",
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.mts",
@@ -45,6 +46,14 @@
     "test": "vitest",
     "typecheck": "tsc",
     "prepare": "simple-git-hooks"
+  },
+  "peerDependencies": {
+    "vitest": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@vitest/utils": "^4.1.4",

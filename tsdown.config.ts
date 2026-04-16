@@ -6,6 +6,7 @@ export default defineConfig({
     'src/index.ts',
     'src/rolldown.ts',
     'src/cli.ts',
+    'src/vitest.ts',
   ],
   dts: true,
   exports: true,
