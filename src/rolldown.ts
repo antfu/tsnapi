@@ -1,6 +1,6 @@
 import type { SnapshotExtensions, SnapshotMismatch } from './core/snapshot.ts'
 import type { ApiSnapshotOptions } from './core/types.ts'
-import { existsSync, readFileSync } from 'node:fs'
+import { access, readFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { extractDts } from './core/extract-dts.ts'
@@ -20,7 +20,7 @@ const HASH_RE = /-[\w-]{6,}$/
 
 export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
   name: string
-  generateBundle: { order: 'post', handler: (this: any, outputOptions: any, bundle: any) => void }
+  generateBundle: { order: 'post', handler: (this: any, outputOptions: any, bundle: any) => Promise<void> }
 } {
   const {
     outputDir = '__snapshots__/tsnapi',
@@ -39,7 +39,7 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
     name: 'tsnapi',
     generateBundle: {
       order: 'post' as const,
-      handler(outputOptions, bundle) {
+      async handler(outputOptions, bundle) {
         const shouldUpdate = resolveUpdateMode(update)
         const projectRoot = outputOptions.dir
           ? dirname(resolve(outputOptions.dir))
@@ -83,32 +83,31 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
         let packageName = 'unknown'
         if (showHeader) {
           const pkgPath = join(projectRoot, 'package.json')
-          if (existsSync(pkgPath)) {
-            try {
-              packageName = JSON.parse(readFileSync(pkgPath, 'utf-8')).name ?? 'unknown'
-            }
-            catch {}
+          try {
+            await access(pkgPath)
+            packageName = JSON.parse(await readFile(pkgPath, 'utf-8')).name ?? 'unknown'
           }
+          catch {}
         }
 
         const mismatches: SnapshotMismatch[] = []
 
         for (const [stem, jsChunk] of jsChunks) {
           const dtsChunk = dtsChunks.get(stem)
-          const runtime = extractRuntime(jsChunk.fileName, jsChunk.code, { chunkSources: jsChunkSources, ...extractOptions })
-          const dts = dtsChunk ? extractDts(dtsChunk.fileName, dtsChunk.code, { chunkSources: dtsChunkSources, ...extractOptions }) : ''
+          const runtime = await extractRuntime(jsChunk.fileName, jsChunk.code, { chunkSources: jsChunkSources, ...extractOptions })
+          const dts = dtsChunk ? await extractDts(dtsChunk.fileName, dtsChunk.code, { chunkSources: dtsChunkSources, ...extractOptions }) : ''
           const header = showHeader ? generateHeader(packageName, stem === 'index' ? '.' : `./${stem}`) : undefined
           const current = { runtime, dts }
-          const existing = readSnapshot(resolvedOutputDir, stem, ext)
+          const existing = await readSnapshot(resolvedOutputDir, stem, ext)
 
           if (!existing || shouldUpdate) {
-            writeSnapshot(resolvedOutputDir, stem, current, ext, header)
+            await writeSnapshot(resolvedOutputDir, stem, current, ext, header)
           }
           else {
             const mismatch = compareSnapshots(stem, existing, current)
             if (mismatch) {
               mismatches.push(mismatch)
-              writeSnapshot(resolvedOutputDir, stem, current, ext, header)
+              await writeSnapshot(resolvedOutputDir, stem, current, ext, header)
             }
           }
         }

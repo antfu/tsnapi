@@ -155,7 +155,7 @@ describe('fixture: re-exports', () => {
 describe('generateApiSnapshot', () => {
   it('basic fixture', async () => {
     await buildFixture('basic')
-    const api = generateApiSnapshot(join(FIXTURES_DIR, 'basic'))
+    const api = await generateApiSnapshot(join(FIXTURES_DIR, 'basic'))
 
     expect(api['.']).toBeDefined()
     expect(api['.'].runtime).toMatchInlineSnapshot(`
@@ -192,7 +192,7 @@ describe('generateApiSnapshot', () => {
 
   it('sub-exports fixture with multiple entries', async () => {
     await buildFixture('sub-exports')
-    const api = generateApiSnapshot(join(FIXTURES_DIR, 'sub-exports'))
+    const api = await generateApiSnapshot(join(FIXTURES_DIR, 'sub-exports'))
 
     expect(Object.keys(api).sort()).toEqual(['.', './utils'])
 
@@ -225,7 +225,7 @@ describe('generateApiSnapshot', () => {
 
   it('re-exports fixture uses public names', async () => {
     await buildFixture('re-exports')
-    const api = generateApiSnapshot(join(FIXTURES_DIR, 're-exports'))
+    const api = await generateApiSnapshot(join(FIXTURES_DIR, 're-exports'))
 
     expect(api['.'].runtime).toMatchInlineSnapshot(`
       "/**

@@ -110,8 +110,8 @@ import { describe } from 'vitest'
 
 const dir = fileURLToPath(new URL('../packages/my-lib', import.meta.url))
 
-describe('my-lib API', () => {
-  snapshotApiPerEntry(dir)
+describe('my-lib API', async () => {
+  await snapshotApiPerEntry(dir)
 })
 ```
 
@@ -126,7 +126,7 @@ For monorepos, `describePackagesApiSnapshots` creates a `describe()` block per p
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
 
 // Auto-discovers all workspace packages
-describePackagesApiSnapshots()
+await describePackagesApiSnapshots()
 ```
 
 Or provide explicit package paths:
@@ -135,7 +135,7 @@ Or provide explicit package paths:
 import { fileURLToPath } from 'node:url'
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
 
-describePackagesApiSnapshots({
+await describePackagesApiSnapshots({
   packages: [
     fileURLToPath(new URL('../packages/core', import.meta.url)),
     fileURLToPath(new URL('../packages/utils', import.meta.url)),
@@ -162,7 +162,7 @@ Called for each discovered package. The context is mutable — modify any proper
 ```ts
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
 
-describePackagesApiSnapshots({
+await describePackagesApiSnapshots({
   filter(ctx) {
     // Skip private packages
     if (ctx.packageName.startsWith('@internal/'))
@@ -182,7 +182,7 @@ Lifecycle hooks registered inside each package's `describe` block via Vitest's `
 ```ts
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
 
-describePackagesApiSnapshots({
+await describePackagesApiSnapshots({
   beforeEach({ packageRoot, packageName }) {
     console.log(`Testing ${packageName} at ${packageRoot}`)
   },
@@ -198,7 +198,7 @@ For example, if you use [`tsdown-stale-guard`](https://github.com/antfu-collecti
 import { checkBuildFreshness } from 'tsdown-stale-guard'
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
 
-describePackagesApiSnapshots({
+await describePackagesApiSnapshots({
   async beforeEach({ packageRoot, packageName }) {
     const result = await checkBuildFreshness({ cwd: packageRoot })
     if (!result.fresh) {
@@ -221,7 +221,7 @@ You can also use `generateApiSnapshot` directly with Vitest's built-in snapshot 
 import { generateApiSnapshot } from 'tsnapi'
 import { expect, it } from 'vitest'
 
-const api = generateApiSnapshot(process.cwd())
+const api = await generateApiSnapshot(process.cwd())
 
 it('runtime API', () => {
   expect(api['.'].runtime).toMatchInlineSnapshot()
@@ -235,7 +235,7 @@ it('type declarations', () => {
 For packages with multiple entry points, each entry is keyed by its export path:
 
 ```ts
-const api = generateApiSnapshot(process.cwd())
+const api = await generateApiSnapshot(process.cwd())
 expect(api['./utils'].runtime).toMatchSnapshot()
 ```
 
@@ -245,7 +245,7 @@ expect(api['./utils'].runtime).toMatchSnapshot()
 import { snapshotPackage } from 'tsnapi'
 
 // Snapshot current package
-const result = snapshotPackage(process.cwd())
+const result = await snapshotPackage(process.cwd())
 
 if (result.hasChanges) {
   console.error(result.diff)

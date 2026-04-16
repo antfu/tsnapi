@@ -27,14 +27,14 @@ afterEach(() => {
 })
 
 describe('resolvePackageEntries', () => {
-  it('resolves fallback main/module/types when exports is missing', () => {
+  it('resolves fallback main/module/types when exports is missing', async () => {
     const cwd = createTempFixture({
       name: 'fixture',
       module: './dist/index.mjs',
       types: './dist/index.d.ts',
     })
 
-    expect(resolvePackageEntries(cwd)).toEqual([
+    expect(await resolvePackageEntries(cwd)).toEqual([
       {
         name: '.',
         runtime: resolve(cwd, './dist/index.mjs'),
@@ -43,13 +43,13 @@ describe('resolvePackageEntries', () => {
     ])
   })
 
-  it('resolves string shorthand exports', () => {
+  it('resolves string shorthand exports', async () => {
     const cwd = createTempFixture({
       name: 'fixture',
       exports: './dist/index.mjs',
     })
 
-    expect(resolvePackageEntries(cwd)).toEqual([
+    expect(await resolvePackageEntries(cwd)).toEqual([
       {
         name: '.',
         runtime: resolve(cwd, './dist/index.mjs'),
@@ -58,7 +58,7 @@ describe('resolvePackageEntries', () => {
     ])
   })
 
-  it('resolves top-level import + types into one entry', () => {
+  it('resolves top-level import + types into one entry', async () => {
     const cwd = createTempFixture({
       name: 'fixture',
       exports: {
@@ -69,7 +69,7 @@ describe('resolvePackageEntries', () => {
       },
     })
 
-    expect(resolvePackageEntries(cwd)).toEqual([
+    expect(await resolvePackageEntries(cwd)).toEqual([
       {
         name: '.',
         runtime: resolve(cwd, './dist/index.mjs'),
@@ -78,7 +78,7 @@ describe('resolvePackageEntries', () => {
     ])
   })
 
-  it('resolves nested import/require conditions by taking the first matching runtime and types', () => {
+  it('resolves nested import/require conditions by taking the first matching runtime and types', async () => {
     const cwd = createTempFixture({
       name: 'fixture',
       exports: {
@@ -97,7 +97,7 @@ describe('resolvePackageEntries', () => {
       },
     })
 
-    expect(resolvePackageEntries(cwd)).toEqual([
+    expect(await resolvePackageEntries(cwd)).toEqual([
       {
         name: '.',
         runtime: resolve(cwd, './dist/index.js'),
@@ -111,7 +111,7 @@ describe('resolvePackageEntries', () => {
     ])
   })
 
-  it('resolves require branch when import is missing', () => {
+  it('resolves require branch when import is missing', async () => {
     const cwd = createTempFixture({
       name: 'fixture',
       exports: {
@@ -124,7 +124,7 @@ describe('resolvePackageEntries', () => {
       },
     })
 
-    expect(resolvePackageEntries(cwd)).toEqual([
+    expect(await resolvePackageEntries(cwd)).toEqual([
       {
         name: '.',
         runtime: resolve(cwd, './dist/index.cjs'),
@@ -133,7 +133,7 @@ describe('resolvePackageEntries', () => {
     ])
   })
 
-  it('resolves subpath exports and ignores package.json and wildcard', () => {
+  it('resolves subpath exports and ignores package.json and wildcard', async () => {
     const cwd = createTempFixture({
       name: 'fixture',
       exports: {
@@ -150,7 +150,7 @@ describe('resolvePackageEntries', () => {
       },
     })
 
-    expect(resolvePackageEntries(cwd)).toEqual([
+    expect(await resolvePackageEntries(cwd)).toEqual([
       {
         name: '.',
         runtime: resolve(cwd, './dist/index.mjs'),
@@ -164,7 +164,7 @@ describe('resolvePackageEntries', () => {
     ])
   })
 
-  it('resolves nested import/require conditions for multiple subpaths with both branches', () => {
+  it('resolves nested import/require conditions for multiple subpaths with both branches', async () => {
     const cwd = createTempFixture({
       name: 'fixture',
       exports: {
@@ -193,7 +193,7 @@ describe('resolvePackageEntries', () => {
       },
     })
 
-    expect(resolvePackageEntries(cwd)).toEqual([
+    expect(await resolvePackageEntries(cwd)).toEqual([
       {
         name: '.',
         runtime: resolve(cwd, './dist/index.js'),
@@ -218,13 +218,13 @@ describe('resolvePackageEntries', () => {
   })
 
   describe('implicit dts resolution', () => {
-    it('resolves .d.ts from string shorthand exports when file exists', () => {
+    it('resolves .d.ts from string shorthand exports when file exists', async () => {
       const cwd = createTempFixture({
         name: 'fixture',
         exports: './dist/index.js',
       }, ['dist/index.d.ts'])
 
-      expect(resolvePackageEntries(cwd)).toEqual([
+      expect(await resolvePackageEntries(cwd)).toEqual([
         {
           name: '.',
           runtime: resolve(cwd, './dist/index.js'),
@@ -233,7 +233,7 @@ describe('resolvePackageEntries', () => {
       ])
     })
 
-    it('resolves .d.mts from .mjs export when file exists', () => {
+    it('resolves .d.mts from .mjs export when file exists', async () => {
       const cwd = createTempFixture({
         name: 'fixture',
         exports: {
@@ -243,7 +243,7 @@ describe('resolvePackageEntries', () => {
         },
       }, ['dist/index.d.mts'])
 
-      expect(resolvePackageEntries(cwd)).toEqual([
+      expect(await resolvePackageEntries(cwd)).toEqual([
         {
           name: '.',
           runtime: resolve(cwd, './dist/index.mjs'),
@@ -252,7 +252,7 @@ describe('resolvePackageEntries', () => {
       ])
     })
 
-    it('falls back to .d.ts when .d.mts does not exist', () => {
+    it('falls back to .d.ts when .d.mts does not exist', async () => {
       const cwd = createTempFixture({
         name: 'fixture',
         exports: {
@@ -262,7 +262,7 @@ describe('resolvePackageEntries', () => {
         },
       }, ['dist/index.d.ts'])
 
-      expect(resolvePackageEntries(cwd)).toEqual([
+      expect(await resolvePackageEntries(cwd)).toEqual([
         {
           name: '.',
           runtime: resolve(cwd, './dist/index.mjs'),
@@ -271,7 +271,7 @@ describe('resolvePackageEntries', () => {
       ])
     })
 
-    it('resolves .d.cts from .cjs export when file exists', () => {
+    it('resolves .d.cts from .cjs export when file exists', async () => {
       const cwd = createTempFixture({
         name: 'fixture',
         exports: {
@@ -281,7 +281,7 @@ describe('resolvePackageEntries', () => {
         },
       }, ['dist/index.d.cts'])
 
-      expect(resolvePackageEntries(cwd)).toEqual([
+      expect(await resolvePackageEntries(cwd)).toEqual([
         {
           name: '.',
           runtime: resolve(cwd, './dist/index.cjs'),
@@ -290,13 +290,13 @@ describe('resolvePackageEntries', () => {
       ])
     })
 
-    it('returns dts null when no declaration file exists on disk', () => {
+    it('returns dts null when no declaration file exists on disk', async () => {
       const cwd = createTempFixture({
         name: 'fixture',
         exports: './dist/index.js',
       })
 
-      expect(resolvePackageEntries(cwd)).toEqual([
+      expect(await resolvePackageEntries(cwd)).toEqual([
         {
           name: '.',
           runtime: resolve(cwd, './dist/index.js'),
@@ -305,13 +305,13 @@ describe('resolvePackageEntries', () => {
       ])
     })
 
-    it('resolves dts from legacy main/module fallback when no types field', () => {
+    it('resolves dts from legacy main/module fallback when no types field', async () => {
       const cwd = createTempFixture({
         name: 'fixture',
         module: './dist/index.mjs',
       }, ['dist/index.d.mts'])
 
-      expect(resolvePackageEntries(cwd)).toEqual([
+      expect(await resolvePackageEntries(cwd)).toEqual([
         {
           name: '.',
           runtime: resolve(cwd, './dist/index.mjs'),

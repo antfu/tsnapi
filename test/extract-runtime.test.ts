@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { extractRuntime } from '../src/core/extract-runtime.ts'
 
 describe('extractRuntime', () => {
-  it('extracts function exports with empty bodies', () => {
+  it('extracts function exports with empty bodies', async () => {
     const code = `
 export function hello(name) {
   return 'hello ' + name;
@@ -13,7 +13,7 @@ export async function fetchData(url, options) {
   return res.json();
 }
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export async function fetchData(_, _) {}
       export function hello(_) {}
@@ -21,7 +21,7 @@ export async function fetchData(url, options) {
     `)
   })
 
-  it('extracts variable exports without values', () => {
+  it('extracts variable exports without values', async () => {
     const code = `
 export const VERSION = '1.0.0';
 export const DEBUG = true;
@@ -30,7 +30,7 @@ export const config = { foo: 'bar' };
 export const items = [1, 2, 3];
 export const computed = something();
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export var computed /* const */
       export var config /* const */
@@ -42,7 +42,7 @@ export const computed = something();
     `)
   })
 
-  it('extracts class exports with method bodies', () => {
+  it('extracts class exports with method bodies', async () => {
     const code = `
 export class MyService {
   constructor(config) {
@@ -59,7 +59,7 @@ export class MyService {
   }
 }
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export class MyService {
         constructor(_) {}
@@ -71,35 +71,35 @@ export class MyService {
     `)
   })
 
-  it('extracts re-exports', () => {
+  it('extracts re-exports', async () => {
     const code = `export { foo, bar as baz } from './other.js';`
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export { foo, bar as baz } from './other.js';
       "
     `)
   })
 
-  it('extracts default exports', () => {
+  it('extracts default exports', async () => {
     const code = `
 export default function main(args) {
   return run(args);
 }
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export default function main(_) {}
       "
     `)
   })
 
-  it('sorts exports alphabetically', () => {
+  it('sorts exports alphabetically', async () => {
     const code = `
 export function zebra() {}
 export function alpha() {}
 export function middle() {}
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export function alpha() {}
       export function middle() {}
@@ -108,7 +108,7 @@ export function middle() {}
     `)
   })
 
-  it('resolves local export specifiers to declarations', () => {
+  it('resolves local export specifiers to declarations', async () => {
     const code = `
 function greet(name) {
   return 'hello ' + name;
@@ -124,7 +124,7 @@ class App {
 }
 export { App, VERSION, greet };
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export class App {
         constructor(_) {}
@@ -136,7 +136,7 @@ export { App, VERSION, greet };
     `)
   })
 
-  it('recovers class from var X = class { ... } pattern', () => {
+  it('recovers class from var X = class { ... } pattern', async () => {
     const code = `
 var Logger = class {
   constructor(prefix) {
@@ -151,7 +151,7 @@ var Logger = class {
 };
 export { Logger };
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export class Logger {
         constructor(_) {}
@@ -162,7 +162,7 @@ export { Logger };
     `)
   })
 
-  it('resolves aliased local exports to declarations', () => {
+  it('resolves aliased local exports to declarations', async () => {
     const code = `
 function internalGreet(name) {
   return 'hello ' + name;
@@ -178,7 +178,7 @@ class _App {
 }
 export { _App as App, _version as VERSION, internalGreet as greet };
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export class App {
         constructor(_) {}
@@ -190,28 +190,28 @@ export { _App as App, _version as VERSION, internalGreet as greet };
     `)
   })
 
-  it('handles aliased export without local declaration', () => {
+  it('handles aliased export without local declaration', async () => {
     const code = `
 import { something } from './other.js';
 export { something as publicName };
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export { something as publicName }
       "
     `)
   })
 
-  it('extracts re-exports from another module with aliases', () => {
+  it('extracts re-exports from another module with aliases', async () => {
     const code = `export { default as MyLib, Options } from './lib.js';`
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export { default as MyLib, Options } from './lib.js';
       "
     `)
   })
 
-  it('resolves exports through chunk imports', () => {
+  it('resolves exports through chunk imports', async () => {
     const entryCode = `
 import { a as resolveEntries, i as resolveDir } from "./core-abc123.mjs";
 export { resolveDir, resolveEntries };
@@ -225,7 +225,7 @@ function resolvePackageDir(name, cwd) {
 }
 export { resolvePackageEntries as a, resolvePackageDir as i };
 `
-    const result = extractRuntime('index.mjs', entryCode, {
+    const result = await extractRuntime('index.mjs', entryCode, {
       chunkSources: new Map([['./core-abc123.mjs', chunkCode]]),
     })
     expect(result).toMatchInlineSnapshot(`
@@ -235,14 +235,14 @@ export { resolvePackageEntries as a, resolvePackageDir as i };
     `)
   })
 
-  it('handles export { X as default } with valid syntax', () => {
+  it('handles export { X as default } with valid syntax', async () => {
     const code = `
 function rolldownPlugin(options) {
   return { name: 'test' };
 }
 export { rolldownPlugin as default };
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "function _default(_) {}
       export default _default
@@ -250,7 +250,7 @@ export { rolldownPlugin as default };
     `)
   })
 
-  it('handles export { X as default } for class', () => {
+  it('handles export { X as default } for class', async () => {
     const code = `
 var MyClass = class {
   constructor(config) {
@@ -262,7 +262,7 @@ var MyClass = class {
 };
 export { MyClass as default };
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "class _default {
         constructor(_) {}
@@ -273,21 +273,21 @@ export { MyClass as default };
     `)
   })
 
-  it('recovers function from var X = function(...) pattern', () => {
+  it('recovers function from var X = function(...) pattern', async () => {
     const code = `
 var compute = function(a, b) {
   return a + b;
 };
 export { compute };
 `
-    const result = extractRuntime('test.mjs', code)
+    const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
       "export function compute(_, _) {}
       "
     `)
   })
 
-  it('preserves literal values when typeWidening is false', () => {
+  it('preserves literal values when typeWidening is false', async () => {
     const code = `
 export const VERSION = '1.0.0';
 export const DEBUG = true;
@@ -295,7 +295,7 @@ export const COUNT = 42;
 export const EMPTY = null;
 export const BIG = 100n;
 `
-    const result = extractRuntime('test.mjs', code, { typeWidening: false })
+    const result = await extractRuntime('test.mjs', code, { typeWidening: false })
     expect(result).toMatchInlineSnapshot(`
       "export var BIG = 100n /* const */
       export var COUNT = 42 /* const */
@@ -306,13 +306,13 @@ export const BIG = 100n;
     `)
   })
 
-  it('strips non-literal values even when typeWidening is false', () => {
+  it('strips non-literal values even when typeWidening is false', async () => {
     const code = `
 export const config = createConfig();
 export const obj = { foo: 'bar' };
 export const computed = a + b;
 `
-    const result = extractRuntime('test.mjs', code, { typeWidening: false })
+    const result = await extractRuntime('test.mjs', code, { typeWidening: false })
     expect(result).toMatchInlineSnapshot(`
       "export var computed /* const */
       export var config /* const */
@@ -321,12 +321,12 @@ export const computed = a + b;
     `)
   })
 
-  it('preserves array literals when typeWidening is false', () => {
+  it('preserves array literals when typeWidening is false', async () => {
     const code = `
 export const ITEMS = [1, 2, 3];
 export const MIXED = [1, 'two', true];
 `
-    const result = extractRuntime('test.mjs', code, { typeWidening: false })
+    const result = await extractRuntime('test.mjs', code, { typeWidening: false })
     expect(result).toMatchInlineSnapshot(`
       "export var ITEMS = [1, 2, 3] /* const */
       export var MIXED = [1, 'two', true] /* const */
@@ -334,7 +334,7 @@ export const MIXED = [1, 'two', true];
     `)
   })
 
-  it('preserves argument names when omitArgumentNames is false', () => {
+  it('preserves argument names when omitArgumentNames is false', async () => {
     const code = `
 export function greet(name) {
   return 'hello ' + name;
@@ -348,7 +348,7 @@ export class App {
   }
 }
 `
-    const result = extractRuntime('test.mjs', code, { omitArgumentNames: false })
+    const result = await extractRuntime('test.mjs', code, { omitArgumentNames: false })
     expect(result).toMatchInlineSnapshot(`
       "export class App {
         constructor(config) {}

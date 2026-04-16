@@ -20,5 +20,5 @@ export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgume
 }
 
 // Functions
-export declare function describePackagesApiSnapshots(_?: DescribePackagesApiSnapshotsOptions): void;
-export declare function snapshotApiPerEntry(_: string, _?: SnapshotApiOptions): void;
+export declare function describePackagesApiSnapshots(_?: DescribePackagesApiSnapshotsOptions): Promise<void>;
+export declare function snapshotApiPerEntry(_: string, _?: SnapshotApiOptions): Promise<void>;
