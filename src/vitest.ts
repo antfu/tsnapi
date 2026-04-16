@@ -1,11 +1,11 @@
 import type { ApiSnapshotOptions } from './core/types.ts'
-import { access, readFile } from 'node:fs/promises'
+import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
-import { glob } from 'tinyglobby'
+import { globSync } from 'tinyglobby'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { generateApiSnapshot } from './core/index.ts'
-import { resolvePackageEntries } from './core/resolve.ts'
+import { resolvePackageEntriesSync } from './core/resolve.ts'
 
 export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header'> {
   /**
@@ -64,14 +64,15 @@ export interface DescribePackagesApiSnapshotsOptions extends SnapshotApiOptions 
  * Create `it()` blocks for each entry point of a package,
  * asserting runtime and DTS snapshots via `toMatchFileSnapshot`.
  *
- * Entry names are resolved from `package.json` at registration time,
- * but dist files are read lazily inside each `it()` block,
+ * Entry names are resolved from `package.json` at registration time
+ * using synchronous I/O (vitest's `describe` does not support async callbacks).
+ * Dist files are read lazily inside each `it()` block,
  * so `beforeAll` hooks can build the package first.
  */
-export async function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOptions): Promise<void> {
+export function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOptions): void {
   const outputDir = options?.outputDir ?? '__snapshots__/tsnapi'
-  const pkgName = await readPackageName(cwd) ?? 'unknown'
-  const entries = await resolvePackageEntries(cwd)
+  const pkgName = readPackageName(cwd) ?? 'unknown'
+  const entries = resolvePackageEntriesSync(cwd)
 
   if (entries.length === 0) {
     it.skip('no exports', () => {})
@@ -107,13 +108,13 @@ export async function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOpti
  * Auto-discovers packages from `pnpm-workspace.yaml` or `package.json` workspaces
  * when `packages` is omitted.
  */
-export async function describePackagesApiSnapshots(options?: DescribePackagesApiSnapshotsOptions): Promise<void> {
+export function describePackagesApiSnapshots(options?: DescribePackagesApiSnapshotsOptions): void {
   const cwd = options?.cwd ?? process.cwd()
-  const dirs = options?.packages ?? await resolveWorkspacePackages(cwd)
+  const dirs = options?.packages ?? resolveWorkspacePackages(cwd)
   const defaultOutputDir = options?.outputDir ?? '__snapshots__/tsnapi'
 
   for (const dir of dirs) {
-    const pkgName = await readPackageName(dir) ?? dir
+    const pkgName = readPackageName(dir) ?? dir
     const ctx: PackageContext = { cwd, workspaceRoot: cwd, packageRoot: dir, packageName: pkgName, outputDir: defaultOutputDir }
 
     if (options?.filter) {
@@ -131,58 +132,55 @@ export async function describePackagesApiSnapshots(options?: DescribePackagesApi
   }
 }
 
-async function readPackageName(cwd: string): Promise<string | undefined> {
+function readPackageName(cwd: string): string | undefined {
   const pkgPath = join(cwd, 'package.json')
   try {
-    await access(pkgPath)
-    return JSON.parse(await readFile(pkgPath, 'utf-8')).name
+    if (!existsSync(pkgPath))
+      return undefined
+    return JSON.parse(readFileSync(pkgPath, 'utf-8')).name
   }
   catch {
     return undefined
   }
 }
 
-async function resolveWorkspacePackages(cwd: string): Promise<string[]> {
-  const patterns = await readWorkspacePatterns(cwd)
+function resolveWorkspacePackages(cwd: string): string[] {
+  const patterns = readWorkspacePatterns(cwd)
   if (!patterns.length)
     throw new Error(`No workspace patterns found in ${cwd}. Provide \`packages\` explicitly or add pnpm-workspace.yaml / package.json workspaces.`)
 
   const dirs: string[] = []
   for (const pattern of patterns) {
-    const matches = await glob(pattern, { cwd, onlyDirectories: true })
+    const matches = globSync(pattern, { cwd, onlyDirectories: true })
     for (const match of matches) {
       const abs = resolve(cwd, match)
-      try {
-        await access(join(abs, 'package.json'))
+      if (existsSync(join(abs, 'package.json')))
         dirs.push(abs)
-      }
-      catch {}
     }
   }
 
   return dirs.sort()
 }
 
-async function readWorkspacePatterns(cwd: string): Promise<string[]> {
+function readWorkspacePatterns(cwd: string): string[] {
   // Try pnpm-workspace.yaml first
   const pnpmPath = join(cwd, 'pnpm-workspace.yaml')
-  try {
-    await access(pnpmPath)
-    const content = await readFile(pnpmPath, 'utf-8')
+  if (existsSync(pnpmPath)) {
+    const content = readFileSync(pnpmPath, 'utf-8')
     return parsePnpmWorkspaceYaml(content)
   }
-  catch {}
 
   // Fall back to package.json workspaces
   const pkgPath = join(cwd, 'package.json')
-  try {
-    await access(pkgPath)
-    const pkg = JSON.parse(await readFile(pkgPath, 'utf-8'))
-    const workspaces = Array.isArray(pkg.workspaces) ? pkg.workspaces : pkg.workspaces?.packages
-    if (Array.isArray(workspaces))
-      return workspaces
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+      const workspaces = Array.isArray(pkg.workspaces) ? pkg.workspaces : pkg.workspaces?.packages
+      if (Array.isArray(workspaces))
+        return workspaces
+    }
+    catch {}
   }
-  catch {}
 
   return []
 }

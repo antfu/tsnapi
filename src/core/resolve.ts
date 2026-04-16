@@ -1,4 +1,5 @@
 import type { ResolvedEntry } from './types.ts'
+import { existsSync, readFileSync } from 'node:fs'
 import { access, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
@@ -199,4 +200,96 @@ function dedupeBranches(
   }
 
   return deduped
+}
+
+/**
+ * Synchronous variant of `resolvePackageEntries` for use in vitest
+ * `describe()` callbacks, which cannot be async.
+ */
+export function resolvePackageEntriesSync(cwd: string): ResolvedEntry[] {
+  const pkgPath = join(cwd, 'package.json')
+  if (!existsSync(pkgPath))
+    throw new Error(`No package.json found at ${cwd}`)
+
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+  const entries: ResolvedEntry[] = []
+
+  if (pkg.exports) {
+    resolveExportsFieldSync(pkg.exports, cwd, entries)
+  }
+  else {
+    const runtime = pkg.module || pkg.main
+    const dts = pkg.types || pkg.typings
+    if (runtime || dts) {
+      entries.push({
+        name: '.',
+        runtime: runtime ? resolve(cwd, runtime) : null,
+        dts: dts ? resolve(cwd, dts) : (runtime ? tryResolveDtsSync(runtime, cwd) : null),
+      })
+    }
+  }
+
+  return entries
+}
+
+function resolveExportsFieldSync(
+  exports: any,
+  cwd: string,
+  entries: ResolvedEntry[],
+  prefix = '.',
+): void {
+  if (typeof exports === 'string') {
+    const resolved = resolve(cwd, exports)
+    if (DTS_RE.test(exports)) {
+      entries.push({ name: prefix, runtime: null, dts: resolved })
+    }
+    else {
+      entries.push({ name: prefix, runtime: resolved, dts: tryResolveDtsSync(exports, cwd) })
+    }
+    return
+  }
+
+  if (typeof exports !== 'object' || exports === null)
+    return
+
+  const keys = Object.keys(exports)
+  const isConditions = keys.some(k => ['import', 'require', 'default', 'types', 'module-sync'].includes(k))
+
+  if (isConditions) {
+    const resolvedBranches = resolveConditionBranches(exports)
+    for (const branch of resolvedBranches) {
+      entries.push({
+        name: prefix,
+        runtime: branch.runtime ? resolve(cwd, branch.runtime) : null,
+        dts: branch.dts ? resolve(cwd, branch.dts) : (branch.runtime ? tryResolveDtsSync(branch.runtime, cwd) : null),
+      })
+    }
+    return
+  }
+
+  for (const [key, value] of Object.entries(exports)) {
+    if (key === './package.json')
+      continue
+    if (key.includes('*'))
+      continue
+
+    const subpath = key.startsWith('.') ? key : `./${key}`
+    resolveExportsFieldSync(value, cwd, entries, subpath)
+  }
+}
+
+function tryResolveDtsSync(runtimePath: string, cwd: string): string | null {
+  const candidates: string[] = []
+  if (runtimePath.endsWith('.mjs'))
+    candidates.push(runtimePath.replace(/\.mjs$/, '.d.mts'))
+  else if (runtimePath.endsWith('.cjs'))
+    candidates.push(runtimePath.replace(/\.cjs$/, '.d.cts'))
+  candidates.push(runtimePath.replace(/\.[cm]?[jt]sx?$/, '.d.ts'))
+
+  for (const candidate of candidates) {
+    const abs = resolve(cwd, candidate)
+    if (existsSync(abs))
+      return abs
+  }
+  return null
 }

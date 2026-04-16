@@ -49,6 +49,7 @@ export declare function generateApiSnapshot(_: string, _?: ApiSnapshotOptions): 
 }>>;
 export declare function readSnapshot(_: string, _: string, _: SnapshotExtensions): Promise<SnapshotFile | null>;
 export declare function resolvePackageEntries(_: string): Promise<ResolvedEntry[]>;
+export declare function resolvePackageEntriesSync(_: string): ResolvedEntry[];
 export declare function snapshotFiles(_: {
   name: string;
   runtime?: string;

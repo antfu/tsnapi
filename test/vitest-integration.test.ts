@@ -7,7 +7,7 @@ const FIXTURES_DIR = join(import.meta.dirname, 'fixtures')
 const fixtures = ['basic', 'sub-exports', 're-exports'] as const
 
 for (const fixture of fixtures) {
-  describe(fixture, async () => {
-    await snapshotApiPerEntry(join(FIXTURES_DIR, fixture))
+  describe(fixture, () => {
+    snapshotApiPerEntry(join(FIXTURES_DIR, fixture))
   })
 }
