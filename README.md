@@ -88,18 +88,25 @@ tsnapi -u
 
 `tsnapi/vitest` provides higher-level Vitest integration that uses [`toMatchFileSnapshot`](https://vitest.dev/guide/snapshot#file-snapshots) to store snapshots as individual files.
 
+> **Note:** `tsnapi` reads built dist files, so make sure to build your packages before running the tests. You can use a `globalSetup` in your Vitest config or a `beforeAll` hook to run the build first.
+
 #### Single package
 
 ```ts
 // api.test.ts
+import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { snapshotApiPerEntry } from 'tsnapi/vitest'
-import { describe } from 'vitest'
+import { beforeAll, describe } from 'vitest'
+
+const dir = fileURLToPath(new URL('../packages/my-lib', import.meta.url))
+
+beforeAll(() => {
+  execSync('pnpm build', { cwd: dir })
+})
 
 describe('my-lib API', () => {
-  snapshotApiPerEntry(
-    fileURLToPath(new URL('../packages/my-lib', import.meta.url))
-  )
+  snapshotApiPerEntry(dir)
 })
 ```
 
@@ -111,7 +118,13 @@ For monorepos, `describePackagesApiSnapshots` creates a `describe()` block per p
 
 ```ts
 // api.test.ts
+import { execSync } from 'node:child_process'
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+import { beforeAll } from 'vitest'
+
+beforeAll(() => {
+  execSync('pnpm -r build')
+})
 
 // Auto-discovers all workspace packages
 describePackagesApiSnapshots()

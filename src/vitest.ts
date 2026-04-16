@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { describe, expect, it } from 'vitest'
 import { generateApiSnapshot } from './core/index.ts'
+import { resolvePackageEntries } from './core/resolve.ts'
 
 export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header'> {
   /**
@@ -29,21 +30,32 @@ export interface DescribePackagesApiSnapshotsOptions extends SnapshotApiOptions 
 /**
  * Create `it()` blocks for each entry point of a package,
  * asserting runtime and DTS snapshots via `toMatchFileSnapshot`.
+ *
+ * Entry names are resolved from `package.json` at registration time,
+ * but dist files are read lazily inside each `it()` block,
+ * so `beforeAll` hooks can build the package first.
  */
 export function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOptions): void {
   const outputDir = options?.outputDir ?? '__snapshots__/tsnapi'
   const pkgName = readPackageName(cwd) ?? 'unknown'
-  const api = generateApiSnapshot(cwd, options)
+  const entries = resolvePackageEntries(cwd)
 
-  for (const [entry, snapshot] of Object.entries(api)) {
-    const stem = entry === '.' ? 'index' : entry.replace(/^\.\//, '')
+  let _api: Record<string, { runtime: string, dts: string }> | undefined
+  function getApi(): Record<string, { runtime: string, dts: string }> {
+    return _api ??= generateApiSnapshot(cwd, options)
+  }
 
-    it(`runtime: ${entry}`, async () => {
+  for (const entry of entries) {
+    const stem = entry.name === '.' ? 'index' : entry.name.replace(/^\.\//, '')
+
+    it(`runtime: ${entry.name}`, async () => {
+      const snapshot = getApi()[entry.name]
       await expect(snapshot.runtime)
         .toMatchFileSnapshot(join(outputDir, pkgName, `${stem}.snapshot.js`))
     })
 
-    it(`dts: ${entry}`, async () => {
+    it(`dts: ${entry.name}`, async () => {
+      const snapshot = getApi()[entry.name]
       await expect(snapshot.dts)
         .toMatchFileSnapshot(join(outputDir, pkgName, `${stem}.snapshot.d.ts`))
     })
