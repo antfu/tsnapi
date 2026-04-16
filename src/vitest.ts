@@ -1,5 +1,5 @@
 import type { ApiSnapshotOptions } from './core/types.ts'
-import { access, readFile, stat } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { glob } from 'tinyglobby'
@@ -149,15 +149,12 @@ async function resolveWorkspacePackages(cwd: string): Promise<string[]> {
 
   const dirs: string[] = []
   for (const pattern of patterns) {
-    const matches = await glob(pattern, { cwd })
+    const matches = await glob(pattern, { cwd, onlyDirectories: true })
     for (const match of matches) {
       const abs = resolve(cwd, match)
       try {
-        const s = await stat(abs)
-        if (s.isDirectory()) {
-          await access(join(abs, 'package.json'))
-          dirs.push(abs)
-        }
+        await access(join(abs, 'package.json'))
+        dirs.push(abs)
       }
       catch {}
     }
