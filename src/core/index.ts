@@ -17,7 +17,7 @@ import {
 
 export { extractDts } from './extract-dts.ts'
 export { extractRuntime } from './extract-runtime.ts'
-export { resolvePackageEntries } from './resolve.ts'
+export { resolvePackageEntries, resolvePackageEntriesSync } from './resolve.ts'
 export type { SnapshotExtensions, SnapshotFile, SnapshotMismatch } from './snapshot.ts'
 export { compareSnapshots, formatMismatchError, generateHeader, readSnapshot, stripHeader, writeSnapshot } from './snapshot.ts'
 export type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.ts'

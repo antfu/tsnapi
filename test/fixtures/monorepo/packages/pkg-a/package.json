@@ -1,0 +1,11 @@
+{
+  "name": "fixture-pkg-a",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  }
+}

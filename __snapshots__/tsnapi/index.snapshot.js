@@ -7,6 +7,7 @@ export function formatMismatchError(_, _, _) {}
 export async function generateApiSnapshot(_, _) {}
 export async function readSnapshot(_, _, _) {}
 export async function resolvePackageEntries(_) {}
+export function resolvePackageEntriesSync(_) {}
 export async function snapshotFiles(_, _, _) {}
 export async function snapshotPackage(_, _) {}
 export async function writeSnapshot(_, _, _, _, _) {}

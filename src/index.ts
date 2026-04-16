@@ -6,6 +6,7 @@ export {
   generateApiSnapshot,
   readSnapshot,
   resolvePackageEntries,
+  resolvePackageEntriesSync,
   snapshotFiles,
   snapshotPackage,
   writeSnapshot,
