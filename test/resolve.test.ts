@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -6,10 +6,17 @@ import { resolvePackageEntries } from '../src/core/resolve.ts'
 
 const tempDirs: string[] = []
 
-function createTempFixture(pkg: Record<string, any>): string {
+function createTempFixture(pkg: Record<string, any>, files?: string[]): string {
   const cwd = mkdtempSync(join(tmpdir(), 'tsnapi-resolve-'))
   tempDirs.push(cwd)
   writeFileSync(join(cwd, 'package.json'), JSON.stringify(pkg, null, 2))
+  if (files) {
+    for (const file of files) {
+      const abs = join(cwd, file)
+      mkdirSync(join(abs, '..'), { recursive: true })
+      writeFileSync(abs, '')
+    }
+  }
   return cwd
 }
 
@@ -208,5 +215,109 @@ describe('resolvePackageEntries', () => {
         dts: resolve(cwd, './dist/utils.d.cts'),
       },
     ])
+  })
+
+  describe('implicit dts resolution', () => {
+    it('resolves .d.ts from string shorthand exports when file exists', () => {
+      const cwd = createTempFixture({
+        name: 'fixture',
+        exports: './dist/index.js',
+      }, ['dist/index.d.ts'])
+
+      expect(resolvePackageEntries(cwd)).toEqual([
+        {
+          name: '.',
+          runtime: resolve(cwd, './dist/index.js'),
+          dts: resolve(cwd, './dist/index.d.ts'),
+        },
+      ])
+    })
+
+    it('resolves .d.mts from .mjs export when file exists', () => {
+      const cwd = createTempFixture({
+        name: 'fixture',
+        exports: {
+          '.': {
+            import: './dist/index.mjs',
+          },
+        },
+      }, ['dist/index.d.mts'])
+
+      expect(resolvePackageEntries(cwd)).toEqual([
+        {
+          name: '.',
+          runtime: resolve(cwd, './dist/index.mjs'),
+          dts: resolve(cwd, './dist/index.d.mts'),
+        },
+      ])
+    })
+
+    it('falls back to .d.ts when .d.mts does not exist', () => {
+      const cwd = createTempFixture({
+        name: 'fixture',
+        exports: {
+          '.': {
+            import: './dist/index.mjs',
+          },
+        },
+      }, ['dist/index.d.ts'])
+
+      expect(resolvePackageEntries(cwd)).toEqual([
+        {
+          name: '.',
+          runtime: resolve(cwd, './dist/index.mjs'),
+          dts: resolve(cwd, './dist/index.d.ts'),
+        },
+      ])
+    })
+
+    it('resolves .d.cts from .cjs export when file exists', () => {
+      const cwd = createTempFixture({
+        name: 'fixture',
+        exports: {
+          '.': {
+            require: './dist/index.cjs',
+          },
+        },
+      }, ['dist/index.d.cts'])
+
+      expect(resolvePackageEntries(cwd)).toEqual([
+        {
+          name: '.',
+          runtime: resolve(cwd, './dist/index.cjs'),
+          dts: resolve(cwd, './dist/index.d.cts'),
+        },
+      ])
+    })
+
+    it('returns dts null when no declaration file exists on disk', () => {
+      const cwd = createTempFixture({
+        name: 'fixture',
+        exports: './dist/index.js',
+      })
+
+      expect(resolvePackageEntries(cwd)).toEqual([
+        {
+          name: '.',
+          runtime: resolve(cwd, './dist/index.js'),
+          dts: null,
+        },
+      ])
+    })
+
+    it('resolves dts from legacy main/module fallback when no types field', () => {
+      const cwd = createTempFixture({
+        name: 'fixture',
+        module: './dist/index.mjs',
+      }, ['dist/index.d.mts'])
+
+      expect(resolvePackageEntries(cwd)).toEqual([
+        {
+          name: '.',
+          runtime: resolve(cwd, './dist/index.mjs'),
+          dts: resolve(cwd, './dist/index.d.mts'),
+        },
+      ])
+    })
   })
 })

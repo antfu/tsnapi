@@ -28,7 +28,7 @@ export function resolvePackageEntries(cwd: string): ResolvedEntry[] {
       entries.push({
         name: '.',
         runtime: runtime ? resolve(cwd, runtime) : null,
-        dts: dts ? resolve(cwd, dts) : null,
+        dts: dts ? resolve(cwd, dts) : (runtime ? tryResolveDts(runtime, cwd) : null),
       })
     }
   }
@@ -49,7 +49,7 @@ function resolveExportsField(
       entries.push({ name: prefix, runtime: null, dts: resolved })
     }
     else {
-      entries.push({ name: prefix, runtime: resolved, dts: null })
+      entries.push({ name: prefix, runtime: resolved, dts: tryResolveDts(exports, cwd) })
     }
     return
   }
@@ -67,7 +67,7 @@ function resolveExportsField(
       entries.push({
         name: prefix,
         runtime: branch.runtime ? resolve(cwd, branch.runtime) : null,
-        dts: branch.dts ? resolve(cwd, branch.dts) : null,
+        dts: branch.dts ? resolve(cwd, branch.dts) : (branch.runtime ? tryResolveDts(branch.runtime, cwd) : null),
       })
     }
     return
@@ -156,6 +156,22 @@ function resolveConditionBranches(
     branches.push({ runtime, dts })
   }
   return dedupeBranches(branches)
+}
+
+function tryResolveDts(runtimePath: string, cwd: string): string | null {
+  const candidates: string[] = []
+  if (runtimePath.endsWith('.mjs'))
+    candidates.push(runtimePath.replace(/\.mjs$/, '.d.mts'))
+  else if (runtimePath.endsWith('.cjs'))
+    candidates.push(runtimePath.replace(/\.cjs$/, '.d.cts'))
+  candidates.push(runtimePath.replace(/\.[cm]?[jt]sx?$/, '.d.ts'))
+
+  for (const candidate of candidates) {
+    const abs = resolve(cwd, candidate)
+    if (existsSync(abs))
+      return abs
+  }
+  return null
 }
 
 function dedupeBranches(
