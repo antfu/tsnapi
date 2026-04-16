@@ -143,7 +143,21 @@ describePackagesApiSnapshots({
 })
 ```
 
-Use the `filter` callback to customize or skip packages. It receives a mutable `PackageContext` — modify `packageName`, `outputDir`, or return `false` to skip:
+`describePackagesApiSnapshots` accepts `filter`, `beforeEach`, and `afterEach` callbacks. Each receives a `PackageContext` object:
+
+```ts
+interface PackageContext {
+  cwd: string // the input cwd
+  workspaceRoot: string // the resolved workspace root
+  packageRoot: string // absolute path to the package directory
+  packageName: string // package name from package.json
+  outputDir: string // snapshot output directory (relative to test file)
+}
+```
+
+#### `filter`
+
+Called for each discovered package. The context is mutable — modify any property to customize behavior. Return `false` to skip the package entirely:
 
 ```ts
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
@@ -161,13 +175,15 @@ describePackagesApiSnapshots({
 })
 ```
 
-You can also hook into each package's `describe` block with `beforeEach` and `afterEach` callbacks. Both receive the (possibly mutated) `PackageContext` object:
+#### `beforeEach` / `afterEach`
+
+Lifecycle hooks registered inside each package's `describe` block via Vitest's `beforeEach`/`afterEach`. They receive the (possibly mutated) context:
 
 ```ts
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
 
 describePackagesApiSnapshots({
-  beforeEach({ cwd, workspaceRoot, packageRoot, packageName }) {
+  beforeEach({ packageRoot, packageName }) {
     console.log(`Testing ${packageName} at ${packageRoot}`)
   },
   afterEach({ packageName }) {
@@ -186,7 +202,9 @@ describePackagesApiSnapshots({
   async beforeEach({ packageRoot, packageName }) {
     const result = await checkBuildFreshness({ cwd: packageRoot })
     if (!result.fresh) {
-      throw new Error(`Package "${packageName}" is out of date. Please rebuild before running snapshot tests.`)
+      throw new Error(
+        `Package "${packageName}" is out of date. Please rebuild before running snapshot tests.`
+      )
     }
   },
 })
