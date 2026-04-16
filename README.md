@@ -139,20 +139,20 @@ interface ApiSnapshotOptions {
   /** Omit argument names from function signatures. @default true */
   omitArgumentNames?: boolean
   /** Widen literal types to base types, hiding implementation details. @default true */
-  typeWiden?: boolean
+  typeWidening?: boolean
   /** Update mode. Auto-detected from --update-snapshot / -u / UPDATE_SNAPSHOT=1 */
   update?: boolean
 }
 ```
 
-### `typeWiden`
+### `typeWidening`
 
-When `typeWiden` is `true` (default), literal values are widened to hide implementation details:
+When `typeWidening` is `true` (default), literal values are widened to hide implementation details:
 
 - **Runtime**: `export const VERSION = '1.0.0'` → `export var VERSION /* const */`
 - **DTS**: `declare const VERSION = "1.0.0"` → `export declare const VERSION: string;`
 
-When `typeWiden` is `false`, literal values are preserved in the snapshot:
+When `typeWidening` is `false`, literal values are preserved in the snapshot:
 
 - **Runtime**: `export const VERSION = '1.0.0'` → `export var VERSION = '1.0.0' /* const */`
 - **DTS**: `declare const VERSION = "1.0.0"` → `export declare const VERSION = "1.0.0";`
