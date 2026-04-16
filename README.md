@@ -98,7 +98,7 @@ tsnapi -u
 > }
 > ```
 >
-> If you are using [`tsdown`](https://tsdown.dev), you can use [`tsdown-lock`](https://github.com/antfu-collective/tsdown-lock) to set up the build guard automatically.
+> If you are using [`tsdown`](https://tsdown.dev), you can use [`tsdown-stale-guard`](https://github.com/antfu-collective/tsdown-stale-guard) to set up the build guard automatically.
 
 #### Single package
 
@@ -192,10 +192,10 @@ describePackagesApiSnapshots({
 })
 ```
 
-For example, if you use [`tsdown-lock`](https://github.com/antfu-collective/tsdown-lock), you can use the `beforeEach` hook to guard against stale builds — ensuring each package's dist is in sync with its source before running snapshot tests:
+For example, if you use [`tsdown-stale-guard`](https://github.com/antfu-collective/tsdown-stale-guard), you can use the `beforeEach` hook to guard against stale builds — ensuring each package's dist is in sync with its source before running snapshot tests:
 
 ```ts
-import { checkBuildFreshness } from 'tsdown-lock'
+import { checkBuildFreshness } from 'tsdown-stale-guard'
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
 
 describePackagesApiSnapshots({
