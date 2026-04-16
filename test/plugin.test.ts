@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { rolldown } from 'rolldown'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import ApiSnapshot from '../src/rolldown.ts'
 
 const FIXTURE_DIR = join(import.meta.dirname, '.fixtures')
@@ -92,9 +92,11 @@ export function hello() { return 'hi'; }
       plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR })],
     })
 
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     await expect(
       bundle2.write({ dir: join(FIXTURE_DIR, 'dist') }),
     ).rejects.toThrow(/snapshot mismatch/)
+    vi.restoreAllMocks()
   })
 
   it('updates snapshot with update option', async () => {

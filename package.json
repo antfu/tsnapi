@@ -59,19 +59,19 @@
     "@vitest/utils": "^4.1.4",
     "cac": "^7.0.0",
     "magic-string": "^0.30.21",
-    "oxc-parser": "^0.124.0"
+    "oxc-parser": "^0.125.0"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.2.0",
     "@antfu/ni": "^30.0.0",
-    "@oxc-project/types": "^0.124.0",
+    "@oxc-project/types": "^0.126.0",
     "@types/node": "^25.6.0",
     "bumpp": "^11.0.1",
     "eslint": "^10.2.0",
     "lint-staged": "^16.4.0",
     "rolldown": "^1.0.0-rc.15",
     "simple-git-hooks": "^2.13.1",
-    "tsdown": "^0.21.7",
+    "tsdown": "^0.21.8",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"
