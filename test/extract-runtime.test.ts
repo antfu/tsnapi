@@ -287,6 +287,53 @@ export { compute };
     `)
   })
 
+  it('preserves literal values when typeWiden is false', () => {
+    const code = `
+export const VERSION = '1.0.0';
+export const DEBUG = true;
+export const COUNT = 42;
+export const EMPTY = null;
+export const BIG = 100n;
+`
+    const result = extractRuntime('test.mjs', code, { typeWiden: false })
+    expect(result).toMatchInlineSnapshot(`
+      "export var BIG = 100n /* const */
+      export var COUNT = 42 /* const */
+      export var DEBUG = true /* const */
+      export var EMPTY = null /* const */
+      export var VERSION = '1.0.0' /* const */
+      "
+    `)
+  })
+
+  it('strips non-literal values even when typeWiden is false', () => {
+    const code = `
+export const config = createConfig();
+export const obj = { foo: 'bar' };
+export const computed = a + b;
+`
+    const result = extractRuntime('test.mjs', code, { typeWiden: false })
+    expect(result).toMatchInlineSnapshot(`
+      "export var computed /* const */
+      export var config /* const */
+      export var obj /* const */
+      "
+    `)
+  })
+
+  it('preserves array literals when typeWiden is false', () => {
+    const code = `
+export const ITEMS = [1, 2, 3];
+export const MIXED = [1, 'two', true];
+`
+    const result = extractRuntime('test.mjs', code, { typeWiden: false })
+    expect(result).toMatchInlineSnapshot(`
+      "export var ITEMS = [1, 2, 3] /* const */
+      export var MIXED = [1, 'two', true] /* const */
+      "
+    `)
+  })
+
   it('preserves argument names when omitArgumentNames is false', () => {
     const code = `
 export function greet(name) {
