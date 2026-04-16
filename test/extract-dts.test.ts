@@ -251,4 +251,41 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
       "
     `)
   })
+
+  it('handles strings containing // without breaking', () => {
+    const code = `export type ErrorMsg = "see https://example.com/docs";`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Types
+      export type ErrorMsg = "see https://example.com/docs";
+      "
+    `)
+  })
+
+  it('handles strings containing /* */ without breaking', () => {
+    const code = `export type Pattern = "/* not a comment */";`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Types
+      export type Pattern = "/* not a comment */";
+      "
+    `)
+  })
+
+  it('still strips real comments from output', () => {
+    const code = `
+// This is a real comment
+export interface Options {
+  entry: string[]; // trailing comment
+}
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Interfaces
+      export interface Options {
+        entry: string[];
+      }
+      "
+    `)
+  })
 })

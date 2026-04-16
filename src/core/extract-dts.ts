@@ -92,11 +92,9 @@ function formatGroupedEntries(entries: DtsEntry[]): string {
 export function extractDts(fileName: string, code: string, options?: import('./extract-runtime.ts').ExtractOptions): string {
   const chunkSources = options?.chunkSources
   const omitArgs = options?.omitArgumentNames ?? true
-  // Strip comments
-  const stripped = code
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/[^\n]*/g, '')
 
+  const { comments } = parseSync(fileName, code)
+  const stripped = stripComments(code, comments)
   const { program } = parseSync(fileName, stripped)
   const s = new MagicString(stripped)
   const entries: DtsEntry[] = []
@@ -289,14 +287,9 @@ function resolveFromChunkDts(
   if (!chunkCode)
     return undefined
 
-  // Strip comments from chunk code
-  const stripped = chunkCode
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/[^\n]*/g, '')
-
-  // Use .d.mts extension for parsing since the code is TypeScript DTS
-  // (import source paths may use .mjs but the actual chunk code is .d.mts)
   const parseFileName = importInfo.source.replace(RE_MJS_EXT, '.d.mts')
+  const { comments } = parseSync(parseFileName, chunkCode)
+  const stripped = stripComments(chunkCode, comments)
   const { program } = parseSync(parseFileName, stripped)
   const chunkS = new MagicString(stripped)
   const chunkDeclMap = new Map<string, { stmt: any, decl: any }>()
@@ -557,6 +550,19 @@ function replaceParamNames(s: MagicString, param: any): void {
   if (param.type === 'Identifier' && param.name) {
     s.overwrite(param.start, param.start + param.name.length, '_')
   }
+}
+
+/**
+ * Remove comments using positions from the parser,
+ * so `//` inside string literals is not mistakenly treated as a comment.
+ */
+function stripComments(code: string, comments: { start: number, end: number }[]): string {
+  if (comments.length === 0)
+    return code
+  const s = new MagicString(code)
+  for (const c of comments)
+    s.remove(c.start, c.end)
+  return s.toString()
 }
 
 function normalizeWhitespace(text: string): string {
