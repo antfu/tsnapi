@@ -240,6 +240,22 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
     `)
   })
 
+  it('handles string literals containing //', () => {
+    const code = `
+export type ErrorMsg = "To learn more, see https://example.com/docs";
+export declare const URL_PATTERN: "https://example.com/api";
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Types
+      export type ErrorMsg = "To learn more, see https://example.com/docs";
+
+      // Variables
+      export declare const URL_PATTERN: "https://example.com/api";
+      "
+    `)
+  })
+
   it('replaces argument names with _ by default', () => {
     const code = `
 export declare function build(config: BuildConfig, options?: Options): Promise<void>;

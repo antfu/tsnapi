@@ -92,13 +92,8 @@ function formatGroupedEntries(entries: DtsEntry[]): string {
 export function extractDts(fileName: string, code: string, options?: import('./extract-runtime.ts').ExtractOptions): string {
   const chunkSources = options?.chunkSources
   const omitArgs = options?.omitArgumentNames ?? true
-  // Strip comments
-  const stripped = code
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/[^\n]*/g, '')
-
-  const { program } = parseSync(fileName, stripped)
-  const s = new MagicString(stripped)
+  const { program } = parseSync(fileName, code)
+  const s = new MagicString(code)
   const entries: DtsEntry[] = []
 
   // Build a map of top-level declarations (including non-exported ones)
@@ -289,16 +284,11 @@ function resolveFromChunkDts(
   if (!chunkCode)
     return undefined
 
-  // Strip comments from chunk code
-  const stripped = chunkCode
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/[^\n]*/g, '')
-
   // Use .d.mts extension for parsing since the code is TypeScript DTS
   // (import source paths may use .mjs but the actual chunk code is .d.mts)
   const parseFileName = importInfo.source.replace(RE_MJS_EXT, '.d.mts')
-  const { program } = parseSync(parseFileName, stripped)
-  const chunkS = new MagicString(stripped)
+  const { program } = parseSync(parseFileName, chunkCode)
+  const chunkS = new MagicString(chunkCode)
   const chunkDeclMap = new Map<string, { stmt: any, decl: any }>()
   for (const stmt of program.body) {
     collectDtsDeclarations(stmt as any, chunkDeclMap)
