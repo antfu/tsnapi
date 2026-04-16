@@ -22,8 +22,8 @@ export declare function createApp(_: AppOptions): {
   start: () => void;
 };
 export declare function createRouter(_?: RouterOptions): {
-  add: (route: Route) => void;
-  match: (path: string) => Route | undefined;
+  add: (_: Route) => void;
+  match: (_: string) => Route | undefined;
 };
 
 // Variables

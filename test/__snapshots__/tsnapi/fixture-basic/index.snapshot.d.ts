@@ -7,7 +7,7 @@ export interface GreetOptions {
 }
 
 // Types
-export type Formatter = (input: string) => string;
+export type Formatter = (_: string) => string;
 
 // Functions
 export declare function fetchData(_: string, _?: RequestInit): Promise<Response>;

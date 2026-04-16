@@ -97,6 +97,13 @@ export function extractDts(fileName: string, code: string, options?: import('./e
   const s = new MagicString(code)
   for (const c of comments)
     s.remove(c.start, c.end)
+
+  // Replace all parameter names upfront so every s.slice() gets the replacements
+  if (omitArgs) {
+    for (const stmt of program.body)
+      replaceAllParamNames(s, stmt as any)
+  }
+
   const entries: DtsEntry[] = []
 
   // Build a map of top-level declarations (including non-exported ones)
@@ -206,12 +213,12 @@ function processExportNamedDeclaration(
     }
     else if (decl.type === 'TSDeclareFunction') {
       const name = decl.id?.name ?? ''
-      const text = extractTSDeclareFunction(s, stmt, decl, omitArgs)
+      const text = extractTSDeclareFunction(s, stmt)
       entries.push({ name, text, kind })
     }
     else if (decl.type === 'FunctionDeclaration') {
       const name = decl.id?.name ?? ''
-      const text = extractTSDeclareFunction(s, stmt, decl, omitArgs)
+      const text = extractTSDeclareFunction(s, stmt)
       entries.push({ name, text, kind })
     }
     else if (decl.type === 'ClassDeclaration') {
@@ -245,7 +252,7 @@ function processExportNamedDeclaration(
 
       const resolved = declMap.get(localName)
       if (resolved) {
-        const { text, kind } = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport, omitArgs, typeWidening)
+        const { text, kind } = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport, typeWidening)
         entries.push(formatDtsExportEntry(exportedName, text, kind))
       }
       else {
@@ -296,6 +303,10 @@ function resolveFromChunkDts(
   const chunkS = new MagicString(chunkCode)
   for (const c of chunkComments)
     chunkS.remove(c.start, c.end)
+  if (omitArgs) {
+    for (const stmt of program.body)
+      replaceAllParamNames(chunkS, stmt as any)
+  }
   const chunkDeclMap = new Map<string, { stmt: any, decl: any }>()
   for (const stmt of program.body) {
     collectDtsDeclarations(stmt as any, chunkDeclMap)
@@ -310,7 +321,7 @@ function resolveFromChunkDts(
   if (!resolved)
     return undefined
 
-  const { text, kind } = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport, omitArgs, typeWidening)
+  const { text, kind } = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport, typeWidening)
   return formatDtsExportEntry(exportedName, text, kind)
 }
 
@@ -363,7 +374,6 @@ function extractResolvedDeclaration(
   resolved: { stmt: any, decl: any },
   exportedName: string,
   isTypeExport: boolean,
-  omitArgs = true,
   typeWidening = true,
 ): { text: string, kind: DtsEntryKind } {
   const { decl } = resolved
@@ -394,14 +404,7 @@ function extractResolvedDeclaration(
   }
 
   if (decl.type === 'TSDeclareFunction' || decl.type === 'FunctionDeclaration') {
-    const clone = new MagicString(s.original)
-    if (omitArgs) {
-      const params = decl.params ?? []
-      for (const param of params) {
-        replaceParamNames(clone, param)
-      }
-    }
-    let text = clone.slice(decl.start, decl.end)
+    let text = s.slice(decl.start, decl.end)
     if (exportedName !== (decl.id?.name ?? '')) {
       text = text.replace(decl.id.name, exportedName)
     }
@@ -529,20 +532,8 @@ function widenArrayElements(init: any, _s: MagicString): string {
 function extractTSDeclareFunction(
   s: MagicString,
   stmt: any,
-  decl: any,
-  omitArgs = true,
 ): string {
-  const clone = new MagicString(s.original)
-
-  if (omitArgs) {
-    // Replace parameter names with `_` but keep type annotations
-    const params = decl.params ?? []
-    for (const param of params) {
-      replaceParamNames(clone, param)
-    }
-  }
-
-  return normalizeWhitespace(clone.slice(stmt.start, stmt.end))
+  return normalizeWhitespace(s.slice(stmt.start, stmt.end))
 }
 
 function replaceParamNames(s: MagicString, param: any): void {
@@ -561,6 +552,77 @@ function replaceParamNames(s: MagicString, param: any): void {
 
   if (param.type === 'Identifier' && param.name) {
     s.overwrite(param.start, param.start + param.name.length, '_')
+  }
+}
+
+/**
+ * Recursively walk an AST subtree and replace parameter names in all
+ * function-like nodes (class methods, function types, call/construct signatures, etc.).
+ */
+function replaceAllParamNames(s: MagicString, node: any): void {
+  if (!node || typeof node !== 'object')
+    return
+
+  // Handle arrays (e.g. body.body, members, types)
+  if (Array.isArray(node)) {
+    for (const child of node)
+      replaceAllParamNames(s, child)
+    return
+  }
+
+  // Skip non-AST objects (no type property)
+  if (!node.type)
+    return
+
+  // Function-like nodes with params: replace their parameter names
+  const funcLikeTypes = new Set([
+    'TSDeclareFunction',
+    'FunctionDeclaration',
+    'TSFunctionType',
+    'TSMethodSignature',
+    'TSConstructSignatureDeclaration',
+    'TSCallSignatureDeclaration',
+  ])
+
+  if (funcLikeTypes.has(node.type) && node.params) {
+    for (const param of node.params) {
+      if (param.type !== 'TSThisParameter' && param.name !== 'this')
+        replaceParamNames(s, param)
+    }
+  }
+
+  // MethodDefinition / TSAbstractMethodDefinition: params are on .value
+  if ((node.type === 'MethodDefinition' || node.type === 'TSAbstractMethodDefinition') && node.value?.params) {
+    for (const param of node.value.params) {
+      if (param.type !== 'TSThisParameter' && param.name !== 'this')
+        replaceParamNames(s, param)
+    }
+    // Also walk return type of the method
+    replaceAllParamNames(s, node.value.returnType)
+    // Walk param type annotations
+    for (const param of node.value.params)
+      replaceAllParamNames(s, param.typeAnnotation)
+    return
+  }
+
+  // Recurse into common child properties
+  replaceAllParamNames(s, node.declaration) // ExportNamedDeclaration, ExportDefaultDeclaration
+  replaceAllParamNames(s, node.body)
+  replaceAllParamNames(s, node.members)
+  replaceAllParamNames(s, node.returnType)
+  replaceAllParamNames(s, node.typeAnnotation)
+  replaceAllParamNames(s, node.typeParameters)
+  replaceAllParamNames(s, node.types) // union/intersection
+  replaceAllParamNames(s, node.params) // recurse for param type annotations
+  replaceAllParamNames(s, node.value) // PropertyDefinition value, TSPropertySignature
+
+  // TSTypeLiteral members, TSInterfaceBody body
+  if (node.type === 'TSTypeLiteral' || node.type === 'TSInterfaceBody')
+    return // already handled via .members above
+
+  // TSPropertySignature
+  if (node.type === 'TSPropertySignature') {
+    replaceAllParamNames(s, node.typeAnnotation)
   }
 }
 
