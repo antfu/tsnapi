@@ -4,6 +4,16 @@
 export interface DescribePackagesApiSnapshotsOptions extends SnapshotApiOptions {
   packages?: string[];
   cwd?: string;
+  filter?: (_: PackageContext) => boolean | void;
+  beforeEach?: (_: PackageContext) => void | Promise<void>;
+  afterEach?: (_: PackageContext) => void | Promise<void>;
+}
+export interface PackageContext {
+  cwd: string;
+  workspaceRoot: string;
+  packageRoot: string;
+  packageName: string;
+  outputDir: string;
 }
 export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header'> {
   outputDir?: string;

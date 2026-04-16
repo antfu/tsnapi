@@ -143,6 +143,55 @@ describePackagesApiSnapshots({
 })
 ```
 
+Use the `filter` callback to customize or skip packages. It receives a mutable `PackageContext` — modify `packageName`, `outputDir`, or return `false` to skip:
+
+```ts
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+describePackagesApiSnapshots({
+  filter(ctx) {
+    // Skip private packages
+    if (ctx.packageName.startsWith('@internal/'))
+      return false
+    // Strip org scope from describe block name
+    ctx.packageName = ctx.packageName.replace(/^@.*\//, '')
+    // Customize snapshot output directory per package
+    ctx.outputDir = `__snapshots__/${ctx.packageName}`
+  },
+})
+```
+
+You can also hook into each package's `describe` block with `beforeEach` and `afterEach` callbacks. Both receive the (possibly mutated) `PackageContext` object:
+
+```ts
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+describePackagesApiSnapshots({
+  beforeEach({ cwd, workspaceRoot, packageRoot, packageName }) {
+    console.log(`Testing ${packageName} at ${packageRoot}`)
+  },
+  afterEach({ packageName }) {
+    console.log(`Done testing ${packageName}`)
+  },
+})
+```
+
+For example, if you use [`tsdown-lock`](https://github.com/antfu-collective/tsdown-lock), you can use the `beforeEach` hook to guard against stale builds — ensuring each package's dist is in sync with its source before running snapshot tests:
+
+```ts
+import { checkBuildFreshness } from 'tsdown-lock'
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+describePackagesApiSnapshots({
+  async beforeEach({ packageRoot, packageName }) {
+    const result = await checkBuildFreshness({ cwd: packageRoot })
+    if (!result.fresh) {
+      throw new Error(`Package "${packageName}" is out of date. Please rebuild before running snapshot tests.`)
+    }
+  },
+})
+```
+
 Run `vitest -u` to update snapshots when you intentionally change the API.
 
 #### Low-level
