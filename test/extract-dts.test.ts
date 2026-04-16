@@ -256,6 +256,58 @@ export declare const URL_PATTERN: "https://example.com/api";
     `)
   })
 
+  it('strips line comments via AST', () => {
+    const code = `
+// This is a line comment
+export type Foo = string;
+export declare const bar: number; // trailing comment
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Types
+      export type Foo = string;
+
+      // Variables
+      export declare const bar: number;
+      "
+    `)
+  })
+
+  it('strips block comments via AST', () => {
+    const code = `
+/* block comment */
+export type Foo = string;
+/** JSDoc comment */
+export interface Bar {
+  /** field doc */
+  baz: string;
+}
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Interfaces
+      export interface Bar {
+        baz: string;
+      }
+
+      // Types
+      export type Foo = string;
+      "
+    `)
+  })
+
+  it('preserves template literals containing //', () => {
+    const code = `
+export type Protocol = \`https://\${string}\`;
+`
+    const result = extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// Types
+      export type Protocol = \`https://\${string}\`;
+      "
+    `)
+  })
+
   it('replaces argument names with _ by default', () => {
     const code = `
 export declare function build(config: BuildConfig, options?: Options): Promise<void>;
