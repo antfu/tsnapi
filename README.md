@@ -195,17 +195,13 @@ await describePackagesApiSnapshots({
 For example, if you use [`tsdown-stale-guard`](https://github.com/antfu-collective/tsdown-stale-guard), you can use the `beforeEach` hook to guard against stale builds — ensuring each package's dist is in sync with its source before running snapshot tests:
 
 ```ts
-import { checkBuildState } from 'tsdown-stale-guard'
+import { guardStaleBuild } from 'tsdown-stale-guard'
 import { describePackagesApiSnapshots } from 'tsnapi/vitest'
 
 await describePackagesApiSnapshots({
-  async beforeEach({ packageRoot, packageName }) {
-    const result = await checkBuildState({ root: packageRoot })
-    if (!result.fresh) {
-      throw new Error(
-        `Package "${packageName}" is out of date. Please rebuild before running snapshot tests.`
-      )
-    }
+  async beforeEach({ packageRoot }) {
+    // guard will throw if the build is stale to fail the test
+    await guardStaleBuild({ root: packageRoot })
   },
 })
 ```
