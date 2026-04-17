@@ -1,5 +1,7 @@
+import type { Entry, EntryKind } from './kind.ts'
 import MagicString from 'magic-string'
 import { parse } from 'oxc-parser'
+import { formatGroupedEntries } from './kind.ts'
 
 /**
  * Get the name from a ModuleExportName node (Identifier or StringLiteral).
@@ -16,7 +18,7 @@ const RE_EXPORT_PREFIX = /^export\s+/
 const RE_DEFAULT_WORD = /\bdefault\b/
 const RE_MJS_EXT = /\.mjs$/
 
-function formatDtsExportEntry(exportedName: string, text: string, kind: DtsEntryKind): DtsEntry {
+function formatDtsExportEntry(exportedName: string, text: string, kind: EntryKind): Entry {
   if (exportedName === 'default') {
     // Remove `export` prefix, rename `default` to `_default`, then add `export default _default`
     const withoutExport = text.replace(RE_EXPORT_PREFIX, '')
@@ -27,23 +29,9 @@ function formatDtsExportEntry(exportedName: string, text: string, kind: DtsEntry
 }
 
 /**
- * Extract type declaration skeletons from a DTS chunk.
- * Returns a formatted `.d.ts` snapshot string.
- *
- * @param chunkSources - Map of chunk source paths to their code, for resolving import-reexport patterns
- */
-type DtsEntryKind = 'interface' | 'type' | 'enum' | 'class' | 'function' | 'variable' | 'default' | 're-export' | 'other'
-
-interface DtsEntry {
-  name: string
-  text: string
-  kind: DtsEntryKind
-}
-
-/**
  * Derive the kind from a declaration AST node type.
  */
-function kindFromDeclType(declType: string): DtsEntryKind {
+function kindFromDeclType(declType: string): EntryKind {
   switch (declType) {
     case 'TSInterfaceDeclaration': return 'interface'
     case 'TSTypeAliasDeclaration': return 'type'
@@ -56,43 +44,11 @@ function kindFromDeclType(declType: string): DtsEntryKind {
   }
 }
 
-const KIND_ORDER: DtsEntryKind[] = ['interface', 'type', 'enum', 'class', 'function', 'variable', 'default', 're-export', 'other']
-const KIND_LABELS: Record<DtsEntryKind, string> = {
-  'interface': 'Interfaces',
-  'type': 'Types',
-  'enum': 'Enums',
-  'class': 'Classes',
-  'function': 'Functions',
-  'variable': 'Variables',
-  'default': 'Default Export',
-  're-export': 'Re-exports',
-  'other': 'Other',
-}
-
-function formatGroupedEntries(entries: DtsEntry[]): string {
-  const groups = new Map<DtsEntryKind, DtsEntry[]>()
-  for (const entry of entries) {
-    const list = groups.get(entry.kind) ?? []
-    list.push(entry)
-    groups.set(entry.kind, list)
-  }
-
-  const sections: string[] = []
-  for (const kind of KIND_ORDER) {
-    const group = groups.get(kind)
-    if (!group || group.length === 0)
-      continue
-    group.sort((a, b) => a.name.localeCompare(b.name))
-    sections.push(`// ${KIND_LABELS[kind]}\n${group.map(e => e.text).join('\n')}`)
-  }
-
-  return `${sections.join('\n\n')}\n`
-}
-
 export async function extractDts(fileName: string, code: string, options?: import('./extract-runtime.ts').ExtractOptions): Promise<string> {
   const chunkSources = options?.chunkSources
   const omitArgs = options?.omitArgumentNames ?? true
   const typeWidening = options?.typeWidening ?? true
+  const categorized = options?.categorizedExports ?? true
   const { program, comments } = await parse(fileName, code)
   const s = new MagicString(code)
   for (const c of comments)
@@ -104,7 +60,7 @@ export async function extractDts(fileName: string, code: string, options?: impor
       replaceAllParamNames(s, stmt as any)
   }
 
-  const entries: DtsEntry[] = []
+  const entries: Entry[] = []
 
   // Build a map of top-level declarations (including non-exported ones)
   // for resolving export { ... } specifiers
@@ -153,7 +109,11 @@ export async function extractDts(fileName: string, code: string, options?: impor
     }
   }
 
-  return formatGroupedEntries(entries)
+  if (categorized) {
+    return formatGroupedEntries(entries)
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name))
+  return `${entries.map(e => e.text).join('\n')}\n`
 }
 
 /**
@@ -189,7 +149,7 @@ function collectDtsDeclarations(stmt: any, map: Map<string, { stmt: any, decl: a
 async function processExportNamedDeclaration(
   stmt: any,
   s: MagicString,
-  entries: DtsEntry[],
+  entries: Entry[],
   declMap: Map<string, { stmt: any, decl: any }>,
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
@@ -286,7 +246,7 @@ async function resolveFromChunkDts(
   chunkSources?: Map<string, string>,
   omitArgs = true,
   typeWidening = true,
-): Promise<DtsEntry | undefined> {
+): Promise<Entry | undefined> {
   if (!chunkSources)
     return undefined
   const importInfo = importMap.get(localName)
@@ -375,7 +335,7 @@ function extractResolvedDeclaration(
   exportedName: string,
   isTypeExport: boolean,
   typeWidening = true,
-): { text: string, kind: DtsEntryKind } {
+): { text: string, kind: EntryKind } {
   const { decl } = resolved
   const kind = kindFromDeclType(decl.type)
 

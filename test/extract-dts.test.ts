@@ -12,12 +12,13 @@ export interface Options {
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Interfaces
+      "// #region Interfaces
       export interface Options {
         entry: string[];
         outDir?: string;
         format?: 'esm' | 'cjs';
       }
+      // #endregion
       "
     `)
   })
@@ -29,9 +30,10 @@ export type Entry = string | string[];
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Types
+      "// #region Types
       export type Entry = string | string[];
       export type Format = 'esm' | 'cjs' | 'iife';
+      // #endregion
       "
     `)
   })
@@ -42,8 +44,9 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Functions
+      "// #region Functions
       export declare function build(_: BuildConfig, _?: Options): Promise<void>;
+      // #endregion
       "
     `)
   })
@@ -55,9 +58,10 @@ export declare const DEFAULT_CONFIG: Options;
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Variables
+      "// #region Variables
       export declare const DEFAULT_CONFIG: Options;
       export declare const VERSION: string;
+      // #endregion
       "
     `)
   })
@@ -73,13 +77,14 @@ export declare enum LogLevel {
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Enums
+      "// #region Enums
       export declare enum LogLevel {
         Debug = 0,
         Info = 1,
         Warn = 2,
         Error = 3,
       }
+      // #endregion
       "
     `)
   })
@@ -94,14 +99,16 @@ export interface Middle {
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Interfaces
+      "// #region Interfaces
       export interface Middle {
         value: boolean;
       }
+      // #endregion
 
-      // Types
+      // #region Types
       export type Alpha = number;
       export type Zebra = string;
+      // #endregion
       "
     `)
   })
@@ -116,11 +123,12 @@ export { VERSION, COUNT, DEBUG, TYPED };
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Variables
+      "// #region Variables
       export declare const COUNT: number;
       export declare const DEBUG: boolean;
       export declare const TYPED: string;
       export declare const VERSION: string;
+      // #endregion
       "
     `)
   })
@@ -136,14 +144,16 @@ export { _build as build, type _Options as Options };
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Interfaces
+      "// #region Interfaces
       export interface Options {
         outputDir?: string;
         update?: boolean;
       }
+      // #endregion
 
-      // Functions
+      // #region Functions
       export declare function build(_: _Options): Promise<void>;
+      // #endregion
       "
     `)
   })
@@ -155,9 +165,10 @@ export type { Foo, Bar as Baz } from './types.js';
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Re-exports
+      "// #region Re-exports
       export { foo, bar as baz } from './other.js';
       export type { Foo, Bar as Baz } from './types.js';
+      // #endregion
       "
     `)
   })
@@ -179,14 +190,16 @@ export { SnapshotFile as a, formatMismatchError as c };
       chunkSources: new Map([['./index-abc123.d.mts', chunkCode]]),
     })
     expect(result).toMatchInlineSnapshot(`
-      "// Interfaces
+      "// #region Interfaces
       export interface SnapshotFile {
         runtime: string;
         dts: string;
       }
+      // #endregion
 
-      // Functions
+      // #region Functions
       export declare function formatError(_: SnapshotMismatch[]): string;
+      // #endregion
       "
     `)
   })
@@ -198,9 +211,10 @@ export { rolldownPlugin as default };
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Default Export
+      "// #region Default Export
       declare function _default(_?: ApiSnapshotOptions): { name: string };
       export default _default
+      // #endregion
       "
     `)
   })
@@ -216,14 +230,16 @@ export { ApiSnapshot, type ApiSnapshotOptions };
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Interfaces
+      "// #region Interfaces
       export interface ApiSnapshotOptions {
         outputDir?: string;
         update?: boolean;
       }
+      // #endregion
 
-      // Functions
+      // #region Functions
       export declare function ApiSnapshot(_?: ApiSnapshotOptions): Plugin;
+      // #endregion
       "
     `)
   })
@@ -238,11 +254,12 @@ export { VERSION, COUNT, DEBUG, TYPED };
 `
     const result = await extractDts('test.d.mts', code, { typeWidening: false })
     expect(result).toMatchInlineSnapshot(`
-      "// Variables
+      "// #region Variables
       export declare const COUNT = 42;
       export declare const DEBUG = true;
       export declare const TYPED: string;
       export declare const VERSION = "2.0.0";
+      // #endregion
       "
     `)
   })
@@ -255,9 +272,10 @@ export { VERSION, COUNT };
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Variables
+      "// #region Variables
       export declare const COUNT: number;
       export declare const VERSION: string;
+      // #endregion
       "
     `)
   })
@@ -268,8 +286,9 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
 `
     const result = await extractDts('test.d.mts', code, { omitArgumentNames: false })
     expect(result).toMatchInlineSnapshot(`
-      "// Functions
+      "// #region Functions
       export declare function build(config: BuildConfig, options?: Options): Promise<void>;
+      // #endregion
       "
     `)
   })
@@ -281,11 +300,13 @@ export declare const URL_PATTERN: "https://example.com/api";
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Types
+      "// #region Types
       export type ErrorMsg = "To learn more, see https://example.com/docs";
+      // #endregion
 
-      // Variables
+      // #region Variables
       export declare const URL_PATTERN: "https://example.com/api";
+      // #endregion
       "
     `)
   })
@@ -298,11 +319,13 @@ export declare const bar: number; // trailing comment
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Types
+      "// #region Types
       export type Foo = string;
+      // #endregion
 
-      // Variables
+      // #region Variables
       export declare const bar: number;
+      // #endregion
       "
     `)
   })
@@ -319,13 +342,15 @@ export interface Bar {
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Interfaces
+      "// #region Interfaces
       export interface Bar {
         baz: string;
       }
+      // #endregion
 
-      // Types
+      // #region Types
       export type Foo = string;
+      // #endregion
       "
     `)
   })
@@ -336,8 +361,9 @@ export type Protocol = \`https://\${string}\`;
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Types
+      "// #region Types
       export type Protocol = \`https://\${string}\`;
+      // #endregion
       "
     `)
   })
@@ -348,8 +374,9 @@ export declare function build(config: BuildConfig, options?: Options): Promise<v
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Functions
+      "// #region Functions
       export declare function build(_: BuildConfig, _?: Options): Promise<void>;
+      // #endregion
       "
     `)
   })
@@ -360,8 +387,9 @@ export declare function handler(this: Context, event: Event, data: string): void
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Functions
+      "// #region Functions
       export declare function handler(this: Context, _: Event, _: string): void;
+      // #endregion
       "
     `)
   })
@@ -374,10 +402,11 @@ export declare function create(): {
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Functions
+      "// #region Functions
       export declare function create(): {
         handler: (this: any, _: string, _: number) => void;
       };
+      // #endregion
       "
     `)
   })
@@ -390,10 +419,11 @@ export declare class Emitter {
 `
     const result = await extractDts('test.d.mts', code)
     expect(result).toMatchInlineSnapshot(`
-      "// Classes
+      "// #region Classes
       export declare class Emitter {
         emit(this: Emitter, _: string): void;
       }
+      // #endregion
       "
     `)
   })

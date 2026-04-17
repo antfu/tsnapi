@@ -41,6 +41,12 @@ export interface ApiSnapshotOptions {
   typeWidening?: boolean
 
   /**
+   * Group exports by kind (class, function, variable, etc.) with section headers.
+   * @default true
+   */
+  categorizedExports?: boolean
+
+  /**
    * Update snapshots instead of comparing.
    * When not set, auto-detected from `--update-snapshot` / `-u` CLI flags
    * or `UPDATE_SNAPSHOT=1` environment variable.

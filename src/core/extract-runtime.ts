@@ -1,5 +1,7 @@
+import type { Entry, EntryKind } from './kind.ts'
 import MagicString from 'magic-string'
 import { parse } from 'oxc-parser'
+import { formatGroupedEntries } from './kind.ts'
 
 /**
  * Get the name from a ModuleExportName node (Identifier or StringLiteral).
@@ -14,18 +16,35 @@ function getExportName(node: any): string {
  */
 const RE_DEFAULT_WORD = /\bdefault\b/
 
-function formatExportEntry(exportedName: string, skeleton: string): { name: string, text: string } {
+function formatExportEntry(exportedName: string, skeleton: string, kind: EntryKind): Entry {
   if (exportedName === 'default') {
     const renamed = skeleton.replace(RE_DEFAULT_WORD, '_default')
-    return { name: '\x00default', text: `${renamed}\nexport default _default` }
+    return { name: '\x00default', text: `${renamed}\nexport default _default`, kind: 'default' }
   }
-  return { name: exportedName, text: `export ${skeleton}` }
+  return { name: exportedName, text: `export ${skeleton}`, kind }
+}
+
+function kindFromRuntimeDecl(decl: any): EntryKind {
+  if (decl.type === 'FunctionDeclaration')
+    return 'function'
+  if (decl.type === 'ClassDeclaration')
+    return 'class'
+  if (decl.type === 'VariableDeclaration') {
+    const init = (decl._declarator ?? decl.declarations?.[0])?.init
+    if (init?.type === 'ClassExpression' || init?.type === 'ClassDeclaration')
+      return 'class'
+    if (init?.type === 'FunctionExpression')
+      return 'function'
+    return 'variable'
+  }
+  return 'other'
 }
 
 export interface ExtractOptions {
   chunkSources?: Map<string, string>
   omitArgumentNames?: boolean
   typeWidening?: boolean
+  categorizedExports?: boolean
 }
 
 /**
@@ -36,9 +55,10 @@ export async function extractRuntime(fileName: string, code: string, options?: E
   const chunkSources = options?.chunkSources
   const omitArgs = options?.omitArgumentNames ?? true
   const typeWidening = options?.typeWidening ?? true
+  const categorized = options?.categorizedExports ?? true
   const { program } = await parse(fileName, code)
   const s = new MagicString(code)
-  const entries: { name: string, text: string }[] = []
+  const entries: Entry[] = []
 
   // Build a map of top-level declarations for resolving export specifiers
   const declMap = new Map<string, any>()
@@ -83,7 +103,7 @@ export async function extractRuntime(fileName: string, code: string, options?: E
           const text = s.slice(stmt.start, stmt.end).trim()
           const firstName = getExportName((stmt as any).specifiers[0]?.exported)
             || getExportName((stmt as any).specifiers[0]?.local)
-          entries.push({ name: firstName, text })
+          entries.push({ name: firstName, text, kind: 're-export' })
         }
         else {
           // Local re-export: export { foo, bar }
@@ -93,8 +113,9 @@ export async function extractRuntime(fileName: string, code: string, options?: E
             const exportedName = getExportName(spec.exported) || localName
             const decl = declMap.get(localName)
             if (decl) {
+              const kind = kindFromRuntimeDecl(decl)
               const skeleton = extractDeclarationSkeleton(s, decl, exportedName, omitArgs, typeWidening)
-              entries.push(formatExportEntry(exportedName, skeleton))
+              entries.push(formatExportEntry(exportedName, skeleton, kind))
             }
             else {
               // Try resolving through imports into chunk files
@@ -104,10 +125,10 @@ export async function extractRuntime(fileName: string, code: string, options?: E
               }
               else {
                 if (exportedName === 'default') {
-                  entries.push({ name: '\x00default', text: `export default ${localName}` })
+                  entries.push({ name: '\x00default', text: `export default ${localName}`, kind: 'default' })
                 }
                 else {
-                  entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }` })
+                  entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }`, kind: 'other' })
                 }
               }
             }
@@ -119,25 +140,27 @@ export async function extractRuntime(fileName: string, code: string, options?: E
       const decl = (stmt as any).declaration
       if (decl?.type === 'FunctionDeclaration' || decl?.type === 'FunctionExpression') {
         const sig = extractFunctionSignature(s, decl, undefined, omitArgs)
-        entries.push({ name: '\x00default', text: `export default ${sig}` })
+        entries.push({ name: '\x00default', text: `export default ${sig}`, kind: 'default' })
       }
       else if (decl?.type === 'ClassDeclaration' || decl?.type === 'ClassExpression') {
         const skeleton = extractClassSkeleton(s, decl, undefined, omitArgs)
-        entries.push({ name: '\x00default', text: `export default ${skeleton}` })
+        entries.push({ name: '\x00default', text: `export default ${skeleton}`, kind: 'default' })
       }
       else {
         const text = s.slice(stmt.start, stmt.end).trim()
-        entries.push({ name: '\x00default', text })
+        entries.push({ name: '\x00default', text, kind: 'default' })
       }
     }
     else if (stmt.type === 'ExportAllDeclaration') {
       const text = s.slice(stmt.start, stmt.end).trim()
-      entries.push({ name: `\x00*${(stmt as any).source?.value ?? ''}`, text })
+      entries.push({ name: `\x00*${(stmt as any).source?.value ?? ''}`, text, kind: 're-export' })
     }
   }
 
+  if (categorized) {
+    return formatGroupedEntries(entries)
+  }
   entries.sort((a, b) => a.name.localeCompare(b.name))
-
   return `${entries.map(e => e.text).join('\n')}\n`
 }
 
@@ -151,7 +174,7 @@ async function resolveFromChunkRuntime(
   chunkSources?: Map<string, string>,
   omitArgs = true,
   typeWidening = true,
-): Promise<{ name: string, text: string } | undefined> {
+): Promise<Entry | undefined> {
   if (!chunkSources)
     return undefined
   const importInfo = importMap.get(localName)
@@ -177,8 +200,9 @@ async function resolveFromChunkRuntime(
   if (!decl)
     return undefined
 
+  const kind = kindFromRuntimeDecl(decl)
   const skeleton = extractDeclarationSkeleton(chunkS, decl, exportedName, omitArgs, typeWidening)
-  return formatExportEntry(exportedName, skeleton)
+  return formatExportEntry(exportedName, skeleton, kind)
 }
 
 /**
@@ -275,7 +299,7 @@ function extractDeclarationSkeleton(s: MagicString, decl: any, exportedName: str
 function processDeclaration(
   s: MagicString,
   decl: any,
-  entries: { name: string, text: string }[],
+  entries: Entry[],
   prefix: string,
   omitArgs = true,
   typeWidening = true,
@@ -283,12 +307,12 @@ function processDeclaration(
   if (decl.type === 'FunctionDeclaration') {
     const name = decl.id?.name ?? 'anonymous'
     const sig = extractFunctionSignature(s, decl, undefined, omitArgs)
-    entries.push({ name, text: `${prefix}${sig}` })
+    entries.push({ name, text: `${prefix}${sig}`, kind: 'function' })
   }
   else if (decl.type === 'ClassDeclaration') {
     const name = decl.id?.name ?? 'anonymous'
     const skeleton = extractClassSkeleton(s, decl, undefined, omitArgs)
-    entries.push({ name, text: `${prefix}${skeleton}` })
+    entries.push({ name, text: `${prefix}${skeleton}`, kind: 'class' })
   }
   else if (decl.type === 'VariableDeclaration') {
     for (const declarator of decl.declarations ?? []) {
@@ -297,16 +321,16 @@ function processDeclaration(
       // Detect `var/const X = class { ... }` pattern
       if (init?.type === 'ClassExpression' || init?.type === 'ClassDeclaration') {
         const skeleton = extractClassSkeleton(s, init, name, omitArgs)
-        entries.push({ name, text: `${prefix}${skeleton}` })
+        entries.push({ name, text: `${prefix}${skeleton}`, kind: 'class' })
       }
       // Detect `var/const X = function(...) { ... }` pattern
       else if (init?.type === 'FunctionExpression') {
         const sig = extractFunctionSignature(s, init, name, omitArgs)
-        entries.push({ name, text: `${prefix}${sig}` })
+        entries.push({ name, text: `${prefix}${sig}`, kind: 'function' })
       }
       else {
         const text = extractVariableDeclaration(s, decl.kind, declarator, undefined, typeWidening)
-        entries.push({ name, text: `${prefix}${text}` })
+        entries.push({ name, text: `${prefix}${text}`, kind: 'variable' })
       }
     }
   }
