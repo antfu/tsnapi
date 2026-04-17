@@ -1,7 +1,7 @@
 {
   "name": "tsnapi",
   "type": "module",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "packageManager": "pnpm@10.33.0",
   "description": "Library public API snapshot testing for runtime exports and type declarations.",
   "author": "Anthony Fu <anthonyfu117@hotmail.com>",
