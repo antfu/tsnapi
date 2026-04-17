@@ -73,7 +73,7 @@ export function resolveUpdateMode(explicit?: boolean): boolean {
 export async function generateApiSnapshot(cwd: string, options?: ApiSnapshotOptions): Promise<Record<string, { runtime: string, dts: string }>> {
   const entries = await resolvePackageEntries(cwd)
   const result: Record<string, { runtime: string, dts: string }> = {}
-  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening }
+  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports }
   const showHeader = options?.header ?? true
   const packageName = showHeader ? await readPackageName(cwd) : ''
 
@@ -125,7 +125,7 @@ async function snapshotEntries(
 ): Promise<SnapshotResult> {
   const { outputDir, ext, update } = resolveOptions(options)
   const resolvedOutputDir = resolve(cwd, outputDir)
-  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening }
+  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports }
   const showHeader = options?.header ?? true
   const packageName = showHeader ? await readPackageName(cwd) : ''
 

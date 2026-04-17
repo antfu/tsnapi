@@ -15,8 +15,10 @@ export async function fetchData(url, options) {
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export async function fetchData(_, _) {}
+      "// #region Functions
+      export async function fetchData(_, _) {}
       export function hello(_) {}
+      // #endregion
       "
     `)
   })
@@ -32,12 +34,14 @@ export const computed = something();
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export var computed /* const */
+      "// #region Variables
+      export var computed /* const */
       export var config /* const */
       export var COUNT /* const */
       export var DEBUG /* const */
       export var items /* const */
       export var VERSION /* const */
+      // #endregion
       "
     `)
   })
@@ -61,12 +65,14 @@ export class MyService {
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export class MyService {
+      "// #region Classes
+      export class MyService {
         constructor(_) {}
         async run(_) {}
         static create(_) {}
         get name() {}
       }
+      // #endregion
       "
     `)
   })
@@ -75,7 +81,9 @@ export class MyService {
     const code = `export { foo, bar as baz } from './other.js';`
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export { foo, bar as baz } from './other.js';
+      "// #region Re-exports
+      export { foo, bar as baz } from './other.js';
+      // #endregion
       "
     `)
   })
@@ -88,7 +96,9 @@ export default function main(args) {
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export default function main(_) {}
+      "// #region Default Export
+      export default function main(_) {}
+      // #endregion
       "
     `)
   })
@@ -101,9 +111,11 @@ export function middle() {}
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export function alpha() {}
+      "// #region Functions
+      export function alpha() {}
       export function middle() {}
       export function zebra() {}
+      // #endregion
       "
     `)
   })
@@ -126,12 +138,20 @@ export { App, VERSION, greet };
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export class App {
+      "// #region Classes
+      export class App {
         constructor(_) {}
         start() {}
       }
+      // #endregion
+
+      // #region Functions
       export function greet(_) {}
+      // #endregion
+
+      // #region Variables
       export var VERSION /* const */
+      // #endregion
       "
     `)
   })
@@ -153,11 +173,13 @@ export { Logger };
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export class Logger {
+      "// #region Classes
+      export class Logger {
         constructor(_) {}
         log(_) {}
         static create(_) {}
       }
+      // #endregion
       "
     `)
   })
@@ -180,12 +202,20 @@ export { _App as App, _version as VERSION, internalGreet as greet };
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export class App {
+      "// #region Classes
+      export class App {
         constructor(_) {}
         start() {}
       }
+      // #endregion
+
+      // #region Functions
       export function greet(_) {}
+      // #endregion
+
+      // #region Variables
       export var VERSION /* const */
+      // #endregion
       "
     `)
   })
@@ -197,7 +227,9 @@ export { something as publicName };
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export { something as publicName }
+      "// #region Other
+      export { something as publicName }
+      // #endregion
       "
     `)
   })
@@ -206,7 +238,9 @@ export { something as publicName };
     const code = `export { default as MyLib, Options } from './lib.js';`
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export { default as MyLib, Options } from './lib.js';
+      "// #region Re-exports
+      export { default as MyLib, Options } from './lib.js';
+      // #endregion
       "
     `)
   })
@@ -229,8 +263,10 @@ export { resolvePackageEntries as a, resolvePackageDir as i };
       chunkSources: new Map([['./core-abc123.mjs', chunkCode]]),
     })
     expect(result).toMatchInlineSnapshot(`
-      "export function resolveDir(_, _) {}
+      "// #region Functions
+      export function resolveDir(_, _) {}
       export function resolveEntries(_) {}
+      // #endregion
       "
     `)
   })
@@ -244,8 +280,10 @@ export { rolldownPlugin as default };
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "function _default(_) {}
+      "// #region Default Export
+      function _default(_) {}
       export default _default
+      // #endregion
       "
     `)
   })
@@ -264,11 +302,13 @@ export { MyClass as default };
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "class _default {
+      "// #region Default Export
+      class _default {
         constructor(_) {}
         run() {}
       }
       export default _default
+      // #endregion
       "
     `)
   })
@@ -282,7 +322,9 @@ export { compute };
 `
     const result = await extractRuntime('test.mjs', code)
     expect(result).toMatchInlineSnapshot(`
-      "export function compute(_, _) {}
+      "// #region Functions
+      export function compute(_, _) {}
+      // #endregion
       "
     `)
   })
@@ -297,11 +339,13 @@ export const BIG = 100n;
 `
     const result = await extractRuntime('test.mjs', code, { typeWidening: false })
     expect(result).toMatchInlineSnapshot(`
-      "export var BIG = 100n /* const */
+      "// #region Variables
+      export var BIG = 100n /* const */
       export var COUNT = 42 /* const */
       export var DEBUG = true /* const */
       export var EMPTY = null /* const */
       export var VERSION = '1.0.0' /* const */
+      // #endregion
       "
     `)
   })
@@ -314,9 +358,11 @@ export const computed = a + b;
 `
     const result = await extractRuntime('test.mjs', code, { typeWidening: false })
     expect(result).toMatchInlineSnapshot(`
-      "export var computed /* const */
+      "// #region Variables
+      export var computed /* const */
       export var config /* const */
       export var obj /* const */
+      // #endregion
       "
     `)
   })
@@ -328,8 +374,10 @@ export const MIXED = [1, 'two', true];
 `
     const result = await extractRuntime('test.mjs', code, { typeWidening: false })
     expect(result).toMatchInlineSnapshot(`
-      "export var ITEMS = [1, 2, 3] /* const */
+      "// #region Variables
+      export var ITEMS = [1, 2, 3] /* const */
       export var MIXED = [1, 'two', true] /* const */
+      // #endregion
       "
     `)
   })
@@ -350,11 +398,31 @@ export class App {
 `
     const result = await extractRuntime('test.mjs', code, { omitArgumentNames: false })
     expect(result).toMatchInlineSnapshot(`
-      "export class App {
+      "// #region Classes
+      export class App {
         constructor(config) {}
         run(input, options) {}
       }
+      // #endregion
+
+      // #region Functions
       export function greet(name) {}
+      // #endregion
+      "
+    `)
+  })
+
+  it('uses flat alphabetical when categorizedExports is false', async () => {
+    const code = `
+export const VERSION = '1.0.0';
+export function greet(name) { return name; }
+export class App {}
+`
+    const result = await extractRuntime('test.mjs', code, { categorizedExports: false })
+    expect(result).toMatchInlineSnapshot(`
+      "export class App {}
+      export function greet(_) {}
+      export var VERSION /* const */
       "
     `)
   })
