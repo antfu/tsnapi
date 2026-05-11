@@ -63,8 +63,10 @@ export async function extractDts(fileName: string, code: string, options?: impor
   const entries: Entry[] = []
 
   // Build a map of top-level declarations (including non-exported ones)
-  // for resolving export { ... } specifiers
-  const declMap = new Map<string, { stmt: any, decl: any }>()
+  // for resolving export { ... } specifiers. Values are arrays to support
+  // function overloads — multiple `declare function foo` signatures with the
+  // same name must all be preserved.
+  const declMap = new Map<string, Array<{ stmt: any, decl: any }>>()
   for (const stmt of program.body) {
     collectDtsDeclarations(stmt as any, declMap)
   }
@@ -119,28 +121,39 @@ export async function extractDts(fileName: string, code: string, options?: impor
 /**
  * Collect all top-level declarations into a name -> node map,
  * including non-exported ones (for resolving `export { ... }` specifiers).
+ *
+ * Function declarations append to the existing list to preserve overloads;
+ * other kinds reset the list (preserves prior "last wins" behavior for
+ * invalid duplicate non-function declarations).
  */
-function collectDtsDeclarations(stmt: any, map: Map<string, { stmt: any, decl: any }>): void {
+function collectDtsDeclarations(stmt: any, map: Map<string, Array<{ stmt: any, decl: any }>>): void {
   const decl = stmt.declaration ?? stmt
   if (decl.type === 'TSInterfaceDeclaration' && decl.id?.name) {
-    map.set(decl.id.name, { stmt, decl })
+    map.set(decl.id.name, [{ stmt, decl }])
   }
   else if (decl.type === 'TSTypeAliasDeclaration' && decl.id?.name) {
-    map.set(decl.id.name, { stmt, decl })
+    map.set(decl.id.name, [{ stmt, decl }])
   }
   else if (decl.type === 'TSEnumDeclaration' && decl.id?.name) {
-    map.set(decl.id.name, { stmt, decl })
+    map.set(decl.id.name, [{ stmt, decl }])
   }
   else if ((decl.type === 'TSDeclareFunction' || decl.type === 'FunctionDeclaration') && decl.id?.name) {
-    map.set(decl.id.name, { stmt, decl })
+    const existing = map.get(decl.id.name)
+    const prevType = existing?.[0]?.decl.type
+    if (existing && (prevType === 'TSDeclareFunction' || prevType === 'FunctionDeclaration')) {
+      existing.push({ stmt, decl })
+    }
+    else {
+      map.set(decl.id.name, [{ stmt, decl }])
+    }
   }
   else if (decl.type === 'ClassDeclaration' && decl.id?.name) {
-    map.set(decl.id.name, { stmt, decl })
+    map.set(decl.id.name, [{ stmt, decl }])
   }
   else if (decl.type === 'VariableDeclaration') {
     for (const declarator of decl.declarations ?? []) {
       if (declarator.id?.name) {
-        map.set(declarator.id.name, { stmt, decl: { ...decl, _declarator: declarator } })
+        map.set(declarator.id.name, [{ stmt, decl: { ...decl, _declarator: declarator } }])
       }
     }
   }
@@ -150,7 +163,7 @@ async function processExportNamedDeclaration(
   stmt: any,
   s: MagicString,
   entries: Entry[],
-  declMap: Map<string, { stmt: any, decl: any }>,
+  declMap: Map<string, Array<{ stmt: any, decl: any }>>,
   importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
@@ -211,15 +224,17 @@ async function processExportNamedDeclaration(
         || s.slice(spec.start, spec.end).trimStart().startsWith('type ')
 
       const resolved = declMap.get(localName)
-      if (resolved) {
-        const { text, kind } = extractResolvedDeclaration(s, resolved, exportedName, isTypeExport, typeWidening)
-        entries.push(formatDtsExportEntry(exportedName, text, kind))
+      if (resolved && resolved.length > 0) {
+        for (const r of resolved) {
+          const { text, kind } = extractResolvedDeclaration(s, r, exportedName, isTypeExport, typeWidening)
+          entries.push(formatDtsExportEntry(exportedName, text, kind))
+        }
       }
       else {
         // Try resolving through imports into chunk files
         const chunkResolved = await resolveFromChunkDts(localName, exportedName, isTypeExport, importMap, chunkSources, omitArgs, typeWidening)
         if (chunkResolved) {
-          entries.push(chunkResolved)
+          entries.push(...chunkResolved)
         }
         else {
           // Fallback: just output the specifier
@@ -246,7 +261,7 @@ async function resolveFromChunkDts(
   chunkSources?: Map<string, string>,
   omitArgs = true,
   typeWidening = true,
-): Promise<Entry | undefined> {
+): Promise<Entry[] | undefined> {
   if (!chunkSources)
     return undefined
   const importInfo = importMap.get(localName)
@@ -267,7 +282,7 @@ async function resolveFromChunkDts(
     for (const stmt of program.body)
       replaceAllParamNames(chunkS, stmt as any)
   }
-  const chunkDeclMap = new Map<string, { stmt: any, decl: any }>()
+  const chunkDeclMap = new Map<string, Array<{ stmt: any, decl: any }>>()
   for (const stmt of program.body) {
     collectDtsDeclarations(stmt as any, chunkDeclMap)
   }
@@ -278,11 +293,13 @@ async function resolveFromChunkDts(
     return undefined
 
   const resolved = chunkDeclMap.get(chunkLocalName)
-  if (!resolved)
+  if (!resolved || resolved.length === 0)
     return undefined
 
-  const { text, kind } = extractResolvedDeclaration(chunkS, resolved, exportedName, isTypeExport, typeWidening)
-  return formatDtsExportEntry(exportedName, text, kind)
+  return resolved.map((r) => {
+    const { text, kind } = extractResolvedDeclaration(chunkS, r, exportedName, isTypeExport, typeWidening)
+    return formatDtsExportEntry(exportedName, text, kind)
+  })
 }
 
 /**
@@ -291,7 +308,7 @@ async function resolveFromChunkDts(
 function resolveChunkExportLocalDts(
   program: any,
   importedName: string,
-  declMap: Map<string, { stmt: any, decl: any }>,
+  declMap: Map<string, Array<{ stmt: any, decl: any }>>,
 ): string | undefined {
   for (const stmt of program.body) {
     if (stmt.type === 'ExportNamedDeclaration') {

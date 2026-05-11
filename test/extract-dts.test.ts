@@ -427,4 +427,93 @@ export declare class Emitter {
       "
     `)
   })
+
+  it('preserves all overloads resolved through export specifier', async () => {
+    const code = `
+declare function foo(x: number): number;
+declare function foo(x: string): string;
+declare function foo(x: any): any;
+export { foo };
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export declare function foo(_: number): number;
+      export declare function foo(_: string): string;
+      export declare function foo(_: any): any;
+      // #endregion
+      "
+    `)
+  })
+
+  it('preserves all overloads with aliased export', async () => {
+    const code = `
+declare function _foo(x: number): number;
+declare function _foo(x: string): string;
+export { _foo as foo };
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export declare function foo(_: number): number;
+      export declare function foo(_: string): string;
+      // #endregion
+      "
+    `)
+  })
+
+  it('preserves all overloads resolved through chunk imports', async () => {
+    const entryCode = `
+import { c as formatError } from "./index-abc123.d.mts";
+export { formatError };
+`
+    const chunkCode = `
+declare function formatMismatchError(code: number): string;
+declare function formatMismatchError(message: string): string;
+export { formatMismatchError as c };
+`
+    const result = await extractDts('index.d.mts', entryCode, {
+      chunkSources: new Map([['./index-abc123.d.mts', chunkCode]]),
+    })
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export declare function formatError(_: number): string;
+      export declare function formatError(_: string): string;
+      // #endregion
+      "
+    `)
+  })
+
+  it('preserves all overloads when written directly as export declare function', async () => {
+    const code = `
+export declare function bar(x: number): number;
+export declare function bar(x: string): string;
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export declare function bar(_: number): number;
+      export declare function bar(_: string): string;
+      // #endregion
+      "
+    `)
+  })
+
+  it('keeps overloads grouped alongside non-overloaded functions', async () => {
+    const code = `
+declare function foo(x: number): number;
+declare function foo(x: string): string;
+declare function baz(): void;
+export { foo, baz };
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export declare function baz(): void;
+      export declare function foo(_: number): number;
+      export declare function foo(_: string): string;
+      // #endregion
+      "
+    `)
+  })
 })
