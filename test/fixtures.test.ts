@@ -11,7 +11,10 @@ function snapshotDir(fixture: string): string {
 }
 
 function readSnap(fixture: string, name: string): string {
-  return readFileSync(join(snapshotDir(fixture), name), 'utf-8')
+  // Normalize CRLF -> LF so assertions are line-ending agnostic. Git may check
+  // out committed snapshots with CRLF on Windows, matching tsnapi's own
+  // normalization when it reads snapshots for comparison.
+  return readFileSync(join(snapshotDir(fixture), name), 'utf-8').replace(/\r\n/g, '\n')
 }
 
 async function buildFixture(fixture: string): Promise<void> {
@@ -149,6 +152,33 @@ describe('fixture: re-exports', () => {
 
     // Idempotent
     await buildFixture('re-exports')
+  })
+})
+
+describe('fixture: deprecated', () => {
+  it('surfaces @deprecated as a minimal one-line marker', async () => {
+    await buildFixture('deprecated')
+
+    const runtime = readSnap('deprecated', 'index.snapshot.js')
+    const dts = readSnap('deprecated', 'index.snapshot.d.ts')
+
+    // Deprecated declarations get a minimal `/** @deprecated */` line on top
+    expect(runtime).toContain('/** @deprecated */\nexport function tweet')
+    expect(runtime).toContain('/** @deprecated */\nexport var BIRD_NAME')
+    expect(dts).toContain('/** @deprecated */\nexport declare function tweet')
+    expect(dts).toContain('/** @deprecated */\nexport interface TweetOptions')
+    expect(dts).toContain('/** @deprecated */\nexport declare const BIRD_NAME')
+
+    // Non-deprecated declarations are untouched
+    expect(runtime).not.toContain('/** @deprecated */\nexport function post')
+    expect(dts).not.toContain('/** @deprecated */\nexport interface PostOptions')
+
+    // Only the minimal marker is kept, not the original JSDoc body
+    expect(dts).not.toContain('use {@link post}')
+    expect(dts).not.toContain('AT Protocol')
+
+    // Idempotent
+    await buildFixture('deprecated')
   })
 })
 

@@ -281,6 +281,19 @@ When `typeWidening` is `false`, literal values are preserved in the snapshot:
 
 This applies to string, number, boolean, null, bigint, and array literals. Non-literal values (function calls, complex objects) are always stripped regardless of this setting.
 
+### Deprecations
+
+Comments are stripped from snapshots, but `@deprecated` is part of the public contract. When a declaration has a `@deprecated` JSDoc/comment, a minimal `/** @deprecated */` marker is kept on the line above it:
+
+<!-- eslint-skip -->
+```ts
+/** @deprecated */
+export declare function tweet(_: string): string;
+export declare function post(_: string): string;
+```
+
+The original message is dropped -- only the marker is surfaced, so adding or removing the tag shows up in the diff.
+
 ## Credits
 
 This project is heavily inspired by:
