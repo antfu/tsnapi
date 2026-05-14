@@ -516,4 +516,58 @@ export { foo, baz };
       "
     `)
   })
+
+  it('surfaces @deprecated as a minimal one-line marker', async () => {
+    const code = `
+/**
+ * Old greeter.
+ * @deprecated use greet2 instead
+ */
+export declare function greet(name: string): string;
+export declare function greet2(name: string): string;
+/** @deprecated */
+export interface OldOptions {
+  value: string;
+}
+export declare const ACTIVE: string;
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Interfaces
+      /** @deprecated */
+      export interface OldOptions {
+        value: string;
+      }
+      // #endregion
+
+      // #region Functions
+      /** @deprecated */
+      export declare function greet(_: string): string;
+      export declare function greet2(_: string): string;
+      // #endregion
+
+      // #region Variables
+      export declare const ACTIVE: string;
+      // #endregion
+      "
+    `)
+  })
+
+  it('surfaces @deprecated through export specifiers', async () => {
+    const code = `
+/** @deprecated */
+declare function _legacy(): void;
+declare function _current(): void;
+export { _legacy as legacy, _current as current };
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export declare function current(): void;
+      /** @deprecated */
+      export declare function legacy(): void;
+      // #endregion
+      "
+    `)
+  })
 })

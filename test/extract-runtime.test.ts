@@ -426,4 +426,51 @@ export class App {}
       "
     `)
   })
+
+  it('surfaces @deprecated as a minimal one-line marker', async () => {
+    const code = `
+/**
+ * Old greeter.
+ * @deprecated use greet2 instead
+ */
+export function greet(name) { return name; }
+export function greet2(name) { return name; }
+/** @deprecated */
+export const LEGACY = '1.0.0';
+export const ACTIVE = '2.0.0';
+`
+    const result = await extractRuntime('test.mjs', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      /** @deprecated */
+      export function greet(_) {}
+      export function greet2(_) {}
+      // #endregion
+
+      // #region Variables
+      export var ACTIVE /* const */
+      /** @deprecated */
+      export var LEGACY /* const */
+      // #endregion
+      "
+    `)
+  })
+
+  it('surfaces @deprecated through export specifiers', async () => {
+    const code = `
+/** @deprecated */
+function _old() {}
+function _keep() {}
+export { _old as old, _keep as keep };
+`
+    const result = await extractRuntime('test.mjs', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export function keep() {}
+      /** @deprecated */
+      export function old() {}
+      // #endregion
+      "
+    `)
+  })
 })
