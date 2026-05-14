@@ -47,6 +47,39 @@ export interface ExtractOptions {
   categorizedExports?: boolean
 }
 
+/** Minimal marker prepended above declarations that carry an `@deprecated` tag. */
+export const DEPRECATED_MARKER = '/** @deprecated */\n'
+const RE_DEPRECATED = /@deprecated\b/
+
+/**
+ * Collect the start offsets of top-level statements that have an immediately
+ * preceding `@deprecated` comment. The full JSDoc is dropped like any other
+ * comment — only a minimal marker is surfaced in the snapshot.
+ */
+export function collectDeprecatedStarts(program: any, comments: any[], code: string): Set<number> {
+  const starts = new Set<number>()
+  const depComments = comments.filter(c => RE_DEPRECATED.test(c.value))
+  if (depComments.length === 0)
+    return starts
+  for (const stmt of program.body) {
+    for (const c of depComments) {
+      if (c.end <= stmt.start && code.slice(c.end, stmt.start).trim() === '') {
+        starts.add(stmt.start)
+        break
+      }
+    }
+  }
+  return starts
+}
+
+/** Prepend the `@deprecated` marker to every entry pushed since `fromIdx`. */
+export function applyDeprecated(entries: Entry[], fromIdx: number): void {
+  for (let i = fromIdx; i < entries.length; i++) {
+    if (!entries[i].text.startsWith(DEPRECATED_MARKER))
+      entries[i] = { ...entries[i], text: DEPRECATED_MARKER + entries[i].text }
+  }
+}
+
 /**
  * Extract runtime export skeletons from a JS chunk.
  * Returns a formatted `.ts` snapshot string showing the API surface without implementations.
@@ -56,9 +89,10 @@ export async function extractRuntime(fileName: string, code: string, options?: E
   const omitArgs = options?.omitArgumentNames ?? true
   const typeWidening = options?.typeWidening ?? true
   const categorized = options?.categorizedExports ?? true
-  const { program } = await parse(fileName, code)
+  const { program, comments } = await parse(fileName, code)
   const s = new MagicString(code)
   const entries: Entry[] = []
+  const deprecatedStarts = collectDeprecatedStarts(program, comments, code)
 
   // Build a map of top-level declarations for resolving export specifiers
   const declMap = new Map<string, any>()
@@ -91,6 +125,7 @@ export async function extractRuntime(fileName: string, code: string, options?: E
   }
 
   for (const stmt of program.body) {
+    const entriesBefore = entries.length
     if (stmt.type === 'ExportNamedDeclaration') {
       const decl = (stmt as any).declaration
       if (decl) {
@@ -116,6 +151,8 @@ export async function extractRuntime(fileName: string, code: string, options?: E
               const kind = kindFromRuntimeDecl(decl)
               const skeleton = extractDeclarationSkeleton(s, decl, exportedName, omitArgs, typeWidening)
               entries.push(formatExportEntry(exportedName, skeleton, kind))
+              if (deprecatedStarts.has(decl.start))
+                applyDeprecated(entries, entries.length - 1)
             }
             else {
               // Try resolving through imports into chunk files
@@ -155,6 +192,8 @@ export async function extractRuntime(fileName: string, code: string, options?: E
       const text = s.slice(stmt.start, stmt.end).trim()
       entries.push({ name: `\x00*${(stmt as any).source?.value ?? ''}`, text, kind: 're-export' })
     }
+    if (deprecatedStarts.has(stmt.start))
+      applyDeprecated(entries, entriesBefore)
   }
 
   if (categorized) {
