@@ -230,6 +230,26 @@ export { SnapshotFile as a };
     `)
   })
 
+  it('expands a re-exported local declare namespace', async () => {
+    const code = `
+declare namespace utils {
+  function foo(a: number): string;
+  const bar: number;
+}
+export { utils as Utils };
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Namespaces
+      export declare namespace Utils {
+        function foo(_: number): string;
+        const bar: number;
+      }
+      // #endregion
+      "
+    `)
+  })
+
   it('handles export { X as default } with valid syntax', async () => {
     const code = `
 declare function rolldownPlugin(options?: ApiSnapshotOptions): { name: string };
