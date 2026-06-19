@@ -4,6 +4,27 @@ import { parse } from 'oxc-parser'
 import { formatGroupedEntries } from './kind.ts'
 
 /**
+ * Look up a chunk's source by its import path.
+ *
+ * Chunk sources are keyed relative to the dist root (e.g. `./engine-x.mjs`), but an
+ * entry emitted in a subdirectory imports them with a `../` prefix (`../engine-x.mjs`),
+ * so the literal lookup misses. Fall back to matching by basename, which is unambiguous
+ * since chunk filenames are content-hashed and unique. Without this, re-exported
+ * declarations from shared chunks collapse to a bare `export { name }` with no signature.
+ */
+export function resolveChunkSource(chunkSources: Map<string, string>, source: string): string | undefined {
+  const direct = chunkSources.get(source)
+  if (direct !== undefined)
+    return direct
+  const base = source.split('/').pop()
+  for (const [key, value] of chunkSources) {
+    if (key.split('/').pop() === base)
+      return value
+  }
+  return undefined
+}
+
+/**
  * Get the name from a ModuleExportName node (Identifier or StringLiteral).
  */
 function getExportName(node: any): string {
@@ -180,7 +201,7 @@ async function resolveFromChunkRuntime(
   const importInfo = importMap.get(localName)
   if (!importInfo)
     return undefined
-  const chunkCode = chunkSources.get(importInfo.source)
+  const chunkCode = resolveChunkSource(chunkSources, importInfo.source)
   if (!chunkCode)
     return undefined
 

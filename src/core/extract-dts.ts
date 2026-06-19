@@ -1,6 +1,7 @@
 import type { Entry, EntryKind } from './kind.ts'
 import MagicString from 'magic-string'
 import { parse } from 'oxc-parser'
+import { resolveChunkSource } from './extract-runtime.ts'
 import { formatGroupedEntries } from './kind.ts'
 
 /**
@@ -267,7 +268,7 @@ async function resolveFromChunkDts(
   const importInfo = importMap.get(localName)
   if (!importInfo)
     return undefined
-  const chunkCode = chunkSources.get(importInfo.source)
+  const chunkCode = resolveChunkSource(chunkSources, importInfo.source)
   if (!chunkCode)
     return undefined
 

@@ -204,6 +204,32 @@ export { SnapshotFile as a, formatMismatchError as c };
     `)
   })
 
+  it('resolves chunk imports referenced with a ../-relative path', async () => {
+    const entryCode = `
+import { a as SnapshotFile } from "../engine-abc123.d.mts";
+export { SnapshotFile };
+`
+    const chunkCode = `
+interface SnapshotFile {
+  runtime: string;
+  dts: string;
+}
+export { SnapshotFile as a };
+`
+    const result = await extractDts('src/index.d.mts', entryCode, {
+      chunkSources: new Map([['./engine-abc123.d.mts', chunkCode]]),
+    })
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Interfaces
+      export interface SnapshotFile {
+        runtime: string;
+        dts: string;
+      }
+      // #endregion
+      "
+    `)
+  })
+
   it('handles export { X as default } with valid syntax', async () => {
     const code = `
 declare function rolldownPlugin(options?: ApiSnapshotOptions): { name: string };
