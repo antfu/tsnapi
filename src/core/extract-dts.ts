@@ -1,7 +1,7 @@
 import type { Entry, EntryKind } from './kind.ts'
 import MagicString from 'magic-string'
 import { parse } from 'oxc-parser'
-import { resolveChunkSource } from './extract-runtime.ts'
+import { applyDeprecated, collectDeprecatedStarts, resolveChunkSource } from './extract-runtime.ts'
 import { formatGroupedEntries } from './kind.ts'
 
 /**
@@ -53,6 +53,7 @@ export async function extractDts(fileName: string, code: string, options?: impor
   const categorized = options?.categorizedExports ?? true
   const { program, comments } = await parse(fileName, code)
   const s = new MagicString(code)
+  const deprecatedStarts = collectDeprecatedStarts(program, comments, code)
   for (const c of comments)
     s.remove(c.start, c.end)
 
@@ -98,8 +99,9 @@ export async function extractDts(fileName: string, code: string, options?: impor
   }
 
   for (const stmt of program.body) {
+    const entriesBefore = entries.length
     if (stmt.type === 'ExportNamedDeclaration') {
-      await processExportNamedDeclaration(stmt as any, s, entries, declMap, importMap, chunkSources, omitArgs, typeWidening)
+      await processExportNamedDeclaration(stmt as any, s, entries, declMap, importMap, deprecatedStarts, chunkSources, omitArgs, typeWidening)
     }
     else if (stmt.type === 'ExportDefaultDeclaration') {
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
@@ -111,6 +113,8 @@ export async function extractDts(fileName: string, code: string, options?: impor
       const text = s.slice(stmt.start, stmt.end).trim()
       entries.push({ name: `\x00*${(stmt as any).source?.value ?? ''}`, text, kind: 're-export' })
     }
+    if (deprecatedStarts.has(stmt.start))
+      applyDeprecated(entries, entriesBefore)
   }
 
   if (categorized) {
@@ -170,6 +174,7 @@ async function processExportNamedDeclaration(
   entries: Entry[],
   declMap: Map<string, Array<{ stmt: any, decl: any }>>,
   importMap: Map<string, { source: string, imported: string }>,
+  deprecatedStarts: Set<number>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
   typeWidening = true,
@@ -233,6 +238,10 @@ async function processExportNamedDeclaration(
         for (const r of resolved) {
           const { text, kind } = extractResolvedDeclaration(s, r, exportedName, isTypeExport, typeWidening)
           entries.push(formatDtsExportEntry(exportedName, text, kind))
+          // The `@deprecated` tag lives on the resolved declaration, not the
+          // `export { ... }` statement, so check that statement's offset here.
+          if (deprecatedStarts.has(r.stmt.start))
+            applyDeprecated(entries, entries.length - 1)
         }
       }
       else {
