@@ -41,6 +41,7 @@ function kindFromDeclType(declType: string): EntryKind {
     case 'FunctionDeclaration': return 'function'
     case 'ClassDeclaration': return 'class'
     case 'VariableDeclaration': return 'variable'
+    case 'TSModuleDeclaration': return 'namespace'
     default: return 'other'
   }
 }
@@ -157,6 +158,9 @@ function collectDtsDeclarations(stmt: any, map: Map<string, Array<{ stmt: any, d
         map.set(declarator.id.name, [{ stmt, decl: { ...decl, _declarator: declarator } }])
       }
     }
+  }
+  else if (decl.type === 'TSModuleDeclaration' && typeof decl.id?.name === 'string') {
+    map.set(decl.id.name, [{ stmt, decl }])
   }
 }
 
@@ -391,6 +395,15 @@ function extractResolvedDeclaration(
   }
 
   if (decl.type === 'ClassDeclaration') {
+    const body = s.slice(decl.start, decl.end)
+    const text = exportedName !== (decl.id?.name ?? '')
+      ? body.replace(decl.id.name, exportedName)
+      : body
+    const prefix = text.trimStart().startsWith('declare') ? 'export ' : 'export declare '
+    return { text: normalizeWhitespace(`${prefix}${text.trimStart()}`), kind }
+  }
+
+  if (decl.type === 'TSModuleDeclaration') {
     const body = s.slice(decl.start, decl.end)
     const text = exportedName !== (decl.id?.name ?? '')
       ? body.replace(decl.id.name, exportedName)
