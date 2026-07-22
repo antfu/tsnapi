@@ -3,9 +3,10 @@ import type { ApiSnapshotOptions } from './core/types.ts'
 import { access, readFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
+import { analyzeApiChanges, formatBreakingChanges, isBreakingChange } from './core/breaking.ts'
 import { extractDts } from './core/extract-dts.ts'
 import { extractRuntime } from './core/extract-runtime.ts'
-import { resolveUpdateMode } from './core/index.ts'
+import { resolveAllowBreaking, resolveUpdateMode } from './core/index.ts'
 import {
   compareSnapshots,
   formatMismatchError,
@@ -31,6 +32,7 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
     typeWidening,
     categorizedExports,
     update,
+    allowBreaking,
   } = options
 
   const ext: SnapshotExtensions = { runtime: extensionRuntime, dts: extensionDts }
@@ -42,6 +44,7 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
       order: 'post' as const,
       async handler(outputOptions, bundle) {
         const shouldUpdate = resolveUpdateMode(update)
+        const shouldAllowBreaking = resolveAllowBreaking(allowBreaking)
         const projectRoot = outputOptions.dir
           ? dirname(resolve(outputOptions.dir))
           : process.cwd()
@@ -92,6 +95,7 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
         }
 
         const mismatches: SnapshotMismatch[] = []
+        const breaking: import('./core/breaking.ts').BreakingChange[] = []
 
         for (const [stem, jsChunk] of jsChunks) {
           const dtsChunk = dtsChunks.get(stem)
@@ -101,7 +105,17 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
           const current = { runtime, dts }
           const existing = await readSnapshot(resolvedOutputDir, stem, ext)
 
-          if (!existing || shouldUpdate) {
+          if (!existing) {
+            await writeSnapshot(resolvedOutputDir, stem, current, ext, header)
+          }
+          else if (shouldUpdate) {
+            if (!shouldAllowBreaking) {
+              const change = await analyzeApiChanges(stem, existing, current)
+              if (isBreakingChange(change)) {
+                breaking.push(change)
+                continue
+              }
+            }
             await writeSnapshot(resolvedOutputDir, stem, current, ext, header)
           }
           else {
@@ -111,6 +125,11 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
               await writeSnapshot(resolvedOutputDir, stem, current, ext, header)
             }
           }
+        }
+
+        if (breaking.length > 0) {
+          console.error(formatBreakingChanges(breaking))
+          this.error('Breaking API changes detected. Re-run with --allow-breaking to update anyway.')
         }
 
         if (mismatches.length > 0) {

@@ -1,9 +1,12 @@
 export {
+  analyzeApiChanges,
   compareSnapshots,
   extractDts,
   extractRuntime,
+  formatBreakingChanges,
   formatMismatchError,
   generateApiSnapshot,
+  isBreakingChange,
   readSnapshot,
   resolvePackageEntries,
   resolvePackageEntriesSync,
@@ -14,6 +17,7 @@ export {
 
 export type {
   ApiSnapshotOptions,
+  BreakingChange,
   ResolvedEntry,
   SnapshotExtensions,
   SnapshotFile,

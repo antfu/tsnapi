@@ -9,11 +9,13 @@ const cli = cac('tsnapi')
 cli
   .command('[dir]', 'Snapshot exported API and types for TypeScript libraries')
   .option('-u, --update', 'Update snapshots instead of comparing')
+  .option('--allow-breaking', 'Allow breaking API changes when updating snapshots')
   .option('-o, --output-dir <dir>', 'Snapshot output directory (default: __snapshots__/tsnapi)')
-  .action(async (dir: string | undefined, options: { update?: boolean, outputDir?: string }) => {
+  .action(async (dir: string | undefined, options: { update?: boolean, allowBreaking?: boolean, outputDir?: string }) => {
     const result = await snapshotPackage(dir ?? process.cwd(), {
       outputDir: options.outputDir,
       update: options.update,
+      allowBreaking: options.allowBreaking,
     })
 
     if (result.hasChanges) {

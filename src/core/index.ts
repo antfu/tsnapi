@@ -4,6 +4,7 @@ import { access, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { hasArgvFlag } from './argv.ts'
+import { analyzeApiChanges, formatBreakingChanges, isBreakingChange } from './breaking.ts'
 import { extractDts } from './extract-dts.ts'
 import { extractRuntime } from './extract-runtime.ts'
 import { resolvePackageEntries } from './resolve.ts'
@@ -15,6 +16,8 @@ import {
   writeSnapshot,
 } from './snapshot.ts'
 
+export type { BreakingChange } from './breaking.ts'
+export { analyzeApiChanges, formatBreakingChanges, isBreakingChange } from './breaking.ts'
 export { extractDts } from './extract-dts.ts'
 export { extractRuntime } from './extract-runtime.ts'
 export { resolvePackageEntries, resolvePackageEntriesSync } from './resolve.ts'
@@ -38,6 +41,7 @@ function resolveOptions(options?: ApiSnapshotOptions): {
   outputDir: string
   ext: SnapshotExtensions
   update: boolean
+  allowBreaking: boolean
 } {
   const outputDir = options?.outputDir ?? '__snapshots__/tsnapi'
   const ext: SnapshotExtensions = {
@@ -45,7 +49,8 @@ function resolveOptions(options?: ApiSnapshotOptions): {
     dts: options?.extensionDts ?? '.snapshot.d.ts',
   }
   const update = resolveUpdateMode(options?.update)
-  return { outputDir, ext, update }
+  const allowBreaking = resolveAllowBreaking(options?.allowBreaking)
+  return { outputDir, ext, update, allowBreaking }
 }
 
 export function resolveUpdateMode(explicit?: boolean): boolean {
@@ -55,6 +60,20 @@ export function resolveUpdateMode(explicit?: boolean): boolean {
   if (env === '1' || env === 'true')
     return true
   return hasArgvFlag(process.argv.slice(2), '--update-snapshot', '-u')
+}
+
+/**
+ * Resolve whether breaking API changes are allowed when updating snapshots.
+ * When not set explicitly, auto-detected from the `--allow-breaking` CLI flag
+ * or the `TSNAPI_ALLOW_BREAKING=1` environment variable.
+ */
+export function resolveAllowBreaking(explicit?: boolean): boolean {
+  if (explicit != null)
+    return explicit
+  const env = process.env.TSNAPI_ALLOW_BREAKING
+  if (env === '1' || env === 'true')
+    return true
+  return hasArgvFlag(process.argv.slice(2), '--allow-breaking')
 }
 
 /**
@@ -123,7 +142,7 @@ async function snapshotEntries(
   cwd: string,
   options?: ApiSnapshotOptions,
 ): Promise<SnapshotResult> {
-  const { outputDir, ext, update } = resolveOptions(options)
+  const { outputDir, ext, update, allowBreaking } = resolveOptions(options)
   const resolvedOutputDir = resolve(cwd, outputDir)
   const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports }
   const showHeader = options?.header ?? true
@@ -131,6 +150,7 @@ async function snapshotEntries(
 
   const mismatches: SnapshotResult['mismatches'] = []
   const allMismatchDetails: import('./snapshot.ts').SnapshotMismatch[] = []
+  const breaking: SnapshotResult['breaking'] = []
 
   for (const entry of entries) {
     const stem = entryNameToStem(entry.name)
@@ -146,7 +166,19 @@ async function snapshotEntries(
     const current = { runtime, dts }
     const existing = await readSnapshot(resolvedOutputDir, stem, ext)
 
-    if (!existing || update) {
+    if (!existing) {
+      // First run: nothing to compare against, always write.
+      await writeSnapshot(resolvedOutputDir, stem, current, ext, header)
+    }
+    else if (update) {
+      // Guard the update: refuse to overwrite on a breaking change unless allowed.
+      if (!allowBreaking) {
+        const change = await analyzeApiChanges(stem, existing, current)
+        if (isBreakingChange(change)) {
+          breaking.push(change)
+          continue
+        }
+      }
       await writeSnapshot(resolvedOutputDir, stem, current, ext, header)
     }
     else {
@@ -163,12 +195,14 @@ async function snapshotEntries(
     }
   }
 
-  const hasChanges = mismatches.length > 0
-  const diffOutput = hasChanges
-    ? formatMismatchError(allMismatchDetails, outputDir, ext)
-    : null
+  const hasChanges = mismatches.length > 0 || breaking.length > 0
+  const diffOutput = breaking.length > 0
+    ? formatBreakingChanges(breaking)
+    : mismatches.length > 0
+      ? formatMismatchError(allMismatchDetails, outputDir, ext)
+      : null
 
-  return { hasChanges, mismatches, diff: diffOutput }
+  return { hasChanges, mismatches, diff: diffOutput, breaking }
 }
 
 /**

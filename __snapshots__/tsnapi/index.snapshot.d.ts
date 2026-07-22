@@ -11,6 +11,14 @@ export interface ApiSnapshotOptions {
   typeWidening?: boolean;
   categorizedExports?: boolean;
   update?: boolean;
+  allowBreaking?: boolean;
+}
+export interface BreakingChange {
+  entryName: string;
+  removed: string[];
+  modified: string[];
+  widened: string[];
+  added: string[];
 }
 export interface ResolvedEntry {
   name: string;
@@ -38,18 +46,22 @@ export interface SnapshotResult {
     dtsChanged: boolean;
   }[];
   diff: string | null;
+  breaking: BreakingChange[];
 }
 // #endregion
 
 // #region Functions
+export declare function analyzeApiChanges(_: string, _: SnapshotFile, _: SnapshotFile): Promise<BreakingChange>;
 export declare function compareSnapshots(_: string, _: SnapshotFile, _: SnapshotFile): SnapshotMismatch | null;
 export declare function extractDts(_: string, _: string, _?: ExtractOptions): Promise<string>;
 export declare function extractRuntime(_: string, _: string, _?: ExtractOptions): Promise<string>;
+export declare function formatBreakingChanges(_: BreakingChange[]): string;
 export declare function formatMismatchError(_: SnapshotMismatch[], _: string, _: SnapshotExtensions): string;
 export declare function generateApiSnapshot(_: string, _?: ApiSnapshotOptions): Promise<Record<string, {
   runtime: string;
   dts: string;
 }>>;
+export declare function isBreakingChange(_: BreakingChange): boolean;
 export declare function readSnapshot(_: string, _: string, _: SnapshotExtensions): Promise<SnapshotFile | null>;
 export declare function resolvePackageEntries(_: string): Promise<ResolvedEntry[]>;
 export declare function resolvePackageEntriesSync(_: string): ResolvedEntry[];

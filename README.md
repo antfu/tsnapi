@@ -72,6 +72,52 @@ plugins: [
 ],
 ```
 
+#### Breaking changes guard
+
+When you update snapshots, `tsnapi` classifies the change as either **additive** or **breaking**. A breaking change **aborts the update without overwriting the snapshot**, so you can't silently ship a breaking API change with a routine `-u`:
+
+```
+Breaking API changes detected
+
+  index
+    - removed   createServer
+    ~ narrowed  RequestOptions
+
+  Refusing to update snapshots because the public API changed in a breaking way.
+  If this is intentional, re-run with --allow-breaking (or set TSNAPI_ALLOW_BREAKING=1).
+```
+
+The check is deliberately **lossy** — it favours *not* blocking a change to avoid false positives, while reliably catching the important case: something being **removed**. A change is treated as breaking only when a declaration loses something. Purely additive changes are allowed straight through:
+
+| Change | Classified as |
+| --- | --- |
+| Removing an export | breaking |
+| Removing an interface member, parameter, or union arm | breaking |
+| Replacing a type with an unrelated one (e.g. `string` → `number`) | breaking |
+| Adding a new export | additive |
+| Adding a new interface property | additive |
+| Widening a parameter or return type with a union (e.g. `string` → `string \| number`) | additive |
+| Adding a parameter | additive |
+
+> Because the guard only checks that nothing was removed, some genuinely breaking changes (for instance, widening a *return* type, which callers may not expect) are intentionally allowed through to keep false positives low. A normal comparison build still fails on **any** change, so every change is always visible in your git diff regardless.
+
+When the change really is intentional, opt out with the `--allow-breaking` CLI flag, the `TSNAPI_ALLOW_BREAKING=1` environment variable, or the `allowBreaking` plugin option:
+
+```bash
+tsnapi -u --allow-breaking
+# or
+UPDATE_SNAPSHOT=1 TSNAPI_ALLOW_BREAKING=1 tsdown
+```
+
+<!-- eslint-skip -->
+```ts
+plugins: [
+  ApiSnapshot({ update: true, allowBreaking: true })
+],
+```
+
+> **Note:** The guard only runs while updating. A normal comparison build still fails on **any** change (additive or breaking) so every change lands in your git diff.
+
 ### As a CLI
 
 Snapshot any package's dist without a bundler:
@@ -82,6 +128,9 @@ tsnapi
 
 # Update snapshots when you intentionally change the API
 tsnapi -u
+
+# Allow a breaking API change (removed/changed export) while updating
+tsnapi -u --allow-breaking
 ```
 
 ### With Vitest
@@ -264,6 +313,14 @@ interface ApiSnapshotOptions {
   typeWidening?: boolean
   /** Update mode. Auto-detected from --update-snapshot / -u / UPDATE_SNAPSHOT=1 */
   update?: boolean
+  /**
+   * Allow breaking API changes (removed or narrowed exports) while updating.
+   * When false (default), a breaking change aborts the update without writing.
+   * Additive changes (new exports/members, wider unions) are always allowed.
+   * Auto-detected from --allow-breaking / TSNAPI_ALLOW_BREAKING=1
+   * @default false
+   */
+  allowBreaking?: boolean
 }
 ```
 

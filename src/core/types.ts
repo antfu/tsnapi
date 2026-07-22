@@ -52,6 +52,20 @@ export interface ApiSnapshotOptions {
    * or `UPDATE_SNAPSHOT=1` environment variable.
    */
   update?: boolean
+
+  /**
+   * Allow breaking API changes when updating snapshots.
+   *
+   * While updating (see {@link update}), tsnapi classifies each change as
+   * additive (new exports, new interface members, wider unions, extra
+   * parameters) or breaking (something was removed or narrowed). Breaking
+   * changes abort the update without writing, unless this is `true`.
+   *
+   * When not set, auto-detected from the `--allow-breaking` CLI flag or the
+   * `TSNAPI_ALLOW_BREAKING=1` environment variable.
+   * @default false
+   */
+  allowBreaking?: boolean
 }
 
 export interface SnapshotResult {
@@ -61,6 +75,11 @@ export interface SnapshotResult {
   mismatches: { name: string, runtimeChanged: boolean, dtsChanged: boolean }[]
   /** Formatted diff output for terminal (if mismatched) */
   diff: string | null
+  /**
+   * Breaking API changes that blocked an update. Empty unless snapshots were
+   * updated with the breaking-change guard active (see `allowBreaking`).
+   */
+  breaking: import('./breaking.ts').BreakingChange[]
 }
 
 export interface ResolvedEntry {
