@@ -51,7 +51,7 @@ export async function extractDts(fileName: string, code: string, options?: impor
   const omitArgs = options?.omitArgumentNames ?? true
   const typeWidening = options?.typeWidening ?? true
   const categorized = options?.categorizedExports ?? true
-  const traceDepth = options?.traceDepth ?? 1
+  const referenceTracingDepth = options?.referenceTracingDepth ?? 1
   const { program, comments } = await parse(fileName, code)
   const s = new MagicString(code)
   const deprecatedStarts = collectDeprecatedStarts(program, comments, code)
@@ -118,8 +118,8 @@ export async function extractDts(fileName: string, code: string, options?: impor
       applyDeprecated(entries, entriesBefore)
   }
 
-  if (traceDepth > 0) {
-    traceReferencedDeclarations(s, program, declMap, entries, traceDepth)
+  if (referenceTracingDepth > 0) {
+    traceReferencedDeclarations(s, program, declMap, entries, referenceTracingDepth)
   }
 
   if (categorized) {

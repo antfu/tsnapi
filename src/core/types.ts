@@ -67,7 +67,7 @@ export interface ApiSnapshotOptions {
    * it harder to review, so keep this small.
    * @default 1
    */
-  traceDepth?: number
+  referenceTracingDepth?: number
 
   /**
    * Update snapshots instead of comparing.

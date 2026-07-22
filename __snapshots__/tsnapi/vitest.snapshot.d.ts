@@ -16,7 +16,7 @@ export interface PackageContext {
   packageName: string;
   outputDir: string;
 }
-export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header' | 'allowBreaking' | 'traceDepth'> {
+export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header' | 'allowBreaking' | 'referenceTracingDepth'> {
   outputDir?: string;
 }
 // #endregion

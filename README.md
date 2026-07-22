@@ -338,7 +338,7 @@ interface ApiSnapshotOptions {
   /** Widen literal types to base types, hiding implementation details. @default true */
   typeWidening?: boolean
   /** How many hops of non-exported types reachable from exports to inline. @default 1 */
-  traceDepth?: number
+  referenceTracingDepth?: number
   /** Update mode. Auto-detected from --update-snapshot / -u / UPDATE_SNAPSHOT=1 */
   update?: boolean
   /**
@@ -366,7 +366,7 @@ When `typeWidening` is `false`, literal values are preserved in the snapshot:
 
 This applies to string, number, boolean, null, bigint, and array literals. Non-literal values (function calls, complex objects) are always stripped regardless of this setting.
 
-### `traceDepth`
+### `referenceTracingDepth`
 
 A bundled `.d.ts` keeps the declarations of internal types that public exports reference, but leaves them unexported. Given:
 
@@ -378,13 +378,13 @@ export declare const config: Options;
 
 the snapshot would otherwise only show `export declare const config: Options;` — the shape of `Options` is absent, so changing it wouldn't invalidate the snapshot even though it changes the public contract.
 
-`traceDepth` controls how many hops of non-exported type references reachable from the exports are inlined into a dedicated `Referenced (internal)` region:
+`referenceTracingDepth` controls how many hops of non-exported type references reachable from the exports are inlined into a dedicated `Referenced (internal)` region:
 
 - `0` — trace nothing (only the exports themselves).
 - `1` (**default**) — types named directly in an export's signature (e.g. `Options` above).
 - `2`+ — also the types those types reference, transitively.
 
-With the default `traceDepth: 1`, the snapshot becomes:
+With the default `referenceTracingDepth: 1`, the snapshot becomes:
 
 <!-- eslint-skip -->
 ```ts

@@ -66,7 +66,7 @@ export interface ExtractOptions {
   omitArgumentNames?: boolean
   typeWidening?: boolean
   categorizedExports?: boolean
-  traceDepth?: number
+  referenceTracingDepth?: number
 }
 
 /** Minimal marker prepended above declarations that carry an `@deprecated` tag. */

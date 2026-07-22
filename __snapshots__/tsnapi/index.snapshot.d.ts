@@ -10,7 +10,7 @@ export interface ApiSnapshotOptions {
   omitArgumentNames?: boolean;
   typeWidening?: boolean;
   categorizedExports?: boolean;
-  traceDepth?: number;
+  referenceTracingDepth?: number;
   update?: boolean;
   allowBreaking?: boolean;
 }
@@ -81,6 +81,6 @@ interface ExtractOptions {
   omitArgumentNames?: boolean;
   typeWidening?: boolean;
   categorizedExports?: boolean;
-  traceDepth?: number;
+  referenceTracingDepth?: number;
 }
 // #endregion

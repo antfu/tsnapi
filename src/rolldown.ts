@@ -31,13 +31,13 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
     omitArgumentNames,
     typeWidening,
     categorizedExports,
-    traceDepth,
+    referenceTracingDepth,
     update,
     allowBreaking,
   } = options
 
   const ext: SnapshotExtensions = { runtime: extensionRuntime, dts: extensionDts }
-  const extractOptions = { omitArgumentNames, typeWidening, categorizedExports, traceDepth }
+  const extractOptions = { omitArgumentNames, typeWidening, categorizedExports, referenceTracingDepth }
 
   return {
     name: 'tsnapi',

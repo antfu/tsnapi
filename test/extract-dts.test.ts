@@ -617,7 +617,7 @@ export { _legacy as legacy, _current as current };
     `)
   })
 
-  describe('traceDepth (referenced internal types)', () => {
+  describe('referenceTracingDepth (referenced internal types)', () => {
     const code = `
 type Options = { foo: string };
 interface Deep { nested: Helper }
@@ -647,7 +647,7 @@ export { config, make };
     })
 
     it('depth 0 disables tracing (only the exports themselves)', async () => {
-      const result = await extractDts('test.d.mts', code, { traceDepth: 0 })
+      const result = await extractDts('test.d.mts', code, { referenceTracingDepth: 0 })
       expect(result).toMatchInlineSnapshot(`
         "// #region Functions
         export declare function make(): Deep;
@@ -661,7 +661,7 @@ export { config, make };
     })
 
     it('depth 2 also inlines transitively referenced types', async () => {
-      const result = await extractDts('test.d.mts', code, { traceDepth: 2 })
+      const result = await extractDts('test.d.mts', code, { referenceTracingDepth: 2 })
       expect(result).toMatchInlineSnapshot(`
         "// #region Functions
         export declare function make(): Deep;
@@ -687,7 +687,7 @@ type B = { a: A };
 declare const x: A;
 export { x };
 `
-      const result = await extractDts('test.d.mts', cyclic, { traceDepth: 10 })
+      const result = await extractDts('test.d.mts', cyclic, { referenceTracingDepth: 10 })
       expect(result).toMatchInlineSnapshot(`
         "// #region Variables
         export declare const x: A;
@@ -743,7 +743,7 @@ interface Derived extends Base { name: string }
 declare const item: Derived;
 export { item };
 `
-      const result = await extractDts('test.d.mts', code, { traceDepth: 2 })
+      const result = await extractDts('test.d.mts', code, { referenceTracingDepth: 2 })
       expect(result).toContain('interface Base { id: string }')
       expect(result).toContain('interface Derived extends Base { name: string }')
     })

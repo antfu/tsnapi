@@ -183,7 +183,7 @@ describe('fixture: deprecated', () => {
 })
 
 describe('fixture: referenced-types', () => {
-  it('inlines non-exported types reachable from exports (traceDepth default 1)', async () => {
+  it('inlines non-exported types reachable from exports (referenceTracingDepth default 1)', async () => {
     await buildFixture('referenced-types')
 
     const dts = readSnap('referenced-types', 'index.snapshot.d.ts')
