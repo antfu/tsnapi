@@ -158,7 +158,7 @@ function createChunkSourceLoader(): (entryFile: string) => Promise<ChunkSources>
 export async function generateApiSnapshot(cwd: string, options?: ApiSnapshotOptions): Promise<Record<string, { runtime: string, dts: string }>> {
   const entries = await resolvePackageEntries(cwd)
   const result: Record<string, { runtime: string, dts: string }> = {}
-  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports }
+  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports, referenceTracingDepth: options?.referenceTracingDepth }
   const showHeader = options?.header ?? true
   const packageName = showHeader ? await readPackageName(cwd) : ''
   const chunkSourcesFor = createChunkSourceLoader()
@@ -211,7 +211,7 @@ async function snapshotEntries(
 ): Promise<SnapshotResult> {
   const { outputDir, ext, update, allowBreaking } = resolveOptions(options)
   const resolvedOutputDir = resolve(cwd, outputDir)
-  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports }
+  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports, referenceTracingDepth: options?.referenceTracingDepth }
   const showHeader = options?.header ?? true
   const packageName = showHeader ? await readPackageName(cwd) : ''
   const chunkSourcesFor = createChunkSourceLoader()

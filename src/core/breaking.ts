@@ -83,6 +83,33 @@ function exportedNames(stmt: any): string[] {
     return ['default']
   if (stmt.type === 'ExportAllDeclaration')
     return [`*${stmt.source?.value ?? ''}`]
+  // Bare (non-exported) declarations appear in the snapshot's
+  // `Referenced (internal)` region. They're part of the captured contract, so
+  // track them too — a removed member of an internal type is still breaking.
+  return bareDeclarationNames(stmt)
+}
+
+/**
+ * The names introduced by a non-exported top-level declaration (as emitted
+ * into the `Referenced (internal)` snapshot region).
+ */
+function bareDeclarationNames(stmt: any): string[] {
+  if (stmt.type === 'VariableDeclaration') {
+    return (stmt.declarations ?? [])
+      .map((d: any) => d.id?.name)
+      .filter((n: unknown): n is string => typeof n === 'string' && n.length > 0)
+  }
+  if (
+    stmt.type === 'TSInterfaceDeclaration'
+    || stmt.type === 'TSTypeAliasDeclaration'
+    || stmt.type === 'TSEnumDeclaration'
+    || stmt.type === 'ClassDeclaration'
+    || stmt.type === 'TSDeclareFunction'
+    || stmt.type === 'FunctionDeclaration'
+    || stmt.type === 'TSModuleDeclaration'
+  ) {
+    return typeof stmt.id?.name === 'string' && stmt.id.name.length > 0 ? [stmt.id.name] : []
+  }
   return []
 }
 

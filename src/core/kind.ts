@@ -1,4 +1,4 @@
-export type EntryKind = 'interface' | 'type' | 'enum' | 'class' | 'namespace' | 'function' | 'variable' | 'default' | 're-export' | 'other'
+export type EntryKind = 'interface' | 'type' | 'enum' | 'class' | 'namespace' | 'function' | 'variable' | 'default' | 're-export' | 'referenced' | 'other'
 
 export interface Entry {
   name: string
@@ -6,7 +6,7 @@ export interface Entry {
   kind: EntryKind
 }
 
-export const KIND_ORDER: EntryKind[] = ['interface', 'type', 'enum', 'class', 'namespace', 'function', 'variable', 'default', 're-export', 'other']
+export const KIND_ORDER: EntryKind[] = ['interface', 'type', 'enum', 'class', 'namespace', 'function', 'variable', 'default', 're-export', 'referenced', 'other']
 export const KIND_LABELS: Record<EntryKind, string> = {
   'interface': 'Interfaces',
   'type': 'Types',
@@ -17,6 +17,7 @@ export const KIND_LABELS: Record<EntryKind, string> = {
   'variable': 'Variables',
   'default': 'Default Export',
   're-export': 'Re-exports',
+  'referenced': 'Referenced (internal)',
   'other': 'Other',
 }
 
