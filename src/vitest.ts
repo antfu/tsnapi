@@ -1,13 +1,13 @@
 import type { ApiSnapshotOptions } from './core/types.ts'
 import { existsSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { globSync } from 'tinyglobby'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { generateApiSnapshot } from './core/index.ts'
+import { analyzeApiChanges, formatBreakingChanges, generateApiSnapshot, isBreakingChange, resolveAllowBreaking } from './core/index.ts'
 import { resolvePackageEntriesSync } from './core/resolve.ts'
 
-export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header'> {
+export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header' | 'allowBreaking'> {
   /**
    * Snapshot output directory, relative to the test file.
    * @default '__snapshots__/tsnapi'
@@ -72,6 +72,7 @@ export interface DescribePackagesApiSnapshotsOptions extends SnapshotApiOptions 
 export function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOptions): void {
   const outputDir = options?.outputDir ?? '__snapshots__/tsnapi'
   const pkgName = readPackageName(cwd) ?? 'unknown'
+  const allowBreaking = resolveAllowBreaking(options?.allowBreaking)
   const entries = resolvePackageEntriesSync(cwd)
 
   if (entries.length === 0) {
@@ -89,16 +90,89 @@ export function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOptions): 
 
     it(`runtime: ${entry.name}`, async () => {
       const snapshot = (await getApi())[entry.name]
-      await expect(snapshot.runtime)
-        .toMatchFileSnapshot(join(outputDir, pkgName, `${stem}.snapshot.js`))
+      const file = join(outputDir, pkgName, `${stem}.snapshot.js`)
+      await guardBreakingUpdate(stem, 'runtime', snapshot.runtime, file, allowBreaking)
+      await expect(snapshot.runtime).toMatchFileSnapshot(file)
     })
 
     it(`dts: ${entry.name}`, async () => {
       const snapshot = (await getApi())[entry.name]
-      await expect(snapshot.dts)
-        .toMatchFileSnapshot(join(outputDir, pkgName, `${stem}.snapshot.d.ts`))
+      const file = join(outputDir, pkgName, `${stem}.snapshot.d.ts`)
+      await guardBreakingUpdate(stem, 'dts', snapshot.dts, file, allowBreaking)
+      await expect(snapshot.dts).toMatchFileSnapshot(file)
     })
   }
+}
+
+/**
+ * Guard a single snapshot surface against breaking API changes before it is
+ * written, mirroring the CLI / rolldown breaking guard for Vitest.
+ *
+ * Throws (failing the test, so the caller never overwrites the file) when
+ * `updating` is set and the change removes or narrows part of the public API,
+ * unless `allowBreaking` is set. A no-op when not updating (any diff already
+ * fails the test in compare mode), when breaking changes are allowed, or when
+ * there is no existing snapshot to compare against (`existing` is `null`).
+ *
+ * Pure and Vitest-independent — the caller supplies whether Vitest is updating
+ * and the existing on-disk content — so it can be reused when wiring a custom
+ * snapshot flow.
+ */
+export async function guardBreakingSnapshot(options: {
+  /** Entry name / stem the surface belongs to (e.g. `index`, `utils`). */
+  entryName: string
+  /** Which snapshot surface `current` / `existing` represent. */
+  surface: 'runtime' | 'dts'
+  /** Freshly generated snapshot content for the surface. */
+  current: string
+  /** Existing on-disk snapshot content, or `null` on a first run. */
+  existing: string | null
+  /** Whether Vitest is overwriting snapshots (`-u`); guard only runs when `true`. */
+  updating: boolean
+  /** Allow breaking changes through without throwing. */
+  allowBreaking: boolean
+}): Promise<void> {
+  const { entryName, surface, current, existing, updating, allowBreaking } = options
+  if (!updating || allowBreaking || existing == null)
+    return
+
+  const before = surface === 'runtime' ? { runtime: existing, dts: '' } : { runtime: '', dts: existing }
+  const after = surface === 'runtime' ? { runtime: current, dts: '' } : { runtime: '', dts: current }
+  const change = await analyzeApiChanges(entryName, before, after)
+  if (isBreakingChange(change))
+    throw new Error(formatBreakingChanges([change]))
+}
+
+/**
+ * Read the existing snapshot from disk (if any) and delegate to
+ * {@link guardBreakingSnapshot}. `toMatchFileSnapshot` overwrites its target
+ * unconditionally in update mode (`-u`), which would silently bake in a
+ * breaking API change; running this first keeps the CLI / rolldown guarantee.
+ */
+async function guardBreakingUpdate(
+  entryName: string,
+  surface: 'runtime' | 'dts',
+  current: string,
+  file: string,
+  allowBreaking: boolean,
+): Promise<void> {
+  const testPath = expect.getState().testPath
+  let existing: string | null = null
+  if (testPath) {
+    const existingPath = isAbsolute(file) ? file : resolve(dirname(testPath), file)
+    if (existsSync(existingPath))
+      existing = readFileSync(existingPath, 'utf-8')
+  }
+  await guardBreakingSnapshot({ entryName, surface, current, existing, updating: isUpdatingSnapshots(), allowBreaking })
+}
+
+/**
+ * Whether Vitest is set to overwrite existing snapshots (`-u` / `--update`),
+ * read from the snapshot state Vitest attaches to the matcher state at run time.
+ */
+function isUpdatingSnapshots(): boolean {
+  const state = expect.getState() as { snapshotState?: { snapshotUpdateState?: string } }
+  return state.snapshotState?.snapshotUpdateState === 'all'
 }
 
 /**

@@ -166,6 +166,32 @@ describe('my-lib API', async () => {
 
 This creates `it()` blocks for each entry point, asserting both runtime and DTS snapshots. Snapshot files are written to `__snapshots__/tsnapi/<package-name>/` relative to the test file. Run `vitest -u` to update snapshots when you intentionally change the API.
 
+#### Breaking changes guard
+
+The same [breaking changes guard](#breaking-changes-guard) applies here. Running `vitest -u` would normally overwrite the snapshot files unconditionally; `tsnapi` intercepts the update, classifies the change, and **fails the test without overwriting the snapshot** when an export was removed or narrowed:
+
+```
+Breaking API changes detected
+
+  index
+    - removed   parseConfig
+```
+
+Because Vitest's CLI rejects unknown flags, the `--allow-breaking` flag can't be passed through `vitest`. Opt out with the `TSNAPI_ALLOW_BREAKING=1` environment variable or the `allowBreaking` option instead:
+
+```bash
+# Allow a breaking API change while updating
+TSNAPI_ALLOW_BREAKING=1 vitest -u
+```
+
+```ts
+await snapshotApiPerEntry(dir, { allowBreaking: true })
+// or, for monorepos
+await describePackagesApiSnapshots({ allowBreaking: true })
+```
+
+> **Note:** The guard only runs while updating (`-u`). A normal comparison run already fails on **any** change (additive or breaking), so every change stays visible in your git diff.
+
 #### Monorepo
 
 For monorepos, `describePackagesApiSnapshots` creates a `describe()` block per package. When `packages` is omitted, it auto-discovers workspace packages from `pnpm-workspace.yaml` or the `workspaces` field in `package.json`:

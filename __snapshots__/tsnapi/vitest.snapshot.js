@@ -3,5 +3,6 @@
  */
 // #region Functions
 export function describePackagesApiSnapshots(_) {}
+export async function guardBreakingSnapshot(_) {}
 export function snapshotApiPerEntry(_, _) {}
 // #endregion
