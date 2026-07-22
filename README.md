@@ -72,6 +72,38 @@ plugins: [
 ],
 ```
 
+#### Breaking changes guard
+
+When you update snapshots, `tsnapi` classifies the change as either **additive** (only new exports were added) or **breaking** (an existing export was removed, or its declaration/signature changed). A breaking change **aborts the update without overwriting the snapshot**, so you can't silently ship a breaking API change with a routine `-u`:
+
+```
+Breaking API changes detected
+
+  index
+    - removed  createServer
+    ~ changed  RequestOptions
+
+  Refusing to update snapshots because the public API changed in a breaking way.
+  If this is intentional, re-run with --allow-breaking (or set TSNAPI_ALLOW_BREAKING=1).
+```
+
+When the change really is intentional, opt out with the `--allow-breaking` CLI flag, the `TSNAPI_ALLOW_BREAKING=1` environment variable, or the `allowBreaking` plugin option:
+
+```bash
+tsnapi -u --allow-breaking
+# or
+UPDATE_SNAPSHOT=1 TSNAPI_ALLOW_BREAKING=1 tsdown
+```
+
+<!-- eslint-skip -->
+```ts
+plugins: [
+  ApiSnapshot({ update: true, allowBreaking: true })
+],
+```
+
+> **Note:** The guard only runs while updating. A normal comparison build still fails on **any** change (additive or breaking) so every change lands in your git diff. Because tsnapi compares the printed declaration text, changing an existing export — even adding an optional interface property — is treated conservatively as breaking; use `--allow-breaking` to accept it.
+
 ### As a CLI
 
 Snapshot any package's dist without a bundler:
@@ -82,6 +114,9 @@ tsnapi
 
 # Update snapshots when you intentionally change the API
 tsnapi -u
+
+# Allow a breaking API change (removed/changed export) while updating
+tsnapi -u --allow-breaking
 ```
 
 ### With Vitest
@@ -264,6 +299,13 @@ interface ApiSnapshotOptions {
   typeWidening?: boolean
   /** Update mode. Auto-detected from --update-snapshot / -u / UPDATE_SNAPSHOT=1 */
   update?: boolean
+  /**
+   * Allow breaking API changes (removed or changed exports) while updating.
+   * When false (default), a breaking change aborts the update without writing.
+   * Auto-detected from --allow-breaking / TSNAPI_ALLOW_BREAKING=1
+   * @default false
+   */
+  allowBreaking?: boolean
 }
 ```
 
