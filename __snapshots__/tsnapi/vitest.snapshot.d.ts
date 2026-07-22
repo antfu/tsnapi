@@ -16,12 +16,20 @@ export interface PackageContext {
   packageName: string;
   outputDir: string;
 }
-export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header'> {
+export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header' | 'allowBreaking'> {
   outputDir?: string;
 }
 // #endregion
 
 // #region Functions
 export declare function describePackagesApiSnapshots(_?: DescribePackagesApiSnapshotsOptions): void;
+export declare function guardBreakingSnapshot(_: {
+  entryName: string;
+  surface: 'runtime' | 'dts';
+  current: string;
+  existing: string | null;
+  updating: boolean;
+  allowBreaking: boolean;
+}): Promise<void>;
 export declare function snapshotApiPerEntry(_: string, _?: SnapshotApiOptions): void;
 // #endregion
