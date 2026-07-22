@@ -47,6 +47,29 @@ export interface ApiSnapshotOptions {
   categorizedExports?: boolean
 
   /**
+   * How many hops of non-exported type references reachable from the public
+   * exports to trace into the DTS snapshot.
+   *
+   * A bundled `.d.ts` keeps the declarations of internal types that public
+   * exports reference (e.g. `declare const config: Options` where `Options` is
+   * not exported). By default those declarations are omitted from the snapshot,
+   * so a change to `Options` would silently escape the diff even though it
+   * changes the public contract.
+   *
+   * Setting a depth emits those reachable-but-unexported declarations into a
+   * dedicated `Referenced (internal)` region so their shape is part of the
+   * snapshot:
+   * - `0` — trace nothing (only the exports themselves).
+   * - `1` — types named directly in an export's signature.
+   * - `2` — also the types those types reference, and so on.
+   *
+   * Higher depths capture more of the contract but grow the snapshot and make
+   * it harder to review, so keep this small.
+   * @default 1
+   */
+  traceDepth?: number
+
+  /**
    * Update snapshots instead of comparing.
    * When not set, auto-detected from `--update-snapshot` / `-u` CLI flags
    * or `UPDATE_SNAPSHOT=1` environment variable.

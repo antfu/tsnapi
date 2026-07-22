@@ -616,4 +616,136 @@ export { _legacy as legacy, _current as current };
       "
     `)
   })
+
+  describe('traceDepth (referenced internal types)', () => {
+    const code = `
+type Options = { foo: string };
+interface Deep { nested: Helper }
+type Helper = { count: number };
+declare const config: Options;
+declare function make(): Deep;
+export { config, make };
+`
+
+    it('depth 1 (default) inlines types named directly by exports, not transitive ones', async () => {
+      const result = await extractDts('test.d.mts', code)
+      expect(result).toMatchInlineSnapshot(`
+        "// #region Functions
+        export declare function make(): Deep;
+        // #endregion
+
+        // #region Variables
+        export declare const config: Options;
+        // #endregion
+
+        // #region Referenced (internal)
+        interface Deep { nested: Helper }
+        type Options = { foo: string };
+        // #endregion
+        "
+      `)
+    })
+
+    it('depth 0 disables tracing (only the exports themselves)', async () => {
+      const result = await extractDts('test.d.mts', code, { traceDepth: 0 })
+      expect(result).toMatchInlineSnapshot(`
+        "// #region Functions
+        export declare function make(): Deep;
+        // #endregion
+
+        // #region Variables
+        export declare const config: Options;
+        // #endregion
+        "
+      `)
+    })
+
+    it('depth 2 also inlines transitively referenced types', async () => {
+      const result = await extractDts('test.d.mts', code, { traceDepth: 2 })
+      expect(result).toMatchInlineSnapshot(`
+        "// #region Functions
+        export declare function make(): Deep;
+        // #endregion
+
+        // #region Variables
+        export declare const config: Options;
+        // #endregion
+
+        // #region Referenced (internal)
+        interface Deep { nested: Helper }
+        type Helper = { count: number };
+        type Options = { foo: string };
+        // #endregion
+        "
+      `)
+    })
+
+    it('terminates on cyclic references', async () => {
+      const cyclic = `
+type A = { b: B };
+type B = { a: A };
+declare const x: A;
+export { x };
+`
+      const result = await extractDts('test.d.mts', cyclic, { traceDepth: 10 })
+      expect(result).toMatchInlineSnapshot(`
+        "// #region Variables
+        export declare const x: A;
+        // #endregion
+
+        // #region Referenced (internal)
+        type A = { b: B };
+        type B = { a: A };
+        // #endregion
+        "
+      `)
+    })
+
+    it('does not duplicate a referenced type that is itself exported', async () => {
+      const shared = `
+interface Shared { id: string }
+declare const a: Shared;
+declare function b(): Shared;
+export { a, b, Shared };
+`
+      const result = await extractDts('test.d.mts', shared)
+      // `Shared` appears once as an exported interface, never in a Referenced region.
+      expect(result).not.toContain('Referenced (internal)')
+      expect(result).toMatchInlineSnapshot(`
+        "// #region Interfaces
+        export interface Shared { id: string }
+        // #endregion
+
+        // #region Functions
+        export declare function b(): Shared;
+        // #endregion
+
+        // #region Variables
+        export declare const a: Shared;
+        // #endregion
+        "
+      `)
+    })
+
+    it('ignores global/library types with no local declaration', async () => {
+      const code = `
+declare function load(): Promise<Map<string, number>>;
+export { load };
+`
+      const result = await extractDts('test.d.mts', code)
+      expect(result).not.toContain('Referenced (internal)')
+    })
+
+    it('traces types through heritage clauses', async () => {
+      const code = `
+interface Base { id: string }
+interface Derived extends Base { name: string }
+declare const item: Derived;
+export { item };
+`
+      const result = await extractDts('test.d.mts', code, { traceDepth: 2 })
+      expect(result).toContain('interface Base { id: string }')
+      expect(result).toContain('interface Derived extends Base { name: string }')
+    })
+  })
 })

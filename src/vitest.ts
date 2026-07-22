@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { analyzeApiChanges, formatBreakingChanges, generateApiSnapshot, isBreakingChange, resolveAllowBreaking } from './core/index.ts'
 import { resolvePackageEntriesSync } from './core/resolve.ts'
 
-export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header' | 'allowBreaking'> {
+export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header' | 'allowBreaking' | 'traceDepth'> {
   /**
    * Snapshot output directory, relative to the test file.
    * @default '__snapshots__/tsnapi'

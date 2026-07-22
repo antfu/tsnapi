@@ -51,6 +51,7 @@ export async function extractDts(fileName: string, code: string, options?: impor
   const omitArgs = options?.omitArgumentNames ?? true
   const typeWidening = options?.typeWidening ?? true
   const categorized = options?.categorizedExports ?? true
+  const traceDepth = options?.traceDepth ?? 1
   const { program, comments } = await parse(fileName, code)
   const s = new MagicString(code)
   const deprecatedStarts = collectDeprecatedStarts(program, comments, code)
@@ -117,6 +118,10 @@ export async function extractDts(fileName: string, code: string, options?: impor
       applyDeprecated(entries, entriesBefore)
   }
 
+  if (traceDepth > 0) {
+    traceReferencedDeclarations(s, program, declMap, entries, traceDepth)
+  }
+
   if (categorized) {
     return formatGroupedEntries(entries)
   }
@@ -165,6 +170,148 @@ function collectDtsDeclarations(stmt: any, map: Map<string, Array<{ stmt: any, d
   }
   else if (decl.type === 'TSModuleDeclaration' && typeof decl.id?.name === 'string') {
     map.set(decl.id.name, [{ stmt, decl }])
+  }
+}
+
+/**
+ * Collect the local declaration names that are part of the public export
+ * surface — either declared with an inline `export` or named in a local
+ * `export { ... }` specifier (re-exports from another module are excluded
+ * because their declaration lives in a different file).
+ */
+function collectExportedLocalNames(program: any, declMap: Map<string, Array<{ stmt: any, decl: any }>>): Set<string> {
+  const names = new Set<string>()
+  for (const stmt of program.body) {
+    if (stmt.type === 'ExportNamedDeclaration') {
+      const decl = stmt.declaration
+      if (decl) {
+        if (decl.id?.name) {
+          names.add(decl.id.name)
+        }
+        else if (decl.type === 'VariableDeclaration') {
+          for (const declarator of decl.declarations ?? []) {
+            if (declarator.id?.name)
+              names.add(declarator.id.name)
+          }
+        }
+      }
+      else if (stmt.specifiers && !stmt.source) {
+        for (const spec of stmt.specifiers) {
+          const localName = getExportName(spec.local)
+          if (localName && declMap.has(localName))
+            names.add(localName)
+        }
+      }
+    }
+    else if (stmt.type === 'ExportDefaultDeclaration') {
+      const name = stmt.declaration?.id?.name
+      if (name && declMap.has(name))
+        names.add(name)
+    }
+  }
+  return names
+}
+
+/**
+ * Get the root identifier name of a type-entity name node
+ * (`Foo` from `Foo`, or `A` from a qualified `A.B.C`).
+ */
+function rootEntityName(node: any): string | undefined {
+  if (!node || typeof node !== 'object')
+    return undefined
+  if (node.type === 'Identifier')
+    return node.name
+  if (node.type === 'TSQualifiedName')
+    return rootEntityName(node.left)
+  // TSExpressionWithTypeArguments / heritage expression
+  if (node.type === 'MemberExpression')
+    return rootEntityName(node.object)
+  return undefined
+}
+
+/**
+ * Walk a declaration subtree and collect the names of every type it references
+ * (type references, heritage clauses, class `extends`). Names that don't
+ * resolve to a local declaration (globals, type parameters) are simply never
+ * matched later, so no allow-list is needed here.
+ */
+function collectTypeRefs(node: any, out: Set<string>): void {
+  if (!node || typeof node !== 'object')
+    return
+  if (Array.isArray(node)) {
+    for (const child of node)
+      collectTypeRefs(child, out)
+    return
+  }
+  if (!node.type)
+    return
+
+  if (node.type === 'TSTypeReference') {
+    const name = rootEntityName(node.typeName)
+    if (name)
+      out.add(name)
+  }
+  else if (node.type === 'TSInterfaceHeritage' || node.type === 'TSClassImplements' || node.type === 'TSExpressionWithTypeArguments') {
+    const name = rootEntityName(node.expression)
+    if (name)
+      out.add(name)
+  }
+  else if (node.type === 'ClassDeclaration' && node.superClass) {
+    const name = rootEntityName(node.superClass)
+    if (name)
+      out.add(name)
+  }
+
+  for (const key in node) {
+    if (key === 'type' || key === 'start' || key === 'end')
+      continue
+    const value = node[key]
+    if (value && typeof value === 'object')
+      collectTypeRefs(value, out)
+  }
+}
+
+/**
+ * Emit the declarations of non-exported types that are reachable from the
+ * public exports within `maxDepth` reference hops, as `referenced` entries
+ * (without an `export` keyword) so their shape is captured in the snapshot.
+ */
+function traceReferencedDeclarations(
+  s: MagicString,
+  program: any,
+  declMap: Map<string, Array<{ stmt: any, decl: any }>>,
+  entries: Entry[],
+  maxDepth: number,
+): void {
+  const exportedNames = collectExportedLocalNames(program, declMap)
+
+  // Already represented in the snapshot (exported) — never re-emit or recurse.
+  const visited = new Set<string>(exportedNames)
+
+  // Seed the frontier with everything the exported declarations reference.
+  let frontier = new Set<string>()
+  for (const name of exportedNames) {
+    for (const { decl } of declMap.get(name) ?? [])
+      collectTypeRefs(decl, frontier)
+  }
+
+  for (let depth = 1; depth <= maxDepth && frontier.size > 0; depth++) {
+    const next = new Set<string>()
+    for (const name of frontier) {
+      if (visited.has(name))
+        continue
+      visited.add(name)
+      const resolved = declMap.get(name)
+      if (!resolved || resolved.length === 0)
+        continue // global type or type parameter — nothing local to emit
+      for (const { decl } of resolved) {
+        const text = normalizeWhitespace(s.slice(decl.start, decl.end))
+        if (text)
+          entries.push({ name, text, kind: 'referenced' })
+        collectTypeRefs(decl, next)
+      }
+    }
+    frontier = next
   }
 }
 

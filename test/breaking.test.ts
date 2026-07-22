@@ -113,6 +113,28 @@ describe('analyzeApiChanges', () => {
       expect(change.modified).toEqual(['greet'])
       expect(isBreakingChange(change)).toBe(true)
     })
+
+    it('removing a member of a non-exported referenced type is breaking', async () => {
+      const existing = file(
+        '',
+        `export declare const config: Options;\n// #region Referenced (internal)\ninterface Options {\n  a: string;\n  b: number;\n}\n// #endregion`,
+      )
+      const current = file(
+        '',
+        `export declare const config: Options;\n// #region Referenced (internal)\ninterface Options {\n  a: string;\n}\n// #endregion`,
+      )
+      const change = await analyzeApiChanges('index', existing, current)
+      expect(change.modified).toEqual(['Options'])
+      expect(isBreakingChange(change)).toBe(true)
+    })
+  })
+
+  it('classifies adding a member to a referenced internal type as additive', async () => {
+    const existing = file('', `interface Options {\n  a: string;\n}`)
+    const current = file('', `interface Options {\n  a: string;\n  b: number;\n}`)
+    const change = await analyzeApiChanges('index', existing, current)
+    expect(change.widened).toEqual(['Options'])
+    expect(isBreakingChange(change)).toBe(false)
   })
 
   it('detects removed and added simultaneously', async () => {

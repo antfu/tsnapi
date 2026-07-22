@@ -182,6 +182,32 @@ describe('fixture: deprecated', () => {
   })
 })
 
+describe('fixture: referenced-types', () => {
+  it('inlines non-exported types reachable from exports (traceDepth default 1)', async () => {
+    await buildFixture('referenced-types')
+
+    const dts = readSnap('referenced-types', 'index.snapshot.d.ts')
+
+    // Public exports.
+    expect(dts).toContain('export interface ClientOptions')
+    expect(dts).toContain('export declare function createClient')
+    expect(dts).toContain('export declare const defaultRetry')
+
+    // Non-exported types referenced directly by the exports are surfaced in a
+    // dedicated region, without an `export` keyword.
+    expect(dts).toContain('// #region Referenced (internal)')
+    expect(dts).toContain('interface RetryPolicy {')
+    expect(dts).toContain('interface RetryPolicyWithKind extends RetryPolicy')
+    expect(dts).not.toContain('export interface RetryPolicy')
+
+    // Depth 1 stops before transitively-referenced types.
+    expect(dts).not.toContain('BackoffKind =')
+
+    // Idempotent
+    await buildFixture('referenced-types')
+  })
+})
+
 describe('generateApiSnapshot', () => {
   it('basic fixture', async () => {
     await buildFixture('basic')

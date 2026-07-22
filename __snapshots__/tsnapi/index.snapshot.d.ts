@@ -10,6 +10,7 @@ export interface ApiSnapshotOptions {
   omitArgumentNames?: boolean;
   typeWidening?: boolean;
   categorizedExports?: boolean;
+  traceDepth?: number;
   update?: boolean;
   allowBreaking?: boolean;
 }
@@ -72,4 +73,14 @@ export declare function snapshotFiles(_: {
 }[], _: string, _?: ApiSnapshotOptions): Promise<SnapshotResult>;
 export declare function snapshotPackage(_: string, _?: ApiSnapshotOptions): Promise<SnapshotResult>;
 export declare function writeSnapshot(_: string, _: string, _: SnapshotFile, _: SnapshotExtensions, _?: string): Promise<void>;
+// #endregion
+
+// #region Referenced (internal)
+interface ExtractOptions {
+  chunkSources?: Map<string, string>;
+  omitArgumentNames?: boolean;
+  typeWidening?: boolean;
+  categorizedExports?: boolean;
+  traceDepth?: number;
+}
 // #endregion
