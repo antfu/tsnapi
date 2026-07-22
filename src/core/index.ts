@@ -1,7 +1,7 @@
 import type { SnapshotExtensions } from './snapshot.ts'
 import type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.ts'
-import { access, readFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { access, readdir, readFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { hasArgvFlag } from './argv.ts'
 import { analyzeApiChanges, formatBreakingChanges, isBreakingChange } from './breaking.ts'
@@ -76,6 +76,72 @@ export function resolveAllowBreaking(explicit?: boolean): boolean {
   return hasArgvFlag(process.argv.slice(2), '--allow-breaking')
 }
 
+const DTS_EXT_RE = /\.d\.[cm]?ts$/
+const JS_EXT_RE = /\.[cm]?js$/
+
+interface ChunkSources {
+  runtime: Map<string, string>
+  dts: Map<string, string>
+}
+
+/**
+ * Read every sibling chunk next to an entry file so that re-exports pointing
+ * into shared chunks (as produced by any code-splitting bundler) can be
+ * expanded to their full declarations. Without this, reading a code-split
+ * `index.mjs` that only does `export { foo } from './chunk.mjs'` would snapshot
+ * a bare `export { foo }` instead of `foo`'s real signature.
+ *
+ * Keys mirror the `./<fileName>` form used in bundler import statements; DTS
+ * chunks are also registered under their `.mjs` alias because `.d.ts` re-export
+ * sources reference the runtime extension.
+ */
+async function loadChunkSources(dir: string): Promise<ChunkSources> {
+  const runtime = new Map<string, string>()
+  const dts = new Map<string, string>()
+  let names: string[]
+  try {
+    names = await readdir(dir)
+  }
+  catch {
+    return { runtime, dts }
+  }
+
+  await Promise.all(names.map(async (name) => {
+    const isDts = DTS_EXT_RE.test(name)
+    if (!isDts && !JS_EXT_RE.test(name))
+      return
+    const code = await readFile(join(dir, name), 'utf-8').catch(() => null)
+    if (code == null)
+      return
+    if (isDts) {
+      dts.set(`./${name}`, code)
+      dts.set(`./${name.replace(DTS_EXT_RE, '.mjs')}`, code)
+    }
+    else {
+      runtime.set(`./${name}`, code)
+    }
+  }))
+
+  return { runtime, dts }
+}
+
+/**
+ * Create a `loadChunkSources` wrapper that caches results per directory, so a
+ * multi-entry package sharing one dist directory reads its chunks only once.
+ */
+function createChunkSourceLoader(): (entryFile: string) => Promise<ChunkSources> {
+  const cache = new Map<string, Promise<ChunkSources>>()
+  return (entryFile) => {
+    const dir = dirname(entryFile)
+    let pending = cache.get(dir)
+    if (!pending) {
+      pending = loadChunkSources(dir)
+      cache.set(dir, pending)
+    }
+    return pending
+  }
+}
+
 /**
  * Extract the public API surface of a package as snapshot strings,
  * without writing to disk or comparing against existing snapshots.
@@ -95,13 +161,14 @@ export async function generateApiSnapshot(cwd: string, options?: ApiSnapshotOpti
   const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports }
   const showHeader = options?.header ?? true
   const packageName = showHeader ? await readPackageName(cwd) : ''
+  const chunkSourcesFor = createChunkSourceLoader()
 
   for (const entry of entries) {
     const runtime = entry.runtime
-      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), extractOptions)
+      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.runtime)).runtime })
       : ''
     const dts = entry.dts
-      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), extractOptions)
+      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.dts)).dts })
       : ''
     const prefix = showHeader ? generateHeader(packageName, entry.name) : ''
     result[entry.name] = {
@@ -147,6 +214,7 @@ async function snapshotEntries(
   const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports }
   const showHeader = options?.header ?? true
   const packageName = showHeader ? await readPackageName(cwd) : ''
+  const chunkSourcesFor = createChunkSourceLoader()
 
   const mismatches: SnapshotResult['mismatches'] = []
   const allMismatchDetails: import('./snapshot.ts').SnapshotMismatch[] = []
@@ -156,10 +224,10 @@ async function snapshotEntries(
     const stem = entryNameToStem(entry.name)
 
     const runtime = entry.runtime
-      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), extractOptions)
+      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.runtime)).runtime })
       : ''
     const dts = entry.dts
-      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), extractOptions)
+      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.dts)).dts })
       : ''
 
     const header = showHeader ? generateHeader(packageName, entry.name) : undefined
