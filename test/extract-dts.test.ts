@@ -250,6 +250,94 @@ export { utils as Utils };
     `)
   })
 
+  it('expands re-exported members inside a namespace so signatures are captured', async () => {
+    const code = `
+declare function f(a: string): void;
+declare namespace ns {
+  export { f };
+}
+export { ns };
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Namespaces
+      export declare namespace ns {
+        export function f(_: string): void;
+      }
+      // #endregion
+      "
+    `)
+  })
+
+  it('expands re-exported members inside a directly-exported namespace', async () => {
+    const code = `
+declare function f(a: string): void;
+export declare namespace ns {
+  export { f };
+}
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Namespaces
+      export declare namespace ns {
+        export function f(_: string): void;
+      }
+      // #endregion
+      "
+    `)
+  })
+
+  it('expands nested namespaces that re-export members (js.imports.addDefault)', async () => {
+    const code = `
+declare function addDefault(ast: any, from: string, as: string): void;
+declare namespace imports {
+  export { addDefault };
+}
+declare namespace js {
+  export { imports };
+}
+export { js };
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Namespaces
+      export declare namespace js {
+        export namespace imports {
+          export function addDefault(_: any, _: string, _: string): void;
+        }
+      }
+      // #endregion
+      "
+    `)
+  })
+
+  it('handles renames, type-only, and private members inside namespaces', async () => {
+    const code = `
+interface Opt { x: number }
+declare function make(o: Opt): void;
+declare const VERSION = "1.0.0";
+declare namespace ns {
+  interface Private { y: number }
+  function pub(a: Private): void;
+  export { make as build, type Opt, VERSION, pub };
+}
+export { ns };
+`
+    const result = await extractDts('test.d.mts', code)
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Namespaces
+      export declare namespace ns {
+        interface Private { y: number }
+        export function build(_: Opt): void;
+        export interface Opt { x: number }
+        export const VERSION: string;
+        export function pub(_: Private): void;
+      }
+      // #endregion
+      "
+    `)
+  })
+
   it('handles export { X as default } with valid syntax', async () => {
     const code = `
 declare function rolldownPlugin(options?: ApiSnapshotOptions): { name: string };

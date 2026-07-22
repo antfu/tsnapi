@@ -363,6 +363,11 @@ async function processExportNamedDeclaration(
         entries.push({ name, text, kind })
       }
     }
+    else if (decl.type === 'TSModuleDeclaration') {
+      const name = typeof decl.id?.name === 'string' ? decl.id.name : ''
+      const expanded = expandNamespaceText(s, decl, declMap, undefined, typeWidening)
+      entries.push({ name, text: normalizeWhitespace(`export declare ${expanded}`), kind })
+    }
   }
   else if (stmt.specifiers && stmt.specifiers.length > 0) {
     if (stmt.source) {
@@ -383,7 +388,7 @@ async function processExportNamedDeclaration(
       const resolved = declMap.get(localName)
       if (resolved && resolved.length > 0) {
         for (const r of resolved) {
-          const { text, kind } = extractResolvedDeclaration(s, r, exportedName, isTypeExport, typeWidening)
+          const { text, kind } = extractResolvedDeclaration(s, r, exportedName, isTypeExport, typeWidening, declMap)
           entries.push(formatDtsExportEntry(exportedName, text, kind))
           // The `@deprecated` tag lives on the resolved declaration, not the
           // `export { ... }` statement, so check that statement's offset here.
@@ -458,7 +463,7 @@ async function resolveFromChunkDts(
     return undefined
 
   return resolved.map((r) => {
-    const { text, kind } = extractResolvedDeclaration(chunkS, r, exportedName, isTypeExport, typeWidening)
+    const { text, kind } = extractResolvedDeclaration(chunkS, r, exportedName, isTypeExport, typeWidening, chunkDeclMap)
     return formatDtsExportEntry(exportedName, text, kind)
   })
 }
@@ -513,6 +518,7 @@ function extractResolvedDeclaration(
   exportedName: string,
   isTypeExport: boolean,
   typeWidening = true,
+  declMap?: Map<string, Array<{ stmt: any, decl: any }>>,
 ): { text: string, kind: EntryKind } {
   const { decl } = resolved
   const kind = kindFromDeclType(decl.type)
@@ -560,12 +566,8 @@ function extractResolvedDeclaration(
   }
 
   if (decl.type === 'TSModuleDeclaration') {
-    const body = s.slice(decl.start, decl.end)
-    const text = exportedName !== (decl.id?.name ?? '')
-      ? body.replace(decl.id.name, exportedName)
-      : body
-    const prefix = text.trimStart().startsWith('declare') ? 'export ' : 'export declare '
-    return { text: normalizeWhitespace(`${prefix}${text.trimStart()}`), kind }
+    const expanded = expandNamespaceText(s, decl, declMap ?? new Map(), exportedName, typeWidening)
+    return { text: normalizeWhitespace(`export declare ${expanded}`), kind }
   }
 
   if (decl.type === 'VariableDeclaration') {
@@ -580,6 +582,172 @@ function extractResolvedDeclaration(
     return { text: `export type { ${exportedName} }`, kind: 'type' }
   }
   return { text: `export { ${exportedName} }`, kind: 'other' }
+}
+
+/**
+ * Indent every non-empty line of `text` by `spaces` spaces.
+ */
+function indentLines(text: string, spaces: number): string {
+  const pad = ' '.repeat(spaces)
+  return text
+    .split('\n')
+    .map(line => (line === '' ? line : pad + line))
+    .join('\n')
+}
+
+/**
+ * Get the declared name of a (possibly `export`-prefixed) statement, or
+ * undefined when it has no single stable name.
+ */
+function declarationName(stmt: any): string | undefined {
+  const decl = stmt.declaration ?? stmt
+  return typeof decl?.id?.name === 'string' ? decl.id.name : undefined
+}
+
+/**
+ * Render the body of a `namespace X { ... }` declaration, expanding any
+ * `export { member }` re-exports back into their full declarations so member
+ * signatures are captured in the snapshot.
+ *
+ * Some DTS emitters hoist namespace members to the top level and leave only
+ * `export { member };` inside the namespace (e.g. `declare namespace ns { export { f }; }`
+ * with a sibling `declare function f(...)`). Slicing the namespace verbatim
+ * drops those signatures, so we resolve each re-exported member — from the
+ * namespace's own local declarations first, then the surrounding module — and
+ * inline it (recursing into nested namespaces).
+ */
+function expandNamespaceText(
+  s: MagicString,
+  moduleDecl: any,
+  declMap: Map<string, Array<{ stmt: any, decl: any }>>,
+  nameOverride?: string,
+  typeWidening = true,
+): string {
+  const originalName = typeof moduleDecl.id?.name === 'string' ? moduleDecl.id.name : ''
+  const name = nameOverride ?? originalName
+  const block = moduleDecl.body
+
+  // Dotted namespaces (`namespace A.B {}`, body is another TSModuleDeclaration)
+  // or bodiless declarations: fall back to a verbatim slice.
+  if (!block || block.type !== 'TSModuleBlock') {
+    const raw = s.slice(moduleDecl.start, moduleDecl.end).trimStart()
+    const stripped = raw.replace(RE_EXPORT_PREFIX, '').replace(/^declare\s+/, '')
+    return nameOverride && nameOverride !== originalName && originalName
+      ? stripped.replace(originalName, nameOverride)
+      : stripped
+  }
+
+  const statements: any[] = block.body ?? []
+
+  // Local declarations inside the namespace (for resolving its own `export {}`).
+  const localMap = new Map<string, Array<{ stmt: any, decl: any }>>()
+  for (const stmt of statements)
+    collectDtsDeclarations(stmt, localMap)
+
+  // Names re-exported via `export { x }` that resolve to a local declaration
+  // are emitted through the specifier (with `export`), so the bare private
+  // declaration is skipped to avoid emitting it twice.
+  const consumedLocal = new Set<string>()
+  for (const stmt of statements) {
+    if (stmt.type === 'ExportNamedDeclaration' && !stmt.declaration && stmt.specifiers && !stmt.source) {
+      for (const spec of stmt.specifiers) {
+        const localName = getExportName(spec.local)
+        if (localMap.has(localName))
+          consumedLocal.add(localName)
+      }
+    }
+  }
+
+  const members: string[] = []
+  for (const stmt of statements)
+    members.push(...renderNamespaceMembers(s, stmt, declMap, localMap, consumedLocal, typeWidening))
+
+  const body = members.map(m => indentLines(m, 2)).join('\n')
+  return body ? `namespace ${name} {\n${body}\n}` : `namespace ${name} {}`
+}
+
+/**
+ * Render the member text(s) for a single statement inside a namespace body.
+ */
+function renderNamespaceMembers(
+  s: MagicString,
+  stmt: any,
+  declMap: Map<string, Array<{ stmt: any, decl: any }>>,
+  localMap: Map<string, Array<{ stmt: any, decl: any }>>,
+  consumedLocal: Set<string>,
+  typeWidening: boolean,
+): string[] {
+  if (stmt.type === 'ExportNamedDeclaration') {
+    // Inline exported declaration: `export function f(...)`, `export const x`, ...
+    if (stmt.declaration) {
+      const decl = stmt.declaration
+      if (decl.type === 'VariableDeclaration') {
+        return (decl.declarations ?? []).map((declarator: any) =>
+          renderNamespaceMember(s, decl, declMap, undefined, true, typeWidening, declarator))
+      }
+      return [renderNamespaceMember(s, decl, declMap, undefined, true, typeWidening)]
+    }
+    // `export { a, b as c }` — resolve each specifier to its declaration.
+    if (stmt.specifiers && !stmt.source) {
+      const out: string[] = []
+      for (const spec of stmt.specifiers) {
+        const localName = getExportName(spec.local)
+        const exportedName = getExportName(spec.exported) || localName
+        const isTypeExport = spec.exportKind === 'type'
+        const resolved = localMap.get(localName) ?? declMap.get(localName)
+        if (resolved && resolved.length > 0) {
+          for (const r of resolved)
+            out.push(renderNamespaceMember(s, r.decl, declMap, exportedName, true, typeWidening, r.decl._declarator, isTypeExport))
+        }
+        else {
+          const clause = localName === exportedName ? localName : `${localName} as ${exportedName}`
+          out.push(`export { ${isTypeExport ? 'type ' : ''}${clause} };`)
+        }
+      }
+      return out
+    }
+    // `export { x } from './y'` — cannot resolve locally, keep verbatim.
+    if (stmt.source)
+      return [s.slice(stmt.start, stmt.end).trim()]
+    return []
+  }
+
+  // A private (non-exported) declaration. Skip it when it's surfaced through a
+  // sibling `export { ... }` specifier (emitted there with `export`).
+  const declName = declarationName(stmt)
+  if (declName && consumedLocal.has(declName))
+    return []
+  if (stmt.type === 'TSModuleDeclaration')
+    return [renderNamespaceMember(s, stmt, declMap, undefined, false, typeWidening)]
+  return [s.slice(stmt.start, stmt.end).trim()]
+}
+
+/**
+ * Render a resolved declaration as a namespace member: prefixed with `export`
+ * when it is part of the namespace's public surface, with the (illegal in an
+ * ambient namespace) `declare` modifier stripped, and recursing into nested
+ * namespaces.
+ */
+function renderNamespaceMember(
+  s: MagicString,
+  decl: any,
+  declMap: Map<string, Array<{ stmt: any, decl: any }>>,
+  nameOverride: string | undefined,
+  exported: boolean,
+  typeWidening: boolean,
+  declarator?: any,
+  isTypeExport = false,
+): string {
+  const prefix = exported ? 'export ' : ''
+
+  if (decl.type === 'TSModuleDeclaration')
+    return `${prefix}${expandNamespaceText(s, decl, declMap, nameOverride, typeWidening)}`
+
+  const effectiveName = nameOverride ?? decl.id?.name ?? declarator?.id?.name ?? ''
+  const wrapped = { stmt: decl, decl: declarator ? { ...decl, _declarator: declarator } : decl }
+  const { text } = extractResolvedDeclaration(s, wrapped, effectiveName, isTypeExport, typeWidening, declMap)
+  const memberText = text.replace(RE_EXPORT_PREFIX, '').replace(/^declare\s+/, '')
+  return `${prefix}${memberText}`
 }
 
 /**
