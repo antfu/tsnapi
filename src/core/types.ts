@@ -57,9 +57,9 @@ export interface ApiSnapshotOptions {
    * Allow breaking API changes when updating snapshots.
    *
    * While updating (see {@link update}), tsnapi classifies each change as
-   * additive (new exports only) or breaking (an existing export was removed or
-   * its declaration changed). Breaking changes abort the update without
-   * writing, unless this is `true`.
+   * additive (new exports, new interface members, wider unions, extra
+   * parameters) or breaking (something was removed or narrowed). Breaking
+   * changes abort the update without writing, unless this is `true`.
    *
    * When not set, auto-detected from the `--allow-breaking` CLI flag or the
    * `TSNAPI_ALLOW_BREAKING=1` environment variable.

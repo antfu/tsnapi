@@ -112,14 +112,14 @@ export function hello() { return 'hi'; }
     })
     await bundle1.write({ dir: join(FIXTURE_DIR, 'dist') })
 
-    // Modify the API (changing hello's signature is a breaking change,
-    // so allowBreaking is needed to update it)
+    // Modify the API (adding a parameter only widens the signature, so this
+    // is additive and updates without allowBreaking)
     writeFileSync(entryPath, `export function hello(name) { return 'hi ' + name; }`)
 
     // Build with update mode - should not error
     const bundle2 = await rolldown({
       input: entryPath,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR, update: true, allowBreaking: true })],
+      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR, update: true })],
     })
     await bundle2.write({ dir: join(FIXTURE_DIR, 'dist') })
 

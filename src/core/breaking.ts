@@ -14,22 +14,36 @@ interface Member {
 /**
  * The classification of how a snapshot's public API changed between the
  * existing (committed) snapshot and the freshly generated one.
+ *
+ * The classification is intentionally lossy — it errs towards *not* flagging a
+ * change so routine updates aren't blocked by additive tweaks. It reliably
+ * catches removals (of whole exports or of parts of a declaration) but treats
+ * anything that only *adds* to a declaration (new interface members, wider
+ * union types, extra parameters) as safe.
  */
 export interface BreakingChange {
   /** Entry name / stem the change belongs to (e.g. `index`, `utils`). */
   entryName: string
   /** Exports that existed before but are now gone. Always breaking. */
   removed: string[]
-  /** Exports that still exist but whose declaration changed. Always breaking. */
+  /**
+   * Exports that still exist but whose declaration changed in a way that
+   * removed something (a member, parameter, union arm, etc.). Breaking.
+   */
   modified: string[]
+  /**
+   * Exports whose declaration only grew (new interface members, wider unions,
+   * extra parameters). Additive — not breaking.
+   */
+  widened: string[]
   /** Newly introduced exports. Additive — never breaking on its own. */
   added: string[]
 }
 
 /**
  * Whether a change classification represents a breaking change,
- * i.e. an existing export was removed or its declaration was modified.
- * Pure additions are not breaking.
+ * i.e. an existing export was removed or narrowed. Pure additions and
+ * widenings are not breaking.
  */
 export function isBreakingChange(change: BreakingChange): boolean {
   return change.removed.length > 0 || change.modified.length > 0
@@ -111,11 +125,63 @@ function mergeSurfaces(runtime: Map<string, string>, dts: Map<string, string>): 
   return members
 }
 
+// Words, string/template/regex-ish literals, numbers, or any single
+// non-whitespace character (punctuation). Multi-char operators split into
+// single chars, which is fine — comparison only cares about the multiset.
+const TOKEN_RE = /[A-Z_$][\w$]*|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|\d[\w.]*|\S/gi
+
 /**
- * Serialize a member for equality comparison across both surfaces.
+ * Tokenize a declaration into a multiset of tokens (token -> count).
  */
-function memberKey(member: Member): string {
-  return `${member.runtime ?? ''}\u0000${member.dts ?? ''}`
+function tokenMultiset(text: string): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const tok of text.match(TOKEN_RE) ?? [])
+    counts.set(tok, (counts.get(tok) ?? 0) + 1)
+  return counts
+}
+
+/**
+ * Whether `next` contains every token of `prev` at least as many times, i.e.
+ * the declaration only grew. A pure widening (new members, wider unions, extra
+ * parameters) is a superset; a removal/narrowing drops a token below its old
+ * count.
+ */
+function isWidening(prev: string, next: string): boolean {
+  const prevCounts = tokenMultiset(prev)
+  const nextCounts = tokenMultiset(next)
+  for (const [tok, n] of prevCounts) {
+    if ((nextCounts.get(tok) ?? 0) < n)
+      return false
+  }
+  return true
+}
+
+type Classification = 'unchanged' | 'widened' | 'breaking'
+
+/**
+ * Classify a member present in both snapshots by comparing each surface.
+ * Breaking if any surface was removed or narrowed; otherwise widened if any
+ * surface only grew; otherwise unchanged.
+ */
+function classifyModification(prev: Member, next: Member): Classification {
+  let changed = false
+  for (const surface of ['runtime', 'dts'] as const) {
+    const before = prev[surface] ?? ''
+    const after = next[surface] ?? ''
+    if (before === after)
+      continue
+    changed = true
+    // A whole surface disappeared (e.g. lost its type declaration): breaking.
+    if (before && !after)
+      return 'breaking'
+    // A whole new surface appeared: additive.
+    if (!before && after)
+      continue
+    // Both present but different: breaking unless it only grew.
+    if (!isWidening(before, after))
+      return 'breaking'
+  }
+  return changed ? 'widened' : 'unchanged'
 }
 
 /**
@@ -124,7 +190,10 @@ function memberKey(member: Member): string {
  *
  * A member is:
  * - **removed** if it was present before and is now absent (breaking),
- * - **modified** if it is present in both but its declaration text differs (breaking),
+ * - **modified** if it is present in both but its declaration lost something —
+ *   a member, parameter, or union arm (breaking),
+ * - **widened** if its declaration only grew — new members, wider unions,
+ *   extra parameters (additive),
  * - **added** if it is newly present (additive).
  */
 export async function analyzeApiChanges(
@@ -144,14 +213,20 @@ export async function analyzeApiChanges(
 
   const removed: string[] = []
   const modified: string[] = []
+  const widened: string[] = []
   const added: string[] = []
 
   for (const [name, member] of oldMembers) {
     const next = newMembers.get(name)
-    if (!next)
+    if (!next) {
       removed.push(name)
-    else if (memberKey(member) !== memberKey(next))
+      continue
+    }
+    const cls = classifyModification(member, next)
+    if (cls === 'breaking')
       modified.push(name)
+    else if (cls === 'widened')
+      widened.push(name)
   }
   for (const name of newMembers.keys()) {
     if (!oldMembers.has(name))
@@ -160,16 +235,16 @@ export async function analyzeApiChanges(
 
   removed.sort()
   modified.sort()
+  widened.sort()
   added.sort()
 
-  return { entryName, removed, modified, added }
+  return { entryName, removed, modified, widened, added }
 }
 
 // ANSI helpers for the surrounding message.
 const bold = (s: string): string => `\x1B[1m${s}\x1B[22m`
 const red = (s: string): string => `\x1B[31m${s}\x1B[39m`
 const yellow = (s: string): string => `\x1B[33m${s}\x1B[39m`
-const green = (s: string): string => `\x1B[32m${s}\x1B[39m`
 const dim = (s: string): string => `\x1B[2m${s}\x1B[22m`
 
 const stripDefault = (name: string): string => name === 'default' ? 'default' : name.replace(/^\*/, '* from ')
@@ -188,11 +263,9 @@ export function formatBreakingChanges(changes: BreakingChange[]): string {
   for (const change of breaking) {
     lines.push(bold(`  ${change.entryName}`))
     for (const name of change.removed)
-      lines.push(red(`    - removed  ${stripDefault(name)}`))
+      lines.push(red(`    - removed   ${stripDefault(name)}`))
     for (const name of change.modified)
-      lines.push(yellow(`    ~ changed  ${stripDefault(name)}`))
-    for (const name of change.added)
-      lines.push(green(`    + added    ${stripDefault(name)}`))
+      lines.push(yellow(`    ~ narrowed  ${stripDefault(name)}`))
     lines.push('')
   }
 

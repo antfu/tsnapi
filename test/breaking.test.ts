@@ -13,7 +13,7 @@ describe('analyzeApiChanges', () => {
       `export declare function greet(_: string): string;`,
     )
     const change = await analyzeApiChanges('index', snap, snap)
-    expect(change).toEqual({ entryName: 'index', removed: [], modified: [], added: [] })
+    expect(change).toEqual({ entryName: 'index', removed: [], modified: [], widened: [], added: [] })
     expect(isBreakingChange(change)).toBe(false)
   })
 
@@ -48,7 +48,7 @@ describe('analyzeApiChanges', () => {
     expect(isBreakingChange(change)).toBe(true)
   })
 
-  it('classifies a changed signature as breaking (modified)', async () => {
+  it('classifies a replaced return type as breaking (narrowed)', async () => {
     const existing = file(
       `export function greet(_) {}`,
       `export declare function greet(_: string): string;`,
@@ -62,12 +62,57 @@ describe('analyzeApiChanges', () => {
     expect(isBreakingChange(change)).toBe(true)
   })
 
-  it('treats a changed interface as a modified (breaking) export', async () => {
-    const existing = file('', `export interface Options {\n  a: string;\n}`)
-    const current = file('', `export interface Options {\n  a: string;\n  b: number;\n}`)
-    const change = await analyzeApiChanges('index', existing, current)
-    expect(change.modified).toEqual(['Options'])
-    expect(isBreakingChange(change)).toBe(true)
+  describe('lossy widening (not breaking)', () => {
+    it('adding a new interface property is additive', async () => {
+      const existing = file('', `export interface Options {\n  a: string;\n}`)
+      const current = file('', `export interface Options {\n  a: string;\n  b: number;\n}`)
+      const change = await analyzeApiChanges('index', existing, current)
+      expect(change.widened).toEqual(['Options'])
+      expect(change.modified).toEqual([])
+      expect(isBreakingChange(change)).toBe(false)
+    })
+
+    it('widening a function parameter with a union is additive', async () => {
+      const existing = file('', `export declare function greet(_: string): void;`)
+      const current = file('', `export declare function greet(_: string | number): void;`)
+      const change = await analyzeApiChanges('index', existing, current)
+      expect(change.widened).toEqual(['greet'])
+      expect(isBreakingChange(change)).toBe(false)
+    })
+
+    it('widening a function return type with a union is additive', async () => {
+      const existing = file('', `export declare function id(_: string): string;`)
+      const current = file('', `export declare function id(_: string): string | number;`)
+      const change = await analyzeApiChanges('index', existing, current)
+      expect(change.widened).toEqual(['id'])
+      expect(isBreakingChange(change)).toBe(false)
+    })
+
+    it('adding an extra parameter is additive', async () => {
+      const existing = file(`export function greet(_) {}`, `export declare function greet(_: string): void;`)
+      const current = file(`export function greet(_, _) {}`, `export declare function greet(_: string, _?: number): void;`)
+      const change = await analyzeApiChanges('index', existing, current)
+      expect(change.widened).toEqual(['greet'])
+      expect(isBreakingChange(change)).toBe(false)
+    })
+  })
+
+  describe('narrowing (breaking)', () => {
+    it('removing an interface property is breaking', async () => {
+      const existing = file('', `export interface Options {\n  a: string;\n  b: number;\n}`)
+      const current = file('', `export interface Options {\n  a: string;\n}`)
+      const change = await analyzeApiChanges('index', existing, current)
+      expect(change.modified).toEqual(['Options'])
+      expect(isBreakingChange(change)).toBe(true)
+    })
+
+    it('removing a union arm from a parameter is breaking', async () => {
+      const existing = file('', `export declare function greet(_: string | number): void;`)
+      const current = file('', `export declare function greet(_: string): void;`)
+      const change = await analyzeApiChanges('index', existing, current)
+      expect(change.modified).toEqual(['greet'])
+      expect(isBreakingChange(change)).toBe(true)
+    })
   })
 
   it('detects removed and added simultaneously', async () => {
@@ -111,22 +156,30 @@ describe('analyzeApiChanges', () => {
 })
 
 describe('formatBreakingChanges', () => {
-  it('lists removed, modified, and added members', () => {
+  it('lists removed and narrowed members', () => {
     const message = formatBreakingChanges([
-      { entryName: 'index', removed: ['old'], modified: ['changed'], added: ['fresh'] },
+      { entryName: 'index', removed: ['old'], modified: ['changed'], widened: ['grew'], added: ['fresh'] },
     ])
     expect(message).toContain('Breaking API changes detected')
     expect(message).toContain('removed')
     expect(message).toContain('old')
+    expect(message).toContain('narrowed')
     expect(message).toContain('changed')
-    expect(message).toContain('fresh')
     expect(message).toContain('--allow-breaking')
+  })
+
+  it('does not surface additive (widened/added) entries in the error', () => {
+    const message = formatBreakingChanges([
+      { entryName: 'index', removed: ['old'], modified: [], widened: ['grew'], added: ['fresh'] },
+    ])
+    expect(message).not.toContain('grew')
+    expect(message).not.toContain('fresh')
   })
 
   it('omits purely additive entries', () => {
     const message = formatBreakingChanges([
-      { entryName: 'index', removed: [], modified: [], added: ['fresh'] },
+      { entryName: 'index', removed: [], modified: [], widened: ['grew'], added: ['fresh'] },
     ])
-    expect(message).not.toContain('fresh')
+    expect(message).not.toContain('index')
   })
 })

@@ -17,6 +17,7 @@ export interface BreakingChange {
   entryName: string;
   removed: string[];
   modified: string[];
+  widened: string[];
   added: string[];
 }
 export interface ResolvedEntry {
