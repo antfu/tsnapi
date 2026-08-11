@@ -20,10 +20,15 @@ export type { BreakingChange } from './breaking.ts'
 export { analyzeApiChanges, formatBreakingChanges, isBreakingChange } from './breaking.ts'
 export { extractDts } from './extract-dts.ts'
 export { extractRuntime } from './extract-runtime.ts'
+export type { EntryKind } from './kind.ts'
+export { KIND_LABELS, KIND_ORDER } from './kind.ts'
+export type { DiffMember, DiffStatus, Member } from './members.ts'
+export { diffMembers, displayName, parseMembers } from './members.ts'
 export { resolvePackageEntries, resolvePackageEntriesSync } from './resolve.ts'
 export type { SnapshotExtensions, SnapshotFile, SnapshotMismatch } from './snapshot.ts'
 export { compareSnapshots, formatMismatchError, generateHeader, readSnapshot, stripHeader, writeSnapshot } from './snapshot.ts'
 export type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.ts'
+export { discoverPackages, readPackageName, readWorkspacePatterns, resolveWorkspacePackages } from './workspace.ts'
 
 async function readPackageName(cwd: string): Promise<string> {
   const pkgPath = join(cwd, 'package.json')

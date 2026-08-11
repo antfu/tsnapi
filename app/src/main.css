@@ -1,0 +1,14 @@
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+#app {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
