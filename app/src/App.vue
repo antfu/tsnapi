@@ -6,6 +6,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DetailDrawer from './components/DetailDrawer.vue'
 import GraphCanvas from './components/GraphCanvas.vue'
 import RefPicker from './components/RefPicker.vue'
+import ToggleCheck from './components/ToggleCheck.vue'
 import { ALL_STATUSES, STATUS_STYLE } from './kind.ts'
 import * as rpc from './rpc.ts'
 import { buildTree, totalCounts } from './tree.ts'
@@ -35,10 +36,6 @@ const toggleDark = useToggle(isDark)
 
 const selected = ref<TreeDatum | null>(null)
 const selectedId = ref<string | undefined>()
-
-// Track whether the user has manually toggled "changed only" so an incoming
-// diff doesn't override their choice.
-let userTouchedChanged = false
 
 const isStatic = computed(() => meta.value?.isStatic ?? false)
 const git = computed(() => payload.value?.git ?? false)
@@ -80,11 +77,6 @@ async function loadRefs() {
   catch {}
 }
 
-function toggleChanged() {
-  userTouchedChanged = true
-  changedOnly.value = !changedOnly.value
-}
-
 function toggleStatus(s: DiffStatus) {
   const next = new Set(statuses.value)
   if (next.has(s))
@@ -94,7 +86,6 @@ function toggleStatus(s: DiffStatus) {
 }
 
 function selectNode(datum: TreeDatum) {
-  console.log('select', datum)
   if (datum.type === 'root')
     return
   selected.value = datum
@@ -167,16 +158,9 @@ watch(allHistory, () => {
         <input v-model="search" placeholder="Search members…" class="bg-transparent outline-none py-1 text-sm w-40">
       </div>
 
-      <!-- TODO: show them as toggle checkbox -->
-      <button class="btn" :class="{ 'btn-active': groupByKind }" title="Group members by kind" @click="groupByKind = !groupByKind">
-        <span class="i-ph-tree-structure" /> Group
-      </button>
-      <button class="btn" :class="{ 'btn-active': showReferenced }" title="Show internal referenced types" @click="showReferenced = !showReferenced">
-        <span class="i-ph-link" /> Internal
-      </button>
-      <button v-if="payload?.isDiff" class="btn" :class="{ 'btn-active': changedOnly }" @click="toggleChanged">
-        <span class="i-ph-funnel" /> Changed only
-      </button>
+      <ToggleCheck v-model="groupByKind" icon="i-ph-tree-structure" label="Group" title="Group members by kind" />
+      <ToggleCheck v-model="showReferenced" icon="i-ph-link" label="Internal" title="Show internal referenced types" />
+      <ToggleCheck v-if="payload?.isDiff" v-model="changedOnly" icon="i-ph-funnel" label="Changed only" title="Only show changed members" />
       <button v-if="!isStatic" class="btn" title="Re-extract (re-read dist)" @click="loadPayload">
         <span class="i-ph-arrows-clockwise" :class="{ 'animate-spin': loading }" /> Re-extract
       </button>

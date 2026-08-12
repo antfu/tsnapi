@@ -74,6 +74,11 @@ function onWheel(e: WheelEvent) {
 }
 
 function onDown(e: PointerEvent) {
+  // Only pan with the primary button, and never when the press starts on an
+  // interactive node — otherwise capturing the pointer here swallows the
+  // node's `click`, so selection almost never fires.
+  if (e.button !== 0 || (e.target as HTMLElement).closest('button'))
+    return
   dragging.value = true
   startX = e.clientX - tx.value
   startY = e.clientY - ty.value
