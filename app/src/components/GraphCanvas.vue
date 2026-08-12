@@ -125,7 +125,7 @@ defineExpose({ reset })
 
       <div
         v-for="item in layout.nodes" :key="item.node.data.id"
-        class="absolute flex items-center"
+        class="absolute flex items-center bg-base rounded"
         :style="{ transform: `translate(${item.x}px, ${item.y - NODE_H / 2}px)`, height: `${NODE_H}px` }"
       >
         <!-- member -->
@@ -168,14 +168,14 @@ defineExpose({ reset })
         <!-- entry / group / root -->
         <button
           v-else
-          class="flex items-center gap-1.5 px-2 h-full rounded border border-base bg-base/60 text-xs whitespace-nowrap transition"
+          class="flex items-center gap-1.5 px-2 h-full rounded border border-base bg-base text-xs whitespace-nowrap transition"
           :class="[
             item.node.data.type === 'root' ? 'font-semibold cursor-default' : 'op-80 hover:bg-active hover:op-100 cursor-pointer',
             props.selectedId === item.node.data.id ? 'ring-2 ring-primary op-100' : '',
           ]"
-          @click.stop="item.node.data.type !== 'root' && emit('select', item.node.data)"
+          @click.stop="emit('select', item.node.data)"
         >
-          <span :class="item.node.data.type === 'root' ? 'i-ph-stack' : item.node.data.type === 'group' ? (KIND_ICON[item.node.data.kind!]) : 'i-ph-door-open'" />
+          <span :class="item.node.data.type === 'root' ? 'i-ph-stack' : item.node.data.type === 'group' ? (KIND_ICON[item.node.data.kind!]) : 'i-ph-arrow-square-right'" />
           <span>{{ item.node.data.label }}</span>
           <span v-if="item.node.data.sub" class="text-2.5 op-60">{{ item.node.data.sub }}</span>
         </button>

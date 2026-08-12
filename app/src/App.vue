@@ -25,7 +25,7 @@ const options = reactive<UiExtractOptions>({ omitArgumentNames: true, typeWideni
 const search = ref('')
 const searchDebounced = refDebounced(search, 200)
 const groupByKind = ref(false)
-const showReferenced = ref(true)
+const showReferenced = ref(false)
 const changedOnly = ref(false)
 const statuses = ref<Set<DiffStatus>>(new Set(ALL_STATUSES))
 const showOptions = ref(false)
@@ -64,9 +64,6 @@ async function loadPayload() {
   error.value = null
   try {
     payload.value = await rpc.getPayload({ base: base.value, compare: compare.value, options: { ...options } })
-    // Default to changed-only when a diff is active.
-    if (payload.value.isDiff && !userTouchedChanged)
-      changedOnly.value = true
   }
   catch (e: any) {
     error.value = e?.message ?? String(e)
@@ -97,6 +94,7 @@ function toggleStatus(s: DiffStatus) {
 }
 
 function selectNode(datum: TreeDatum) {
+  console.log('select', datum)
   if (datum.type === 'root')
     return
   selected.value = datum
@@ -169,6 +167,7 @@ watch(allHistory, () => {
         <input v-model="search" placeholder="Search members…" class="bg-transparent outline-none py-1 text-sm w-40">
       </div>
 
+      <!-- TODO: show them as toggle checkbox -->
       <button class="btn" :class="{ 'btn-active': groupByKind }" title="Group members by kind" @click="groupByKind = !groupByKind">
         <span class="i-ph-tree-structure" /> Group
       </button>

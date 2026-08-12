@@ -1,5 +1,7 @@
 import type { DiffStatus, EntryKind, MemberNode } from './types.ts'
 
+// @unocss-include
+
 /** Phosphor icon class (presetIcons) per member kind. */
 export const KIND_ICON: Record<EntryKind, string> = {
   'interface': 'i-ph-brackets-curly',
