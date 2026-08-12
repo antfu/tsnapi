@@ -30,6 +30,6 @@ export async function highlightTs(code: string): Promise<string> {
   return hl.codeToHtml(code.trim() || '/* empty */', {
     lang: 'typescript',
     themes: { light: 'vitesse-light', dark: 'vitesse-dark' },
-    defaultColor: false,
+    defaultColor: 'light',
   })
 }
