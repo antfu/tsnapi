@@ -63,6 +63,15 @@ export const STATUS_STYLE: Record<DiffStatus, StatusStyle> = {
   unchanged: { label: 'Unchanged', text: 'text-gray-500', border: 'border-base', dot: 'bg-gray-500', icon: 'i-ph-equals' },
 }
 
+/** Explicit badge colour per status (`false` = neutral/muted), for DisplayBadge. */
+export const STATUS_HEX: Record<DiffStatus, string | false> = {
+  added: '#22c55e',
+  removed: '#ef4444',
+  modified: '#f59e0b',
+  widened: '#60a5fa',
+  unchanged: false,
+}
+
 export const ALL_STATUSES: DiffStatus[] = ['added', 'removed', 'modified', 'widened', 'unchanged']
 export const CHANGED_STATUSES: DiffStatus[] = ['added', 'removed', 'modified', 'widened']
 

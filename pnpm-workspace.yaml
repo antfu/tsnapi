@@ -1,6 +1,9 @@
 allowBuilds:
   esbuild: true
   simple-git-hooks: true
+  vue-demi: false
+minimumReleaseAgeExclude:
+  - '@antfu/design@0.3.4'
 shellEmulator: true
 
 trustPolicy: no-downgrade

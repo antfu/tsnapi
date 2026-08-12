@@ -14,8 +14,16 @@ export default defineConfig({
     transformerVariantGroup(),
   ],
   shortcuts: {
-    'btn': 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-base bg-base hover:bg-active transition-colors text-sm select-none cursor-pointer',
-    'btn-active': 'bg-primary/15 border-primary/40 text-primary',
     'panel': 'bg-base border border-base rounded-lg shadow',
+    // Named z-index layers. The design preset ships no z scale, so the layers
+    // its overlays reference must be defined by the consumer.
+    'z-nav': 'z-40',
+    'z-dropdown': 'z-60',
+    'z-panel-content': 'z-70',
+    'z-drawer-backdrop': 'z-90',
+    'z-drawer-content': 'z-100',
+    'z-modal-backdrop': 'z-110',
+    'z-modal-content': 'z-120',
+    'z-toast': 'z-200',
   },
 })

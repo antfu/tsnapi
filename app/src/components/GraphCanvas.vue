@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { HierarchyPointNode } from 'd3-hierarchy'
 import type { TreeDatum } from '../tree.ts'
+import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import { hierarchy, tree } from 'd3-hierarchy'
 import { linkHorizontal } from 'd3-shape'
 import { computed, ref, watch } from 'vue'
@@ -143,7 +144,7 @@ defineExpose({ reset })
             props.selectedId === item.node.data.id ? 'ring-2 ring-primary' : '',
           ]"
           :style="{ maxWidth: `${NODE_W}px` }"
-          :title="`${item.node.data.label} — ${SOURCE_META[sourceOf(item.node.data.member!)].label}`"
+          :title="`${item.node.data.label} · ${SOURCE_META[sourceOf(item.node.data.member!)].label}`"
           @click.stop="emit('select', item.node.data)"
         >
           <span class="shrink-0" :class="[KIND_ICON[item.node.data.kind!], STATUS_STYLE[item.node.data.status!].text]" />
@@ -187,9 +188,9 @@ defineExpose({ reset })
       </div>
     </div>
 
-    <button class="absolute bottom-3 right-3 btn z-10" title="Reset view" @click="reset">
-      <span class="i-ph-crosshair" /> Reset
-    </button>
+    <ActionButton class="bottom-3 right-3 absolute z-nav" size="sm" icon="i-ph-crosshair" @click="reset">
+      Reset
+    </ActionButton>
   </div>
 </template>
 

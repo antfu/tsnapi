@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import type { TreeDatum } from '../tree.ts'
 import type { DiffStatus } from '../types.ts'
+import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
+import DisplayBadge from '@antfu/design/components/Display/DisplayBadge.vue'
+import DisplayKeyValue from '@antfu/design/components/Display/DisplayKeyValue.vue'
+import FeedbackEmptyState from '@antfu/design/components/Feedback/FeedbackEmptyState.vue'
+import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
 import { computed, ref, watch } from 'vue'
-import { ALL_STATUSES, KIND_ICON, KIND_LABEL, SOURCE_META, sourceOf, STATUS_STYLE } from '../kind.ts'
+import { ALL_STATUSES, KIND_ICON, KIND_LABEL, SOURCE_META, sourceOf, STATUS_HEX, STATUS_STYLE } from '../kind.ts'
 
 const props = defineProps<{ datum: TreeDatum | null, isDiff: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -62,7 +67,7 @@ const summary = computed<{ title: string, sub?: string, note?: string, counts: R
 
   if (d.type === 'package' && d.pkg) {
     const notes: Record<string, string> = {
-      'unbuilt': 'dist not built — showing committed snapshot; run your build then Re-extract',
+      'unbuilt': 'dist not built, showing committed snapshot. Run your build then Re-extract.',
       'no-api': 'no public API entries resolved',
       'no-snapshot': 'no committed snapshot at this ref',
       'ok': '',
@@ -83,87 +88,85 @@ const summary = computed<{ title: string, sub?: string, note?: string, counts: R
 </script>
 
 <template>
-  <div v-if="datum" class="panel absolute right-3 top-3 bottom-3 w-[440px] max-w-[85vw] flex flex-col z-20">
+  <div v-if="datum" class="panel bottom-3 right-3 top-3 absolute flex flex-col w-[440px] max-w-[85vw] z-panel-content">
     <!-- member header -->
-    <header v-if="member" class="flex items-center gap-2 px-3 py-2 border-b border-base">
-      <span :class="[KIND_ICON[member.kind], STATUS_STYLE[member.status].text]" />
-      <div class="flex-1 min-w-0">
+    <header v-if="member" class="px-3 py-2 border-b border-base flex gap-2 items-center">
+      <span class="text-lg" :class="[KIND_ICON[member.kind], STATUS_STYLE[member.status].text]" />
+      <div class="min-w-0 flex-1">
         <div class="font-mono text-sm truncate">
           {{ member.display }}
         </div>
-        <div class="text-2.5 op-60 flex items-center gap-1.5">
+        <div class="text-micro op-fade flex gap-1.5 items-center">
           {{ KIND_LABEL[member.kind] }}
           <span v-if="member.referenced">· internal</span>
-          <span class="flex items-center gap-0.5" :title="SOURCE_META[sourceOf(member)].label">
+          <span class="flex gap-0.5 items-center" :title="SOURCE_META[sourceOf(member)].label">
             · <span :class="SOURCE_META[sourceOf(member)].icon" /> {{ SOURCE_META[sourceOf(member)].label }}
           </span>
         </div>
       </div>
-      <span
+      <DisplayBadge
         v-if="isDiff"
-        class="text-2.5 px-1.5 py-0.5 rounded border shrink-0"
-        :class="[STATUS_STYLE[member.status].text, STATUS_STYLE[member.status].border]"
-      >{{ STATUS_STYLE[member.status].label }}</span>
-      <button class="btn !px-1.5 !py-1" title="Close" @click="emit('close')">
-        <span class="i-ph-x" />
-      </button>
+        class="shrink-0 text-xs"
+        :color="STATUS_HEX[member.status]"
+        :icon="STATUS_STYLE[member.status].icon"
+        :text="STATUS_STYLE[member.status].label"
+      />
+      <ActionIconButton icon="i-ph-x" tooltip="Close" compact @click="emit('close')" />
     </header>
 
     <!-- package / entry / group header -->
-    <header v-else-if="summary" class="flex items-center gap-2 px-3 py-2 border-b border-base">
-      <span :class="datum.type === 'package' ? 'i-ph-package text-primary' : datum.type === 'group' ? 'i-ph-folders' : 'i-ph-door-open'" />
-      <div class="flex-1 min-w-0">
+    <header v-else-if="summary" class="px-3 py-2 border-b border-base flex gap-2 items-center">
+      <span class="text-lg" :class="datum.type === 'package' ? 'i-ph-package color-active' : datum.type === 'group' ? 'i-ph-folders' : 'i-ph-door-open'" />
+      <div class="min-w-0 flex-1">
         <div class="font-mono text-sm truncate">
           {{ summary.title }}
         </div>
-        <div class="text-2.5 op-60">
+        <div class="text-micro op-fade">
           {{ summary.sub }}
         </div>
       </div>
-      <button class="btn !px-1.5 !py-1" title="Close" @click="emit('close')">
-        <span class="i-ph-x" />
-      </button>
+      <ActionIconButton icon="i-ph-x" tooltip="Close" compact @click="emit('close')" />
     </header>
 
     <!-- member body: Shiki-highlighted signatures / diff -->
-    <div v-if="member" class="flex-1 overflow-auto p-3 space-y-4 text-xs">
+    <div v-if="member" class="p-3 flex-1 overflow-auto space-y-4">
       <section v-for="b in blocks" :key="b.surface">
-        <div class="text-2.5 uppercase tracking-wide op-50 mb-1">
+        <div class="text-micro tracking-wide color-faint mb-1 uppercase">
           {{ b.label }}
         </div>
         <template v-if="b.changed">
-          <div class="text-2.5 op-60 mb-0.5 flex items-center gap-1">
+          <div class="text-micro op-fade mb-0.5 flex gap-1 items-center">
             <span class="i-ph-minus text-red-500" /> before
           </div>
-          <div class="rounded ring-1 ring-red-500/40 overflow-hidden mb-2" v-html="b.beforeHtml" />
-          <div class="text-2.5 op-60 mb-0.5 flex items-center gap-1">
+          <div class="rounded ring-1 ring-red-500/40 mb-2 overflow-hidden" v-html="b.beforeHtml" />
+          <div class="text-micro op-fade mb-0.5 flex gap-1 items-center">
             <span class="i-ph-plus text-green-500" /> after
           </div>
           <div class="rounded ring-1 ring-green-500/40 overflow-hidden" v-html="b.afterHtml" />
         </template>
         <div v-else v-html="b.singleHtml" />
       </section>
-      <p v-if="!blocks.length" class="op-60">
-        No signature captured.
-      </p>
+      <FeedbackEmptyState v-if="!blocks.length" icon="i-ph-code" title="No signature captured" />
     </div>
 
     <!-- package / entry / group body: status summary -->
-    <div v-else-if="summary" class="flex-1 overflow-auto p-3 space-y-3 text-xs">
-      <p v-if="summary.note" class="flex items-start gap-1.5 op-80 text-amber-500">
-        <span class="i-ph-warning-circle mt-0.5 shrink-0" /> {{ summary.note }}
-      </p>
-      <div class="grid grid-cols-2 gap-2">
-        <div
+    <div v-else-if="summary" class="p-3 flex-1 overflow-auto space-y-3">
+      <FeedbackTip v-if="summary.note" type="warning" icon="i-ph-warning-circle">
+        {{ summary.note }}
+      </FeedbackTip>
+      <div class="border border-base rounded-lg divide-y divide-base overflow-hidden">
+        <DisplayKeyValue
           v-for="s in ALL_STATUSES" :key="s"
-          class="flex items-center justify-between px-2 py-1.5 rounded border border-base"
+          class="px-3 py-2"
+          :value="summary.counts[s]"
         >
-          <span class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full" :class="STATUS_STYLE[s].dot" />
-            {{ STATUS_STYLE[s].label }}
-          </span>
-          <span class="font-mono op-70">{{ summary.counts[s] }}</span>
-        </div>
+          <template #label>
+            <span class="flex gap-1.5 items-center">
+              <span class="h-2 w-2 rounded-full" :class="STATUS_STYLE[s].dot" />
+              {{ STATUS_STYLE[s].label }}
+            </span>
+          </template>
+        </DisplayKeyValue>
       </div>
     </div>
   </div>

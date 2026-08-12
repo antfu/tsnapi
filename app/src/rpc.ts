@@ -11,7 +11,7 @@ async function client(): Promise<any> {
         'Could not reach the tsnapi backend (failed to load __connection.json).\n\n'
         + 'The inspector must be served by its own server. Run:\n'
         + '    tsnapi ui\n'
-        + 'and open the URL it prints — not a plain `vite`/static file server, which has no backend.',
+        + 'and open the URL it prints. A plain static file server has no backend.',
         { cause },
       )
     })
