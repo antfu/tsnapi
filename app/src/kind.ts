@@ -1,4 +1,4 @@
-import type { DiffStatus, EntryKind } from './types.ts'
+import type { DiffStatus, EntryKind, MemberNode } from './types.ts'
 
 /** Phosphor icon class (presetIcons) per member kind. */
 export const KIND_ICON: Record<EntryKind, string> = {
@@ -63,3 +63,30 @@ export const STATUS_STYLE: Record<DiffStatus, StatusStyle> = {
 
 export const ALL_STATUSES: DiffStatus[] = ['added', 'removed', 'modified', 'widened', 'unchanged']
 export const CHANGED_STATUSES: DiffStatus[] = ['added', 'removed', 'modified', 'widened']
+
+/** Which snapshot surface(s) an export appears in. */
+export type MemberSource = 'runtime' | 'dts' | 'both' | 'none'
+
+export const SOURCE_META: Record<MemberSource, { icon: string, label: string }> = {
+  both: { icon: 'i-ph-circles-three-fill', label: 'runtime + types' },
+  runtime: { icon: 'i-ph-lightning-fill', label: 'runtime only' },
+  dts: { icon: 'i-ph-brackets-angle-bold', label: 'types only' },
+  none: { icon: 'i-ph-dot', label: 'no signature' },
+}
+
+/**
+ * Determine which surface(s) a member carries, preferring the current side and
+ * falling back to the base side (e.g. for a removed member).
+ */
+export function sourceOf(m: MemberNode): MemberSource {
+  const s = m.current ?? m.base ?? {}
+  const hasRuntime = !!s.runtime?.trim()
+  const hasDts = !!s.dts?.trim()
+  if (hasRuntime && hasDts)
+    return 'both'
+  if (hasRuntime)
+    return 'runtime'
+  if (hasDts)
+    return 'dts'
+  return 'none'
+}

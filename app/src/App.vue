@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TreeDatum } from './tree.ts'
-import type { DiffStatus, MemberNode, MetaPayload, RefsPayload, UiExtractOptions, WorkspacePayload } from './types.ts'
-import { refDebounced } from '@vueuse/core'
+import type { DiffStatus, MetaPayload, RefsPayload, UiExtractOptions, WorkspacePayload } from './types.ts'
+import { refDebounced, useDark, useToggle } from '@vueuse/core'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DetailDrawer from './components/DetailDrawer.vue'
 import GraphCanvas from './components/GraphCanvas.vue'
@@ -30,7 +30,10 @@ const changedOnly = ref(false)
 const statuses = ref<Set<DiffStatus>>(new Set(ALL_STATUSES))
 const showOptions = ref(false)
 
-const selected = ref<MemberNode | null>(null)
+const isDark = useDark({ initialValue: 'dark' })
+const toggleDark = useToggle(isDark)
+
+const selected = ref<TreeDatum | null>(null)
 const selectedId = ref<string | undefined>()
 
 // Track whether the user has manually toggled "changed only" so an incoming
@@ -94,10 +97,15 @@ function toggleStatus(s: DiffStatus) {
 }
 
 function selectNode(datum: TreeDatum) {
-  if (datum.type === 'member' && datum.member) {
-    selected.value = datum.member
-    selectedId.value = datum.id
-  }
+  if (datum.type === 'root')
+    return
+  selected.value = datum
+  selectedId.value = datum.id
+}
+
+function closeDrawer() {
+  selected.value = null
+  selectedId.value = undefined
 }
 
 onMounted(async () => {
@@ -176,6 +184,9 @@ watch(allHistory, () => {
       <button v-if="!isStatic" class="btn" :class="{ 'btn-active': showOptions }" title="Extraction options" @click="showOptions = !showOptions">
         <span class="i-ph-sliders" />
       </button>
+      <button class="btn" :title="isDark ? 'Switch to light theme' : 'Switch to dark theme'" @click="toggleDark()">
+        <span :class="isDark ? 'i-ph-moon-stars' : 'i-ph-sun'" />
+      </button>
     </header>
 
     <!-- options panel -->
@@ -231,7 +242,7 @@ watch(allHistory, () => {
         No members match the current filters.
       </div>
 
-      <DetailDrawer :member="selected" :is-diff="payload?.isDiff ?? false" @close="selected = null; selectedId = undefined" />
+      <DetailDrawer :datum="selected" :is-diff="payload?.isDiff ?? false" @close="closeDrawer" />
     </main>
   </div>
 </template>

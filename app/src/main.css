@@ -12,3 +12,22 @@ body,
 * {
   box-sizing: border-box;
 }
+
+/* Shiki dual-theme: default to vitesse-light, switch to vitesse-dark under .dark */
+.shiki {
+  background-color: var(--shiki-light-bg);
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+html.dark .shiki,
+html.dark .shiki span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
