@@ -1,9 +1,22 @@
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import vue from '@vitejs/plugin-vue'
+import { viteDevBridge } from 'devframe/helpers/vite'
 import unocss from 'unocss/vite'
 import { defineConfig } from 'vite'
+import pkg from '../package.json' with { type: 'json' }
+import { createInspectorDevframe } from '../src/ui/node/devframe.ts'
 
 const root = fileURLToPath(new URL('.', import.meta.url))
+
+// Definition used only to bridge the RPC + WS backend onto the Vite dev server
+// (no distDir — Vite owns the SPA, giving HMR alongside a live backend).
+const definition = createInspectorDevframe({
+  version: pkg.version,
+  cwd: process.cwd(),
+  defaultBase: 'HEAD',
+  defaultCompare: 'WORKING_TREE',
+})
 
 export default defineConfig({
   root,
@@ -13,7 +26,15 @@ export default defineConfig({
   plugins: [
     vue(),
     unocss({ configFile: fileURLToPath(new URL('./uno.config.ts', import.meta.url)) }),
+    // Serves `/__connection.json` + starts an RPC/WS side-car so `pnpm dev:ui`
+    // has a working backend with hot-reload. `base: '/'` keeps the meta path
+    // where the SPA's relative `./__connection.json` fetch expects it.
+    viteDevBridge(definition, { devMiddleware: true, auth: false, base: '/' }),
   ],
+  server: {
+    // Bind to all interfaces so the preview is reachable from the host browser.
+    host: '0.0.0.0',
+  },
   build: {
     outDir: fileURLToPath(new URL('../dist/ui', import.meta.url)),
     emptyOutDir: true,
