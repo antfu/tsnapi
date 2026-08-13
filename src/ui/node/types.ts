@@ -26,6 +26,20 @@ export interface PayloadRequest {
   options?: Partial<UiExtractOptions>
 }
 
+/**
+ * A resolved (or unresolved) re-export target, present only on members with
+ * `kind === 're-export'` that carry a source specifier. `packageName` /
+ * `entryName` are only set when the specifier could be matched against a
+ * known workspace package — external (npm) and unresolved relative
+ * specifiers keep `specifier` but leave those unset, so the UI can still show
+ * the raw specifier without a clickable link.
+ */
+export interface ReExportTarget {
+  specifier: string
+  packageName?: string
+  entryName?: string
+}
+
 export interface MemberNode {
   name: string
   display: string
@@ -34,6 +48,8 @@ export interface MemberNode {
   status: DiffStatus
   base?: { runtime?: string, dts?: string }
   current?: { runtime?: string, dts?: string }
+  /** Present only when `kind === 're-export'` and a source specifier was captured. */
+  reExportTarget?: ReExportTarget
 }
 
 export interface EntryNode {

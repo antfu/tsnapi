@@ -21,6 +21,22 @@ describe('parseMembers', () => {
 
     expect(byName.VERSION.kind).toBe('variable')
   })
+
+  it('captures the module specifier for named and wildcard re-exports', async () => {
+    const file = {
+      runtime: `export { helper } from './utils.js';\nexport * from '@scope/pkg-b';`,
+      dts: `export { helper } from './utils.js';\nexport * from '@scope/pkg-b';`,
+    }
+    const members = await parseMembers(file)
+    const byName = Object.fromEntries(members.map(m => [m.name, m]))
+
+    expect(byName.helper.kind).toBe('re-export')
+    expect(byName.helper.source).toBe('./utils.js')
+
+    const wildcard = members.find(m => m.name.startsWith('*'))!
+    expect(wildcard.kind).toBe('re-export')
+    expect(wildcard.source).toBe('@scope/pkg-b')
+  })
 })
 
 describe('diffMembers', () => {
@@ -36,6 +52,15 @@ describe('diffMembers', () => {
     expect(byName.VERSION).toBe('removed') // dropped
     expect(byName.Options).toBe('widened') // gained a member
     expect(byName.foo).toBe('unchanged')
+  })
+
+  it('carries the re-export specifier through to the diffed member', async () => {
+    const reExportBase = { runtime: `export { helper } from './utils.js';`, dts: `export { helper } from './utils.js';` }
+    const reExportCurrent = { runtime: `export { helper } from './utils2.js';`, dts: `export { helper } from './utils2.js';` }
+    const diff = await diffMembers('index', reExportBase, reExportCurrent)
+    const helper = diff.find(m => m.name === 'helper')!
+    expect(helper.kind).toBe('re-export')
+    expect(helper.source).toBe('./utils2.js')
   })
 
   it('flags a narrowed member as modified (breaking)', async () => {

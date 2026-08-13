@@ -15,6 +15,18 @@ export interface UiExtractOptions {
   referenceTracingDepth: number
 }
 
+/**
+ * A resolved (or unresolved) re-export target, present only on members with
+ * `kind === 're-export'` that carry a source specifier. `packageName` /
+ * `entryName` are only set when the specifier could be matched against a
+ * known workspace package.
+ */
+export interface ReExportTarget {
+  specifier: string
+  packageName?: string
+  entryName?: string
+}
+
 export interface MemberNode {
   name: string
   display: string
@@ -23,6 +35,8 @@ export interface MemberNode {
   status: DiffStatus
   base?: { runtime?: string, dts?: string }
   current?: { runtime?: string, dts?: string }
+  /** Present only when `kind === 're-export'` and a source specifier was captured. */
+  reExportTarget?: ReExportTarget
 }
 
 export interface EntryNode {

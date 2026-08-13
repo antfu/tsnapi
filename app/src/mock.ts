@@ -55,6 +55,16 @@ export const sampleMembers: MemberNode[] = [
   }),
   mockMember({ name: 'VERSION', kind: 'variable', status: 'unchanged', current: { runtime: 'export var VERSION /* const */', dts: 'export declare const VERSION: string;' } }),
   mockMember({ name: 'ResolvedEntry', kind: 'type', status: 'unchanged' }),
+  mockMember({
+    name: '*@scope/unbuilt',
+    display: `* from '@scope/unbuilt'`,
+    kind: 're-export',
+    status: 'unchanged',
+    current: { dts: `export * from '@scope/unbuilt';`, runtime: `export * from '@scope/unbuilt';` },
+    // Resolved to a sibling workspace package — GraphCanvas draws a link
+    // line from this member to that package's node.
+    reExportTarget: { specifier: '@scope/unbuilt', packageName: '@scope/unbuilt' },
+  }),
 ]
 
 export function memberNode(m: MemberNode): TreeDatum {

@@ -19,6 +19,8 @@ export interface Member {
   referenced: boolean
   runtime?: string
   dts?: string
+  /** For a `re-export` member, the raw module specifier it re-exports from (e.g. `./utils`, `@scope/pkg-b`). */
+  source?: string
 }
 
 /** How a member changed between two snapshots. */
@@ -33,6 +35,8 @@ export interface DiffMember {
   status: DiffStatus
   base?: { runtime?: string, dts?: string }
   current?: { runtime?: string, dts?: string }
+  /** For a `re-export` member, the raw module specifier it re-exports from (e.g. `./utils`, `@scope/pkg-b`). */
+  source?: string
 }
 
 function nameOf(node: any): string {
@@ -56,8 +60,10 @@ function kindFromDeclType(declType: string): EntryKind {
 /**
  * The public names a top-level statement introduces, paired with their kind
  * and whether they are exported (vs. a bare `Referenced (internal)` decl).
+ * `source` is only ever set on `re-export` members (the module specifier
+ * being re-exported from).
  */
-function statementMembers(stmt: any): { name: string, kind: EntryKind, referenced: boolean }[] {
+function statementMembers(stmt: any): { name: string, kind: EntryKind, referenced: boolean, source?: string }[] {
   if (stmt.type === 'ExportNamedDeclaration') {
     if (stmt.declaration) {
       const decl = stmt.declaration
@@ -74,17 +80,20 @@ function statementMembers(stmt: any): { name: string, kind: EntryKind, reference
     }
     if (stmt.specifiers?.length) {
       const kind: EntryKind = stmt.source ? 're-export' : 'other'
+      const source: string | undefined = stmt.source?.value
       return stmt.specifiers
         .map((spec: any) => nameOf(spec.exported) || nameOf(spec.local))
         .filter((n: string) => n.length > 0)
-        .map((name: string) => ({ name, kind, referenced: false }))
+        .map((name: string) => ({ name, kind, referenced: false, source }))
     }
     return []
   }
   if (stmt.type === 'ExportDefaultDeclaration')
     return [{ name: 'default', kind: 'default', referenced: false }]
-  if (stmt.type === 'ExportAllDeclaration')
-    return [{ name: `*${stmt.source?.value ?? ''}`, kind: 're-export', referenced: false }]
+  if (stmt.type === 'ExportAllDeclaration') {
+    const source: string | undefined = stmt.source?.value
+    return [{ name: `*${source ?? ''}`, kind: 're-export', referenced: false, source }]
+  }
 
   // Bare (non-exported) declaration — the `Referenced (internal)` region.
   const kind = kindFromDeclType(stmt.type)
@@ -110,8 +119,8 @@ export function displayName(name: string): string {
   return name
 }
 
-async function parseSurface(fileName: string, code: string): Promise<Map<string, { kind: EntryKind, referenced: boolean, text: string }>> {
-  const map = new Map<string, { kind: EntryKind, referenced: boolean, text: string }>()
+async function parseSurface(fileName: string, code: string): Promise<Map<string, { kind: EntryKind, referenced: boolean, text: string, source?: string }>> {
+  const map = new Map<string, { kind: EntryKind, referenced: boolean, text: string, source?: string }>()
   const source = stripHeader(code).trim()
   if (!source || source === '/* no exports */')
     return map
@@ -123,7 +132,7 @@ async function parseSurface(fileName: string, code: string): Promise<Map<string,
       continue
     const text = source.slice(stmt.start, stmt.end).trim()
     for (const m of members)
-      map.set(m.name, { kind: m.kind, referenced: m.referenced, text })
+      map.set(m.name, { kind: m.kind, referenced: m.referenced, text, source: m.source })
   }
   return map
 }
@@ -139,7 +148,7 @@ export async function parseMembers(file: SnapshotFile): Promise<Member[]> {
   ])
 
   const members = new Map<string, Member>()
-  const ensure = (name: string, kind: EntryKind, referenced: boolean): Member => {
+  const ensure = (name: string, kind: EntryKind, referenced: boolean, source?: string): Member => {
     let m = members.get(name)
     if (!m) {
       m = { name, display: displayName(name), kind, referenced }
@@ -148,13 +157,15 @@ export async function parseMembers(file: SnapshotFile): Promise<Member[]> {
     // Prefer a concrete (non-`other`) kind if one surface knows better.
     if (m.kind === 'other' && kind !== 'other')
       m.kind = kind
+    if (source && !m.source)
+      m.source = source
     return m
   }
 
   for (const [name, info] of runtime)
-    ensure(name, info.kind, info.referenced).runtime = info.text
+    ensure(name, info.kind, info.referenced, info.source).runtime = info.text
   for (const [name, info] of dts)
-    ensure(name, info.kind, info.referenced).dts = info.text
+    ensure(name, info.kind, info.referenced, info.source).dts = info.text
 
   return [...members.values()].sort((a, b) => a.display.localeCompare(b.display))
 }
@@ -203,6 +214,7 @@ export async function diffMembers(entryName: string, base: SnapshotFile, current
       status,
       base: b ? { runtime: b.runtime, dts: b.dts } : undefined,
       current: c ? { runtime: c.runtime, dts: c.dts } : undefined,
+      source: ref.source,
     })
   }
 

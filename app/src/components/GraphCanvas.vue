@@ -64,6 +64,36 @@ const paths = computed(() => {
   })
 })
 
+/** The tree.ts id a re-export's resolved target would have, if rendered. */
+function reExportTargetId(target: { packageName?: string, entryName?: string }): string | undefined {
+  if (!target.packageName)
+    return undefined
+  return target.entryName ? `${target.packageName}::${target.entryName}` : target.packageName
+}
+
+// Extra, non-hierarchy links: one per currently-rendered `re-export` member
+// whose resolved target (a package or entry node) is also currently
+// rendered. Drawn distinctly (dashed, arrowed) from the tree's own edges.
+const reExportPaths = computed(() => {
+  const byId = new Map(layout.value.nodes.map(item => [item.node.data.id, item]))
+  const out: string[] = []
+  for (const item of layout.value.nodes) {
+    const datum = item.node.data
+    if (datum.type !== 'member' || datum.member?.kind !== 're-export')
+      continue
+    const targetId = reExportTargetId(datum.member.reExportTarget ?? {})
+    const targetItem = targetId ? byId.get(targetId) : undefined
+    if (!targetItem || targetItem === item)
+      continue
+    const source = { x: item.y, y: item.x }
+    const target = { x: targetItem.y, y: targetItem.x }
+    const d = linkPath({ source, target } as any)
+    if (d)
+      out.push(d)
+  }
+  return out
+})
+
 // pan / zoom
 const tx = ref(20)
 const ty = ref(20)
@@ -134,9 +164,19 @@ defineExpose({ reset })
         class="absolute left-0 top-0 pointer-events-none overflow-visible"
         :width="layout.width" :height="layout.height"
       >
+        <defs>
+          <marker id="reexport-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" class="fill-cyan-400/70" />
+          </marker>
+        </defs>
         <path
           v-for="(d, i) in paths" :key="i" :d="d"
           fill="none" class="stroke-gray-400/30" stroke-width="1.5"
+        />
+        <path
+          v-for="(d, i) in reExportPaths" :key="i" :d="d"
+          fill="none" class="stroke-cyan-400/60" stroke-width="1.5" stroke-dasharray="4 3"
+          marker-end="url(#reexport-arrow)"
         />
       </svg>
 

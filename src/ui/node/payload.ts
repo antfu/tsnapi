@@ -4,6 +4,7 @@ import type {
   MemberNode,
   PackageNode,
   PayloadRequest,
+  ReExportTarget,
   RefsPayload,
   SideMeta,
   UiExtractOptions,
@@ -65,7 +66,7 @@ async function firstExistingAtRef(root: string, ref: string, candidates: string[
 const EXT_RUNTIME = '.snapshot.js'
 const EXT_DTS = '.snapshot.d.ts'
 
-interface PackageCtx {
+export interface PackageCtx {
   dir: string
   relDir: string
   name: string
@@ -173,7 +174,36 @@ async function resolveSide(root: string, ref: string, git: boolean, options: UiE
   return makeRefSide(root, ref, meta)
 }
 
-function toMemberNode(m: DiffMember): MemberNode {
+/**
+ * Best-effort resolution of a re-export specifier to a workspace package
+ * (and, for subpath specifiers, one of its `package.json` `exports` entries).
+ * Bare specifiers are matched against every known workspace package's name,
+ * exactly or as a `<name>/<subpath>` prefix; anything else (relative
+ * specifiers, external npm packages) is left unresolved.
+ */
+export function resolveReExportTarget(specifier: string, ctxs: PackageCtx[]): ReExportTarget {
+  for (const ctx of ctxs) {
+    if (specifier === ctx.name) {
+      const entryName = ctx.entryStems.some(e => e.name === '.') ? '.' : undefined
+      return { specifier, packageName: ctx.name, entryName }
+    }
+    if (specifier.startsWith(`${ctx.name}/`)) {
+      const entryName = `.${specifier.slice(ctx.name.length)}`
+      return {
+        specifier,
+        packageName: ctx.name,
+        entryName: ctx.entryStems.some(e => e.name === entryName) ? entryName : undefined,
+      }
+    }
+  }
+  return { specifier }
+}
+
+function reExportTargetOf(kind: MemberNode['kind'], source: string | undefined, ctxs: PackageCtx[]): ReExportTarget | undefined {
+  return kind === 're-export' && source ? resolveReExportTarget(source, ctxs) : undefined
+}
+
+function toMemberNode(m: DiffMember, ctxs: PackageCtx[]): MemberNode {
   return {
     name: m.name,
     display: m.display,
@@ -182,11 +212,12 @@ function toMemberNode(m: DiffMember): MemberNode {
     status: m.status,
     base: m.base,
     current: m.current,
+    reExportTarget: reExportTargetOf(m.kind, m.source, ctxs),
   }
 }
 
 /** Wrap parsed members from a single side as unchanged member nodes. */
-async function singleSideMembers(file: SnapshotFile): Promise<MemberNode[]> {
+async function singleSideMembers(file: SnapshotFile, ctxs: PackageCtx[]): Promise<MemberNode[]> {
   const members = await parseMembers(file)
   return members.map(m => ({
     name: m.name,
@@ -195,6 +226,7 @@ async function singleSideMembers(file: SnapshotFile): Promise<MemberNode[]> {
     referenced: m.referenced,
     status: 'unchanged' as DiffStatus,
     current: { runtime: m.runtime, dts: m.dts },
+    reExportTarget: reExportTargetOf(m.kind, m.source, ctxs),
   }))
 }
 
@@ -203,6 +235,7 @@ async function buildPackage(
   base: Side,
   compare: Side,
   isDiff: boolean,
+  ctxs: PackageCtx[],
 ): Promise<PackageNode> {
   const counts = EMPTY_COUNTS()
 
@@ -225,11 +258,11 @@ async function buildPackage(
       const b = baseFile ?? { runtime: '', dts: '' }
       const c = compareFile ?? { runtime: '', dts: '' }
       const diff = await diffMembers(stem, b, c)
-      members = diff.map(toMemberNode)
+      members = diff.map(m => toMemberNode(m, ctxs))
     }
     else {
       const file = compareFile ?? baseFile
-      members = file ? await singleSideMembers(file) : []
+      members = file ? await singleSideMembers(file, ctxs) : []
     }
 
     for (const m of members)
@@ -309,7 +342,7 @@ export async function buildPayload(cwd: string, req: PayloadRequest): Promise<Wo
   const ctxs = await buildPackageCtxs(root)
   const packages: PackageNode[] = []
   for (const pkg of ctxs)
-    packages.push(await buildPackage(pkg, base, compare, isDiff))
+    packages.push(await buildPackage(pkg, base, compare, isDiff, ctxs))
 
   return {
     root,
