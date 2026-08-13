@@ -32,6 +32,9 @@ async function mountAndRender(): Promise<void> {
     diffStyle: 'unified',
     diffIndicators: 'classic',
     lineDiffType: 'word',
+    // Show every unmodified line in full — no "N unmodified lines" collapsed
+    // hunk separator with an expand toggle.
+    expandUnchanged: true,
   })
   // Pass `containerWrapper` (our own element), not `fileContainer`: without an
   // explicit fileContainer, the component creates its own `<diffs-container>`
