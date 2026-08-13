@@ -28,7 +28,7 @@ export { resolvePackageEntries, resolvePackageEntriesSync } from './resolve.ts'
 export type { SnapshotExtensions, SnapshotFile, SnapshotMismatch } from './snapshot.ts'
 export { compareSnapshots, formatMismatchError, generateHeader, readSnapshot, stripHeader, writeSnapshot } from './snapshot.ts'
 export type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.ts'
-export { discoverPackages, readPackageName, readWorkspacePatterns, resolveWorkspacePackages } from './workspace.ts'
+export { discoverPackages, isPrivatePackage, readPackageName, readWorkspacePatterns, resolveWorkspacePackages } from './workspace.ts'
 
 async function readPackageName(cwd: string): Promise<string> {
   const pkgPath = join(cwd, 'package.json')

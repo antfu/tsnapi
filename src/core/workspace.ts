@@ -19,6 +19,22 @@ export function readPackageName(cwd: string): string | undefined {
 }
 
 /**
+ * Whether a package directory's `package.json` is marked `"private": true`.
+ * `false` when the file is missing, unparseable, or doesn't set it.
+ */
+export function isPrivatePackage(cwd: string): boolean {
+  const pkgPath = join(cwd, 'package.json')
+  try {
+    if (!existsSync(pkgPath))
+      return false
+    return JSON.parse(readFileSync(pkgPath, 'utf-8')).private === true
+  }
+  catch {
+    return false
+  }
+}
+
+/**
  * Resolve the workspace package directories for a monorepo rooted at `cwd`.
  *
  * Auto-discovers from `pnpm-workspace.yaml` or `package.json` `workspaces`,
@@ -33,7 +49,11 @@ export function resolveWorkspacePackages(cwd: string): string[] {
 
   const dirs: string[] = []
   for (const pattern of patterns) {
-    const matches = globSync(pattern, { cwd, onlyDirectories: true })
+    // A recursive workspace pattern (`**`, `packages/**`, or a bare directory
+    // name — tinyglobby's `expandDirectories` turns that into `<dir>/**` too)
+    // would otherwise walk into every package's own `node_modules`, and any
+    // nested/hoisted dependency in there has a `package.json` of its own.
+    const matches = globSync(pattern, { cwd, onlyDirectories: true, ignore: ['**/node_modules/**'] })
     for (const match of matches) {
       const abs = resolve(cwd, match)
       if (existsSync(join(abs, 'package.json')))

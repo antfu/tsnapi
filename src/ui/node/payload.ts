@@ -16,8 +16,10 @@ import {
   diffMembers,
   discoverPackages,
   generateApiSnapshot,
+  isPrivatePackage,
   parseMembers,
   readPackageName,
+  readWorkspacePatterns,
   resolvePackageEntries,
 } from '../../core/index.ts'
 import { gitShowFile, isGitRepo, listCommits, listNamedRefs, repoRoot, resolveRef } from './git.ts'
@@ -328,7 +330,13 @@ async function isWorkingFallback(side: Side, pkg: PackageCtx): Promise<boolean> 
 }
 
 async function buildPackageCtxs(root: string): Promise<PackageCtx[]> {
-  const dirs = discoverPackages(root)
+  // Private packages are common noise in a real monorepo (internal tooling,
+  // test fixtures, ...) and shouldn't clutter the workspace-wide package
+  // list by default — but don't apply that to the single-package fallback
+  // below: a repo with no declared workspace *is* the one package you're
+  // pointing tsnapi at, private or not, so there's nothing to declutter.
+  const isWorkspace = readWorkspacePatterns(root).length > 0
+  const dirs = discoverPackages(root).filter(dir => !isWorkspace || !isPrivatePackage(dir))
   const ctxs: PackageCtx[] = []
   for (const dir of dirs) {
     const name = readPackageName(dir) ?? relative(root, dir) ?? dir
