@@ -320,6 +320,7 @@ watch(allHistory, () => {
         title="No members match the current filters"
       />
 
+      <!-- TODO: for subexports entry, reuse SummaryPanel -->
       <DetailDrawer
         v-if="selected"
         :datum="selected"

@@ -48,13 +48,14 @@ const total = computed(() => groups.value.reduce((n, g) => n + g.members.length,
     </header>
 
     <div class="px-3 py-2 border-b border-base text-xs op-fade leading-relaxed">
-      From <span class="color-base font-medium">{{ payload.base.label }}</span>
-      <span class="op-mute">({{ sideAgo(payload.base) }})</span>
-      to <span class="color-base font-medium">{{ payload.compare.label }}</span>
-      <span class="op-mute">({{ sideAgo(payload.compare) }})</span>,
-      the following API changed.
+      From <span class="color-base font-bold">{{ payload.base.label }}</span>
+      <span class="op-fade">({{ sideAgo(payload.base) }})</span>
+      to <span class="color-base font-bold">{{ payload.compare.label }}</span>
+      <span class="op-fade">({{ sideAgo(payload.compare) }})</span>,<br>
+      the following API changed:
     </div>
 
+    <!-- TODO: group by change type: Remove -> Narrowed -> Widened -> Added -->
     <div class="p-2 flex-1 overflow-auto">
       <template v-if="total">
         <section v-for="g in groups" :key="g.name" class="mb-3">
