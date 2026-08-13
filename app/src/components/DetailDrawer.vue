@@ -6,61 +6,47 @@ import DisplayBadge from '@antfu/design/components/Display/DisplayBadge.vue'
 import DisplayKeyValue from '@antfu/design/components/Display/DisplayKeyValue.vue'
 import FeedbackEmptyState from '@antfu/design/components/Feedback/FeedbackEmptyState.vue'
 import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { ALL_STATUSES, KIND_ICON, KIND_LABEL, SOURCE_META, sourceOf, STATUS_HEX, STATUS_STYLE } from '../kind.ts'
+import PierreDiff from './PierreDiff.vue'
+import PierreFile from './PierreFile.vue'
 
-const props = defineProps<{ datum: TreeDatum | null, isDiff: boolean, dark?: boolean }>()
+// `dark` defaults true. Vue casts an absent *boolean* prop to `false` (not
+// `undefined`), so a plain `props.dark ?? true` fallback silently never
+// triggers — the default has to be declared here instead.
+const props = withDefaults(defineProps<{ datum: TreeDatum | null, isDiff: boolean, dark?: boolean }>(), { dark: true })
 const emit = defineEmits<{ close: [] }>()
 
 const member = computed(() => (props.datum?.type === 'member' ? props.datum.member ?? null : null))
 
-interface SurfaceBlock {
+interface SurfaceView {
   surface: 'dts' | 'runtime'
   label: string
-  /**
-   * Rendered HTML from @pierre/diffs — an inline unified diff for a changed
-   * surface, or a plain highlighted file for an unchanged/single-state one.
-   * Both go through the same renderer (see ../pierre.ts) so their styling
-   * (theme, font, chrome) is identical.
-   */
-  html: string
+  changed: boolean
+  before: string
+  after: string
 }
 
-const blocks = ref<SurfaceBlock[]>([])
-
-// Re-render when the selection or the theme changes (the rendered HTML bakes
-// the active theme colours, so a light/dark toggle must re-generate it).
-watch(() => [props.datum, props.dark] as const, async ([d]) => {
-  blocks.value = []
-  const m = d?.type === 'member' ? d.member : null
+// Both a changed surface (PierreDiff) and an unchanged/single-state one
+// (PierreFile) render through @pierre/diffs' client components, so their
+// styling (theme, font, chrome) is identical. Purely derived from props —
+// each child component owns its own async mount/render lifecycle.
+const surfaces = computed<SurfaceView[]>(() => {
+  const m = member.value
   if (!m)
-    return
+    return []
 
-  // Lazy-load the diff engine so it stays out of the initial bundle.
-  const { renderInlineDiff, renderInlineFile } = await import('../pierre.ts')
-
-  const surfaces = [
-    { surface: 'dts' as const, label: 'Type (.d.ts)' },
-    { surface: 'runtime' as const, label: 'Runtime (.js)' },
-  ]
-  const result: SurfaceBlock[] = []
-  for (const { surface, label } of surfaces) {
+  const result: SurfaceView[] = []
+  for (const [surface, label] of [['dts', 'Type (.d.ts)'], ['runtime', 'Runtime (.js)']] as const) {
     const before = (m.base?.[surface] ?? '').trim()
     const after = (m.current?.[surface] ?? '').trim()
     if (!before && !after)
       continue
-
     const changed = props.isDiff && !!before && !!after && before !== after
-    const html = changed
-      ? await renderInlineDiff(before, after, props.dark ?? true)
-      : await renderInlineFile(after || before, props.dark ?? true)
-    result.push({ surface, label, html })
+    result.push({ surface, label, changed, before, after })
   }
-
-  // Guard against an out-of-order resolution when the selection changed mid-await.
-  if (props.datum === d)
-    blocks.value = result
-}, { immediate: true })
+  return result
+})
 
 // Aggregate status counts for a package / entry / group selection.
 const summary = computed<{ title: string, sub?: string, note?: string, counts: Record<DiffStatus, number> } | null>(() => {
@@ -133,13 +119,14 @@ const summary = computed<{ title: string, sub?: string, note?: string, counts: R
 
     <!-- member body: @pierre/diffs-rendered signatures / diff (consistent styling for both) -->
     <div v-if="member" class="p-3 flex-1 overflow-auto space-y-4">
-      <section v-for="b in blocks" :key="b.surface">
+      <section v-for="s in surfaces" :key="s.surface">
         <div class="text-micro tracking-wide color-faint mb-1 uppercase">
-          {{ b.label }}
+          {{ s.label }}
         </div>
-        <div class="pierre-host border border-base rounded overflow-hidden" v-html="b.html" />
+        <PierreDiff v-if="s.changed" :before="s.before" :after="s.after" :dark="dark" />
+        <PierreFile v-else :code="s.after || s.before" :dark="dark" />
       </section>
-      <FeedbackEmptyState v-if="!blocks.length" icon="i-ph-code" title="No signature captured" />
+      <FeedbackEmptyState v-if="!surfaces.length" icon="i-ph-code" title="No signature captured" />
     </div>
 
     <!-- package / entry / group body: status summary -->
