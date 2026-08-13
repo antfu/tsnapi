@@ -5,7 +5,7 @@ import { formatTimeAgo } from '@vueuse/core'
 import { computed } from 'vue'
 import ChangeGroupList from './ChangeGroupList.vue'
 
-const props = defineProps<{ payload: WorkspacePayload }>()
+const props = defineProps<{ payload: WorkspacePayload, hiddenPackages?: Set<string> }>()
 const emit = defineEmits<{ selectMember: [member: MemberNode] }>()
 
 function sideAgo(side: SideMeta): string {
@@ -23,6 +23,8 @@ interface PackageGroup { name: string, dir: string, members: MemberNode[] }
 const groups = computed<PackageGroup[]>(() => {
   const out: PackageGroup[] = []
   for (const pkg of props.payload.packages) {
+    if (props.hiddenPackages?.has(pkg.name))
+      continue
     const members = pkg.entries.flatMap(entry => entry.members.filter(m => m.status !== 'unchanged'))
     if (members.length)
       out.push({ name: pkg.name, dir: pkg.dir, members })

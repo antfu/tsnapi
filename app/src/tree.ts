@@ -20,6 +20,8 @@ export interface TreeFilter {
   statuses: Set<DiffStatus>
   groupByKind: boolean
   showReferenced: boolean
+  /** Package names to exclude entirely (from the `PackagesFilter` dropdown). */
+  hiddenPackages: Set<string>
 }
 
 function memberVisible(m: MemberNode, f: TreeFilter): boolean {
@@ -74,6 +76,9 @@ export function buildTree(payload: WorkspacePayload, f: TreeFilter): TreeDatum {
   const packages: TreeDatum[] = []
 
   for (const pkg of payload.packages) {
+    if (f.hiddenPackages.has(pkg.name))
+      continue
+
     const entries: TreeDatum[] = []
     for (const entry of pkg.entries) {
       const visible = entry.members.filter(m => memberVisible(m, f))

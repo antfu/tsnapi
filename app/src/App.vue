@@ -17,6 +17,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DetailDrawer from './components/DetailDrawer.vue'
 import GraphCanvas from './components/GraphCanvas.vue'
 import Logo from './components/Logo.vue'
+import PackagesFilter from './components/PackagesFilter.vue'
 import RefSelect from './components/RefSelect.vue'
 import SummaryPanel from './components/SummaryPanel.vue'
 import { ALL_STATUSES } from './kind.ts'
@@ -41,6 +42,8 @@ const groupByKind = ref(false)
 const showReferenced = ref(false)
 const changedOnly = ref(false)
 const showOptions = ref(false)
+/** Package names excluded from the graph and the API-changes summary (via `PackagesFilter`). */
+const hiddenPackages = ref<Set<string>>(new Set())
 
 const isDark = useDark({ initialValue: 'dark' })
 const toggleDark = useToggle(isDark)
@@ -109,6 +112,7 @@ const tree = computed<TreeDatum | null>(() => {
     statuses: active,
     groupByKind: groupByKind.value,
     showReferenced: showReferenced.value,
+    hiddenPackages: hiddenPackages.value,
   })
 })
 
@@ -264,6 +268,7 @@ watch(allHistory, () => {
       <FormCheckbox v-if="payload?.isDiff" v-model="changedOnly">
         <span class="flex gap-1.5 items-center"><span class="i-ph-funnel op-fade" /> Changed only</span>
       </FormCheckbox>
+      <PackagesFilter v-if="payload && payload.packages.length > 1" v-model="hiddenPackages" :packages="payload.packages" />
     </div>
 
     <!-- body -->
@@ -305,6 +310,7 @@ watch(allHistory, () => {
       <SummaryPanel
         v-else-if="payload && payload.isDiff"
         :payload="payload"
+        :hidden-packages="hiddenPackages"
         @select-member="selectMember"
       />
     </main>
