@@ -1,7 +1,10 @@
 import type { DiffStatus, EntryKind, MemberNode, PackageNode, WorkspacePayload } from './types.ts'
-import { KIND_GROUP_ORDER, KIND_LABEL } from './kind.ts'
+import { KIND_GROUP_ORDER, KIND_LABEL, sourceOf } from './kind.ts'
 
 export type NodeType = 'root' | 'package' | 'entry' | 'group' | 'member'
+
+/** The three selectable states of the "Source" filter (`sourceOf()` also has a `'none'`, which is never shown by any of these — see `memberVisible`). */
+export type SourceFilter = 'both' | 'runtime' | 'dts'
 
 export interface TreeDatum {
   id: string
@@ -22,12 +25,21 @@ export interface TreeFilter {
   showReferenced: boolean
   /** Package names to exclude entirely (from the `PackagesFilter` dropdown). */
   hiddenPackages: Set<string>
+  /**
+   * Only show members whose captured signature surface exactly matches
+   * (`sourceOf(m) === source`). A member with no captured signature at all
+   * (`sourceOf() === 'none'`) never matches any of the three states, so it's
+   * never shown regardless of which is selected.
+   */
+  source: SourceFilter
 }
 
 function memberVisible(m: MemberNode, f: TreeFilter): boolean {
   if (!f.statuses.has(m.status))
     return false
   if (!f.showReferenced && m.referenced)
+    return false
+  if (sourceOf(m) !== f.source)
     return false
   if (f.search) {
     const q = f.search.toLowerCase()

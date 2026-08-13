@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import type { SegmentedOption } from '@antfu/design/components/Form/FormSegmentedControl.vue'
 import type { RefOption } from './components/RefSelect.vue'
-import type { TreeDatum } from './tree.ts'
+import type { SourceFilter, TreeDatum } from './tree.ts'
 import type { MemberNode, MetaPayload, RefsPayload, SideMeta, UiExtractOptions, WorkspacePayload } from './types.ts'
 import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
@@ -11,6 +12,7 @@ import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
 import FormCheckbox from '@antfu/design/components/Form/FormCheckbox.vue'
 import FormNumberInput from '@antfu/design/components/Form/FormNumberInput.vue'
 import FormSearchField from '@antfu/design/components/Form/FormSearchField.vue'
+import FormSegmentedControl from '@antfu/design/components/Form/FormSegmentedControl.vue'
 
 import { refDebounced, useDark, useToggle } from '@vueuse/core'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -44,6 +46,13 @@ const changedOnly = ref(false)
 const showOptions = ref(false)
 /** Package names excluded from the graph and the API-changes summary (via `PackagesFilter`). */
 const hiddenPackages = ref<Set<string>>(new Set())
+/** Which signature surface a member must have to show (see `SourceFilter`). */
+const sourceFilter = ref<SourceFilter>('both')
+const sourceOptions: SegmentedOption[] = [
+  { value: 'both', label: 'Both' },
+  { value: 'runtime', label: 'Runtime' },
+  { value: 'dts', label: 'Types' },
+]
 
 const isDark = useDark({ initialValue: 'dark' })
 const toggleDark = useToggle(isDark)
@@ -113,6 +122,7 @@ const tree = computed<TreeDatum | null>(() => {
     groupByKind: groupByKind.value,
     showReferenced: showReferenced.value,
     hiddenPackages: hiddenPackages.value,
+    source: sourceFilter.value,
   })
 })
 
@@ -269,6 +279,10 @@ watch(allHistory, () => {
         <span class="flex gap-1.5 items-center"><span class="i-ph-funnel op-fade" /> Changed only</span>
       </FormCheckbox>
       <PackagesFilter v-if="payload && payload.packages.length > 1" v-model="hiddenPackages" :packages="payload.packages" />
+      <span class="flex gap-1.5 items-center">
+        <span class="i-ph-circles-three op-fade" />
+        <FormSegmentedControl v-model="sourceFilter" :options="sourceOptions" />
+      </span>
     </div>
 
     <!-- body -->
