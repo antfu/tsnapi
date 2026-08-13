@@ -5,7 +5,7 @@ import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import { hierarchy, tree } from 'd3-hierarchy'
 import { linkHorizontal } from 'd3-shape'
 import { computed, ref, watch } from 'vue'
-import { KIND_ICON, SOURCE_META, sourceOf, STATUS_STYLE } from '../kind.ts'
+import GraphNode from './GraphNode.vue'
 
 const props = defineProps<{ root: TreeDatum, selectedId?: string }>()
 const emit = defineEmits<{ select: [datum: TreeDatum] }>()
@@ -131,60 +131,15 @@ defineExpose({ reset })
 
       <div
         v-for="item in layout.nodes" :key="item.node.data.id"
-        class="absolute flex items-center bg-base rounded"
+        class="bg-base rounded absolute flex items-center"
         :style="{ transform: `translate(${item.x}px, ${item.y - NODE_H / 2}px)`, height: `${NODE_H}px` }"
       >
-        <!-- member -->
-        <button
-          v-if="item.node.data.type === 'member'"
-          class="flex items-center gap-1.5 px-2 h-full rounded border bg-base text-xs whitespace-nowrap hover:bg-active transition cursor-pointer"
-          :class="[
-            STATUS_STYLE[item.node.data.status!].border,
-            item.node.data.status === 'unchanged' ? 'op-55 hover:op-100' : '',
-            props.selectedId === item.node.data.id ? 'ring-2 ring-primary' : '',
-          ]"
-          :style="{ maxWidth: `${NODE_W}px` }"
-          :title="`${item.node.data.label} · ${SOURCE_META[sourceOf(item.node.data.member!)].label}`"
-          @click.stop="emit('select', item.node.data)"
-        >
-          <span class="shrink-0" :class="[KIND_ICON[item.node.data.kind!], STATUS_STYLE[item.node.data.status!].text]" />
-          <span class="truncate">{{ item.node.data.label }}</span>
-          <span
-            class="shrink-0 text-2.5 op-55"
-            :class="SOURCE_META[sourceOf(item.node.data.member!)].icon"
-          />
-          <span v-if="item.node.data.status !== 'unchanged'" class="shrink-0 text-2.5" :class="[STATUS_STYLE[item.node.data.status!].icon, STATUS_STYLE[item.node.data.status!].text]" />
-        </button>
-
-        <!-- package -->
-        <button
-          v-else-if="item.node.data.type === 'package'"
-          class="flex items-center gap-1.5 px-2.5 h-full rounded-md border bg-primary/10 text-sm font-medium whitespace-nowrap hover:bg-primary/20 transition cursor-pointer"
-          :class="props.selectedId === item.node.data.id ? 'border-primary ring-2 ring-primary' : 'border-primary/40'"
-          @click.stop="emit('select', item.node.data)"
-        >
-          <span class="i-ph-package text-primary" />
-          <span>{{ item.node.data.label }}</span>
-          <span
-            v-if="item.node.data.pkg && item.node.data.pkg.status !== 'ok'"
-            class="text-2.5 px-1 rounded bg-amber-500/20 text-amber-500"
-          >{{ item.node.data.pkg.status }}</span>
-        </button>
-
-        <!-- entry / group / root -->
-        <button
-          v-else
-          class="flex items-center gap-1.5 px-2 h-full rounded border border-base bg-base text-xs whitespace-nowrap transition"
-          :class="[
-            item.node.data.type === 'root' ? 'font-semibold cursor-default' : 'op-80 hover:bg-active hover:op-100 cursor-pointer',
-            props.selectedId === item.node.data.id ? 'ring-2 ring-primary op-100' : '',
-          ]"
-          @click.stop="emit('select', item.node.data)"
-        >
-          <span :class="item.node.data.type === 'root' ? 'i-ph-stack' : item.node.data.type === 'group' ? (KIND_ICON[item.node.data.kind!]) : 'i-ph-arrow-square-right'" />
-          <span>{{ item.node.data.label }}</span>
-          <span v-if="item.node.data.sub" class="text-2.5 op-60">{{ item.node.data.sub }}</span>
-        </button>
+        <GraphNode
+          :datum="item.node.data"
+          :selected="selectedId === item.node.data.id"
+          :max-width="NODE_W"
+          @select="emit('select', $event)"
+        />
       </div>
     </div>
 
