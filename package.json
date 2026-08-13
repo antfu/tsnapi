@@ -75,6 +75,7 @@
     "@antfu/utils": "^9.3.0",
     "@iconify-json/ph": "^1.2.2",
     "@oxc-project/types": "^0.138.0",
+    "@pierre/diffs": "1.2.12",
     "@storybook/vue3-vite": "^10.5.7",
     "@types/d3-hierarchy": "^3.1.7",
     "@types/d3-shape": "^3.1.8",

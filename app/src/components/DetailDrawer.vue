@@ -9,7 +9,7 @@ import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
 import { computed, ref, watch } from 'vue'
 import { ALL_STATUSES, KIND_ICON, KIND_LABEL, SOURCE_META, sourceOf, STATUS_HEX, STATUS_STYLE } from '../kind.ts'
 
-const props = defineProps<{ datum: TreeDatum | null, isDiff: boolean }>()
+const props = defineProps<{ datum: TreeDatum | null, isDiff: boolean, dark?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const member = computed(() => (props.datum?.type === 'member' ? props.datum.member ?? null : null))
@@ -18,21 +18,27 @@ interface SurfaceBlock {
   surface: 'dts' | 'runtime'
   label: string
   changed: boolean
-  beforeHtml?: string
-  afterHtml?: string
+  /** Inline (unified) diff HTML from @pierre/diffs, for a changed surface. */
+  diffHtml?: string
+  /** Shiki-highlighted signature, for an unchanged / single-state surface. */
   singleHtml?: string
 }
 
 const blocks = ref<SurfaceBlock[]>([])
 
-watch(() => props.datum, async (d) => {
+// Re-render when the selection or the theme changes (the inline diff bakes the
+// active theme colours, so a light/dark toggle must re-generate it).
+watch(() => [props.datum, props.dark] as const, async ([d]) => {
   blocks.value = []
   const m = d?.type === 'member' ? d.member : null
   if (!m)
     return
 
-  // Lazy-load Shiki so it stays out of the initial bundle.
-  const { highlightTs } = await import('../highlighter.ts')
+  // Lazy-load the highlighter + diff engine so they stay out of the initial bundle.
+  const [{ highlightTs }, { renderInlineDiff }] = await Promise.all([
+    import('../highlighter.ts'),
+    import('../pierre.ts'),
+  ])
 
   const surfaces = [
     { surface: 'dts' as const, label: 'Type (.d.ts)' },
@@ -47,7 +53,7 @@ watch(() => props.datum, async (d) => {
 
     const changed = props.isDiff && !!before && !!after && before !== after
     if (changed) {
-      result.push({ surface, label, changed: true, beforeHtml: await highlightTs(before), afterHtml: await highlightTs(after) })
+      result.push({ surface, label, changed: true, diffHtml: await renderInlineDiff(before, after, props.dark ?? true) })
     }
     else {
       result.push({ surface, label, changed: false, singleHtml: await highlightTs(after || before) })
@@ -134,16 +140,11 @@ const summary = computed<{ title: string, sub?: string, note?: string, counts: R
         <div class="text-micro tracking-wide color-faint mb-1 uppercase">
           {{ b.label }}
         </div>
-        <template v-if="b.changed">
-          <div class="text-micro op-fade mb-0.5 flex gap-1 items-center">
-            <span class="i-ph-minus text-red-500" /> before
-          </div>
-          <div class="rounded ring-1 ring-red-500/40 mb-2 overflow-hidden" v-html="b.beforeHtml" />
-          <div class="text-micro op-fade mb-0.5 flex gap-1 items-center">
-            <span class="i-ph-plus text-green-500" /> after
-          </div>
-          <div class="rounded ring-1 ring-green-500/40 overflow-hidden" v-html="b.afterHtml" />
-        </template>
+        <div
+          v-if="b.changed"
+          class="border border-base rounded overflow-hidden"
+          v-html="b.diffHtml"
+        />
         <div v-else v-html="b.singleHtml" />
       </section>
       <FeedbackEmptyState v-if="!blocks.length" icon="i-ph-code" title="No signature captured" />

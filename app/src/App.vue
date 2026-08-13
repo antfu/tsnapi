@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { SelectOption } from '@antfu/design/components/Form/FormSelect.vue'
 import type { TreeDatum } from './tree.ts'
-import type { DiffStatus, MetaPayload, RefsPayload, UiExtractOptions, WorkspacePayload } from './types.ts'
+import type { DiffStatus, MemberNode, MetaPayload, RefsPayload, UiExtractOptions, WorkspacePayload } from './types.ts'
 import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
 import ActionToggle from '@antfu/design/components/Action/ActionToggle.vue'
@@ -16,6 +16,7 @@ import { refDebounced, useDark, useToggle } from '@vueuse/core'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DetailDrawer from './components/DetailDrawer.vue'
 import GraphCanvas from './components/GraphCanvas.vue'
+import SummaryPanel from './components/SummaryPanel.vue'
 import { ALL_STATUSES, STATUS_STYLE } from './kind.ts'
 import * as rpc from './rpc.ts'
 import { buildTree, totalCounts } from './tree.ts'
@@ -124,6 +125,30 @@ function selectNode(datum: TreeDatum) {
     return
   selected.value = datum
   selectedId.value = datum.id
+}
+
+function findByMember(node: TreeDatum, m: MemberNode): TreeDatum | undefined {
+  if (node.member === m)
+    return node
+  for (const child of node.children ?? []) {
+    const hit = findByMember(child, m)
+    if (hit)
+      return hit
+  }
+  return undefined
+}
+
+/** Select a member picked from the summary list, highlighting its graph node when visible. */
+function selectMember(m: MemberNode) {
+  const hit = tree.value ? findByMember(tree.value, m) : undefined
+  if (hit) {
+    selectNode(hit)
+  }
+  else {
+    // Filtered out of the current tree; still show its detail.
+    selected.value = { id: `member::${m.name}`, type: 'member', label: m.display, kind: m.kind, status: m.status, member: m }
+    selectedId.value = undefined
+  }
 }
 
 function closeDrawer() {
@@ -249,7 +274,18 @@ watch(allHistory, () => {
         title="No members match the current filters"
       />
 
-      <DetailDrawer :datum="selected" :is-diff="payload?.isDiff ?? false" @close="closeDrawer" />
+      <DetailDrawer
+        v-if="selected"
+        :datum="selected"
+        :is-diff="payload?.isDiff ?? false"
+        :dark="isDark"
+        @close="closeDrawer"
+      />
+      <SummaryPanel
+        v-else-if="payload && payload.isDiff"
+        :payload="payload"
+        @select-member="selectMember"
+      />
     </main>
   </div>
 </template>

@@ -7,3 +7,7 @@ minimumReleaseAgeExclude:
 shellEmulator: true
 
 trustPolicy: no-downgrade
+trustPolicyExclude:
+  # @pierre/diffs (pinned to 1.2.12) pulls @pierre/theme@1.1.0, which dropped
+  # its npm provenance vs earlier versions. Reviewed and accepted.
+  - '@pierre/theme@1.1.0'

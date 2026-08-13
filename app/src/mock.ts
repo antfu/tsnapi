@@ -1,5 +1,5 @@
 import type { TreeDatum } from './tree.ts'
-import type { DiffStatus, EntryKind, MemberNode, PackageNode } from './types.ts'
+import type { DiffStatus, EntryKind, MemberNode, PackageNode, WorkspacePayload } from './types.ts'
 
 // Static fixtures for Storybook / isolated component development. No runtime
 // data, no side effects — just plain objects shaped like the wire payload.
@@ -81,6 +81,27 @@ export const unbuiltPackage: PackageNode = {
   status: 'unbuilt',
   usedFallback: true,
   counts: counts({ unchanged: 4 }),
+}
+
+const daysAgo = (n: number): string => new Date(Date.now() - n * 86_400_000).toISOString()
+
+/** A full workspace payload (a diff from a tag to the working tree). */
+export const samplePayload: WorkspacePayload = {
+  root: '/repo/warm-zebras-fail',
+  isDiff: true,
+  git: true,
+  base: {
+    kind: 'ref',
+    ref: 'v1.1.0',
+    label: 'v1.1.0',
+    resolved: { sha: '8e5981afeea3', shortSha: '8e5981a', name: 'v1.1.0', type: 'tag', subject: 'chore: release v1.1.0', date: daysAgo(5) },
+  },
+  compare: { kind: 'working', ref: 'WORKING_TREE', label: 'Working tree' },
+  packages: [
+    { ...samplePackage, entries: [{ name: '.', members: sampleMembers }] },
+    unbuiltPackage,
+  ],
+  options: { omitArgumentNames: true, typeWidening: true, referenceTracingDepth: 1 },
 }
 
 /** A small hierarchy for the GraphCanvas story. */
