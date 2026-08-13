@@ -17,28 +17,27 @@ const member = computed(() => (props.datum?.type === 'member' ? props.datum.memb
 interface SurfaceBlock {
   surface: 'dts' | 'runtime'
   label: string
-  changed: boolean
-  /** Inline (unified) diff HTML from @pierre/diffs, for a changed surface. */
-  diffHtml?: string
-  /** Shiki-highlighted signature, for an unchanged / single-state surface. */
-  singleHtml?: string
+  /**
+   * Rendered HTML from @pierre/diffs — an inline unified diff for a changed
+   * surface, or a plain highlighted file for an unchanged/single-state one.
+   * Both go through the same renderer (see ../pierre.ts) so their styling
+   * (theme, font, chrome) is identical.
+   */
+  html: string
 }
 
 const blocks = ref<SurfaceBlock[]>([])
 
-// Re-render when the selection or the theme changes (the inline diff bakes the
-// active theme colours, so a light/dark toggle must re-generate it).
+// Re-render when the selection or the theme changes (the rendered HTML bakes
+// the active theme colours, so a light/dark toggle must re-generate it).
 watch(() => [props.datum, props.dark] as const, async ([d]) => {
   blocks.value = []
   const m = d?.type === 'member' ? d.member : null
   if (!m)
     return
 
-  // Lazy-load the highlighter + diff engine so they stay out of the initial bundle.
-  const [{ highlightTs }, { renderInlineDiff }] = await Promise.all([
-    import('../highlighter.ts'),
-    import('../pierre.ts'),
-  ])
+  // Lazy-load the diff engine so it stays out of the initial bundle.
+  const { renderInlineDiff, renderInlineFile } = await import('../pierre.ts')
 
   const surfaces = [
     { surface: 'dts' as const, label: 'Type (.d.ts)' },
@@ -52,12 +51,10 @@ watch(() => [props.datum, props.dark] as const, async ([d]) => {
       continue
 
     const changed = props.isDiff && !!before && !!after && before !== after
-    if (changed) {
-      result.push({ surface, label, changed: true, diffHtml: await renderInlineDiff(before, after, props.dark ?? true) })
-    }
-    else {
-      result.push({ surface, label, changed: false, singleHtml: await highlightTs(after || before) })
-    }
+    const html = changed
+      ? await renderInlineDiff(before, after, props.dark ?? true)
+      : await renderInlineFile(after || before, props.dark ?? true)
+    result.push({ surface, label, html })
   }
 
   // Guard against an out-of-order resolution when the selection changed mid-await.
@@ -134,18 +131,13 @@ const summary = computed<{ title: string, sub?: string, note?: string, counts: R
       <ActionIconButton icon="i-ph-x" tooltip="Close" compact @click="emit('close')" />
     </header>
 
-    <!-- member body: Shiki-highlighted signatures / diff -->
+    <!-- member body: @pierre/diffs-rendered signatures / diff (consistent styling for both) -->
     <div v-if="member" class="p-3 flex-1 overflow-auto space-y-4">
       <section v-for="b in blocks" :key="b.surface">
         <div class="text-micro tracking-wide color-faint mb-1 uppercase">
           {{ b.label }}
         </div>
-        <div
-          v-if="b.changed"
-          class="pierre-host border border-base rounded overflow-hidden"
-          v-html="b.diffHtml"
-        />
-        <div v-else v-html="b.singleHtml" />
+        <div class="pierre-host border border-base rounded overflow-hidden" v-html="b.html" />
       </section>
       <FeedbackEmptyState v-if="!blocks.length" icon="i-ph-code" title="No signature captured" />
     </div>

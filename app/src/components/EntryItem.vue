@@ -3,14 +3,20 @@ import type { MemberNode } from '../types.ts'
 import { KIND_ICON, KIND_LABEL, SOURCE_META, sourceOf, STATUS_STYLE } from '../kind.ts'
 
 // Reusable, presentational row for a single API entry (member). Pure: renders
-// from `member`, emits `select` on click. Used in the summary list and anywhere
-// a compact entry row is needed.
+// from `member`, emits `select` on click. Used in the summary list, the graph
+// canvas (as a compact bordered node), and anywhere a compact entry needs to
+// render.
 const props = withDefaults(defineProps<{
   member: MemberNode
   selected?: boolean
   /** Show the status icon on the right (defaults to true). */
   showStatus?: boolean
+  /** Show the status colour background tint (defaults to true). */
   showBackground?: boolean
+  /** Render as a compact bordered node (graph canvas) instead of a full-width list row. */
+  bordered?: boolean
+  /** Max width in px; only applied when `bordered`. */
+  maxWidth?: number
 }>(), {
   showStatus: true,
   showBackground: true,
@@ -22,15 +28,22 @@ const status = () => STATUS_STYLE[props.member.status]
 
 <template>
   <button
-    class="text-xs px-2 py-1 rounded flex gap-1.5 w-full transition cursor-pointer items-center text-left hover:bg-active"
-    :class="[props.showBackground !== false ? STATUS_STYLE[member.status].bg : '', props.selected ? 'ring-1 ring-primary' : '']"
+    class="text-xs px-2 rounded flex gap-1.5 transition cursor-pointer items-center whitespace-nowrap hover:bg-active"
+    :class="[
+      bordered ? 'border h-full' : 'py-1 w-full text-left',
+      bordered ? status().border : '',
+      showBackground !== false ? status().bg : '',
+      member.status === 'unchanged' ? 'op-55 hover:op-100' : '',
+      selected ? (bordered ? 'ring-2 ring-primary' : 'ring-1 ring-primary') : '',
+    ]"
+    :style="bordered && maxWidth ? { maxWidth: `${maxWidth}px` } : undefined"
     :title="`${member.display} · ${KIND_LABEL[member.kind]} · ${SOURCE_META[sourceOf(member)].label}`"
-    @click="emit('select', member)"
+    @click.stop="emit('select', member)"
   >
     <span class="shrink-0" :class="[KIND_ICON[member.kind], status().text]" />
-    <span class="font-mono truncate">{{ member.display }}</span>
+    <span class="truncate" :class="bordered ? '' : 'font-mono'">{{ member.display }}</span>
     <span class="text-2.5 op-55 shrink-0" :class="SOURCE_META[sourceOf(member)].icon" />
-    <span class="flex-1" />
+    <span v-if="!bordered" class="flex-1" />
     <span
       v-if="showStatus !== false && member.status !== 'unchanged'"
       class="text-2.5 shrink-0"

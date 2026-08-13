@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { TreeDatum } from '../tree.ts'
-import { KIND_ICON, SOURCE_META, sourceOf, STATUS_STYLE } from '../kind.ts'
+import { KIND_ICON } from '../kind.ts'
+import EntryItem from './EntryItem.vue'
 
 // Pure, presentational graph node. Renders a single member / package / entry /
 // group / root node from its datum and emits `select` on click. No side effects.
+// Member nodes delegate to `EntryItem` (bordered variant) so the graph and the
+// summary list share one row implementation.
 const props = defineProps<{
   datum: TreeDatum
   selected?: boolean
@@ -20,28 +23,14 @@ function select() {
 
 <template>
   <!-- member -->
-  <button
+  <EntryItem
     v-if="datum.type === 'member'"
-    class="text-xs px-2 rounded border flex gap-1.5 h-full transition cursor-pointer items-center whitespace-nowrap hover:bg-active"
-    :class="[
-      STATUS_STYLE[datum.status!].border,
-      STATUS_STYLE[datum.status!].bg,
-      datum.status === 'unchanged' ? 'op-55 hover:op-100' : '',
-      selected ? 'ring-2 ring-primary' : '',
-    ]"
-    :style="{ maxWidth: maxWidth ? `${maxWidth}px` : undefined }"
-    :title="`${datum.label} · ${SOURCE_META[sourceOf(datum.member!)].label}`"
-    @click.stop="select"
-  >
-    <span class="shrink-0" :class="[KIND_ICON[datum.kind!], STATUS_STYLE[datum.status!].text]" />
-    <span class="truncate">{{ datum.label }}</span>
-    <span class="text-2.5 op-55 shrink-0" :class="SOURCE_META[sourceOf(datum.member!)].icon" />
-    <span
-      v-if="datum.status !== 'unchanged'"
-      class="text-2.5 shrink-0"
-      :class="[STATUS_STYLE[datum.status!].icon, STATUS_STYLE[datum.status!].text]"
-    />
-  </button>
+    :member="datum.member!"
+    :selected="selected"
+    bordered
+    :max-width="maxWidth"
+    @select="select"
+  />
 
   <!-- package -->
   <button

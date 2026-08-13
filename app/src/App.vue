@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { RefOption } from './components/RefSelect.vue'
 import type { TreeDatum } from './tree.ts'
-import type { DiffStatus, MemberNode, MetaPayload, RefsPayload, UiExtractOptions, WorkspacePayload } from './types.ts'
+import type { DiffStatus, MemberNode, MetaPayload, RefsPayload, SideMeta, UiExtractOptions, WorkspacePayload } from './types.ts'
 import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
 import ActionToggle from '@antfu/design/components/Action/ActionToggle.vue'
@@ -11,6 +11,7 @@ import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
 import FormCheckbox from '@antfu/design/components/Form/FormCheckbox.vue'
 import FormNumberInput from '@antfu/design/components/Form/FormNumberInput.vue'
 import FormSearchField from '@antfu/design/components/Form/FormSearchField.vue'
+import LayoutSeparator from '@antfu/design/components/Layout/LayoutSeparator.vue'
 
 import { refDebounced, useDark, useToggle } from '@vueuse/core'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -53,6 +54,28 @@ const git = computed(() => payload.value?.git ?? false)
 const showPickers = computed(() => git.value && !isStatic.value)
 
 const counts = computed(() => (payload.value ? totalCounts(payload.value) : null))
+
+/** Effective timestamp for a side: "now" for the working tree, else its resolved ref date. */
+function sideTimestamp(side: SideMeta): number | undefined {
+  if (side.kind === 'working')
+    return Date.now()
+  return side.resolved?.date ? new Date(side.resolved.date).getTime() : undefined
+}
+
+/** True when Base is newer than Compare, i.e. the diff direction looks backwards. */
+const reversedRefs = computed(() => {
+  if (!payload.value?.isDiff)
+    return false
+  const b = sideTimestamp(payload.value.base)
+  const c = sideTimestamp(payload.value.compare)
+  return b !== undefined && c !== undefined && b > c
+})
+
+function swapRefs() {
+  const b = base.value
+  base.value = compare.value
+  compare.value = b
+}
 
 /** Flat option list for the Base / Compare selects, with disabled group headers. */
 const refOptions = computed<RefOption[]>(() => {
@@ -210,9 +233,6 @@ watch(allHistory, () => {
 
       <FormSearchField v-model="search" placeholder="Search members" size="sm" class="w-52" />
 
-      <ActionToggle v-model="groupByKind" icon="i-ph-tree-structure" label="Group" />
-      <ActionToggle v-model="showReferenced" icon="i-ph-link" label="Internal" />
-      <ActionToggle v-if="payload?.isDiff" v-model="changedOnly" icon="i-ph-funnel" label="Changed only" />
       <ActionButton v-if="!isStatic" size="sm" icon="i-ph-arrows-clockwise" :loading="loading" @click="loadPayload">
         Re-extract
       </ActionButton>
@@ -224,6 +244,17 @@ watch(allHistory, () => {
       />
     </header>
 
+    <!-- reversed base/compare banner -->
+    <div v-if="reversedRefs" class="text-sm px-3 py-2 border-b border-base bg-amber-500/10 flex gap-2 items-center">
+      <span class="i-ph-warning-circle text-amber-500 shrink-0" />
+      <span class="flex-1">
+        Base (<strong>{{ payload!.base.label }}</strong>) looks newer than Compare (<strong>{{ payload!.compare.label }}</strong>). The direction might be reversed.
+      </span>
+      <ActionButton v-if="!isStatic" size="sm" icon="i-ph-arrows-left-right" @click="swapRefs">
+        Swap
+      </ActionButton>
+    </div>
+
     <!-- options panel -->
     <div v-if="showOptions" class="flex flex-wrap gap-4 px-4 py-2 border-b border-base bg-active/40 items-center">
       <FormCheckbox v-model="options.omitArgumentNames" label="Omit argument names" />
@@ -234,17 +265,31 @@ watch(allHistory, () => {
       </label>
     </div>
 
-    <!-- legend / status filters -->
-    <div v-if="counts" class="flex flex-wrap gap-1.5 px-3 py-1.5 border-b border-base items-center">
-      <ActionToggle
+    <!-- filter bar: view options + status filters, all checkbox toggles -->
+    <div v-if="counts" class="flex flex-wrap gap-3 px-3 py-1.5 border-b border-base items-center">
+      <FormCheckbox v-model="groupByKind">
+        <span class="flex gap-1.5 items-center"><span class="i-ph-tree-structure op-fade" /> Group</span>
+      </FormCheckbox>
+      <FormCheckbox v-model="showReferenced">
+        <span class="flex gap-1.5 items-center"><span class="i-ph-link op-fade" /> Internal</span>
+      </FormCheckbox>
+      <FormCheckbox v-if="payload?.isDiff" v-model="changedOnly">
+        <span class="flex gap-1.5 items-center"><span class="i-ph-funnel op-fade" /> Changed only</span>
+      </FormCheckbox>
+
+      <LayoutSeparator orientation="vertical" class="h-4" />
+
+      <FormCheckbox
         v-for="s in ALL_STATUSES" :key="s"
         :model-value="statuses.has(s)"
         @update:model-value="toggleStatus(s)"
       >
-        <span class="h-2 w-2 rounded-full" :class="STATUS_STYLE[s].dot" />
-        {{ STATUS_STYLE[s].label }}
-        <span class="font-mono tabular-nums op-fade">{{ counts[s] }}</span>
-      </ActionToggle>
+        <span class="flex gap-1.5 items-center">
+          <span class="h-2 w-2 rounded-full" :class="STATUS_STYLE[s].dot" />
+          {{ STATUS_STYLE[s].label }}
+          <span class="font-mono tabular-nums op-fade">{{ counts[s] }}</span>
+        </span>
+      </FormCheckbox>
     </div>
 
     <!-- body -->

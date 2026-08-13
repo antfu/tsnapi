@@ -13,6 +13,7 @@ import {
   SelectValue,
   SelectViewport,
 } from 'reka-ui'
+import { computed } from 'vue'
 
 export interface RefOption {
   value: string
@@ -25,7 +26,7 @@ export interface RefOption {
   disabled?: boolean
 }
 
-defineProps<{ options: RefOption[], placeholder?: string }>()
+const props = defineProps<{ options: RefOption[], placeholder?: string }>()
 const model = defineModel<string>()
 
 const TYPE_ICON: Record<RefOption['type'], string> = {
@@ -37,6 +38,8 @@ const TYPE_ICON: Record<RefOption['type'], string> = {
   header: '',
 }
 
+const selected = computed(() => props.options.find(o => o.value === model.value))
+
 function ago(opt: RefOption): string {
   return opt.date ? formatTimeAgo(new Date(opt.date)) : ''
 }
@@ -47,7 +50,10 @@ function ago(opt: RefOption): string {
     <SelectTrigger
       class="text-sm px-2.5 outline-none border border-base rounded bg-base inline-flex gap-2 h-9 min-w-36 transition items-center justify-between focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
-      <SelectValue :placeholder="placeholder ?? 'Select ref'" />
+      <span class="flex gap-1.5 min-w-0 items-center">
+        <span v-if="selected" class="op-fade shrink-0" :class="TYPE_ICON[selected.type]" aria-hidden="true" />
+        <SelectValue :placeholder="placeholder ?? 'Select ref'" class="truncate" />
+      </span>
       <SelectIcon class="op-fade shrink-0">
         <span class="i-ph-caret-down text-2.5" aria-hidden="true" />
       </SelectIcon>

@@ -74,10 +74,15 @@ export async function resolveRef(cwd: string, ref: string): Promise<GitRef | nul
 
 async function forEachRef(cwd: string, pattern: string, type: 'branch' | 'tag'): Promise<GitRef[]> {
   try {
+    // `creatordate` (not `committerdate`) works for both ref kinds: it's the
+    // commit's committer date for branches/lightweight tags, and the tagger
+    // date for annotated tags. `committerdate` is empty for annotated tag
+    // objects (it's a commit-only field), which silently dropped their
+    // time-ago label.
     const out = await git(cwd, [
       'for-each-ref',
-      '--sort=-committerdate',
-      '--format=%(refname:short)%00%(objectname)%00%(objectname:short)%00%(contents:subject)%00%(committerdate:iso-strict)',
+      '--sort=-creatordate',
+      '--format=%(refname:short)%00%(objectname)%00%(objectname:short)%00%(contents:subject)%00%(creatordate:iso-strict)',
       pattern,
     ])
     return out.split('\n').filter(Boolean).map((line) => {
