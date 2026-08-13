@@ -58,11 +58,46 @@ interface StatusStyle {
 
 /** Colour + label per diff status. Added=green, removed=red, modified=amber, widened=blue. */
 export const STATUS_STYLE: Record<DiffStatus, StatusStyle> = {
-  added: { label: 'Added', text: 'text-green-500', border: 'border-green-500/60', bg: 'bg-green-500/10', dot: 'bg-green-500', icon: 'i-ph-plus-circle' },
-  removed: { label: 'Removed', text: 'text-red-500', border: 'border-red-500/60', bg: 'bg-red-500/10', dot: 'bg-red-500', icon: 'i-ph-minus-circle' },
-  modified: { label: 'Modified (narrowed)', text: 'text-amber-500', border: 'border-amber-500/60', bg: 'bg-amber-500/10', dot: 'bg-amber-500', icon: 'i-ph-warning-circle' },
-  widened: { label: 'Widened', text: 'text-blue-400', border: 'border-blue-400/60', bg: 'bg-blue-400/10', dot: 'bg-blue-400', icon: 'i-ph-arrows-out-line-horizontal' },
-  unchanged: { label: 'Unchanged', text: 'text-gray-500', border: 'border-base', bg: 'bg-transparent', dot: 'bg-gray-500', icon: 'i-ph-equals' },
+  added: {
+    label: 'Added',
+    text: 'text-green-500',
+    border: 'border-green-500/60',
+    bg: 'bg-green-500/10',
+    dot: 'bg-green-500',
+    icon: 'i-ph-plus-circle',
+  },
+  removed: {
+    label: 'Removed',
+    text: 'text-red-500',
+    border: 'border-red-500/60 border-dashed',
+    bg: 'bg-red-500/10',
+    dot: 'bg-red-500',
+    icon: 'i-ph-minus-circle',
+  },
+  modified: {
+    label: 'Narrowed',
+    text: 'text-amber-500',
+    border: 'border-amber-500/60',
+    bg: 'bg-amber-500/10',
+    dot: 'bg-amber-500',
+    icon: 'i-ph-warning-circle',
+  },
+  widened: {
+    label: 'Widened',
+    text: 'text-blue-400',
+    border: 'border-blue-400/60',
+    bg: 'bg-blue-400/10',
+    dot: 'bg-blue-400',
+    icon: 'i-ph-arrows-out-line-horizontal',
+  },
+  unchanged: {
+    label: 'Unchanged',
+    text: 'text-gray-500',
+    border: 'border-base',
+    bg: 'bg-transparent',
+    dot: 'bg-gray-500',
+    icon: 'i-ph-equals',
+  },
 }
 
 /** Explicit badge colour per status (`false` = neutral/muted), for DisplayBadge. */

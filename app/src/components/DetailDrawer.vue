@@ -155,7 +155,7 @@ const summary = computed<{ title: string, sub?: string, note?: string, counts: R
       <FeedbackTip v-if="summary.note" type="warning" icon="i-ph-warning-circle">
         {{ summary.note }}
       </FeedbackTip>
-      <div class="border border-base rounded-lg divide-y divide-base overflow-hidden">
+      <div class="border border-base rounded-lg overflow-hidden">
         <DisplayKeyValue
           v-for="s in ALL_STATUSES" :key="s"
           class="px-3 py-2"

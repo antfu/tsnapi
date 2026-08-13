@@ -66,6 +66,7 @@ const total = computed(() => groups.value.reduce((n, g) => n + g.members.length,
           <EntryItem
             v-for="m in g.members" :key="`${g.name}:${m.name}`"
             :member="m"
+            :show-background="false"
             @select="emit('selectMember', $event)"
           />
         </section>

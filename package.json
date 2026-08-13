@@ -43,6 +43,7 @@
     "dev": "tsdown --watch",
     "dev:ui": "vite --config app/vite.config.ts",
     "storybook": "storybook dev -p 6006",
+    "play": "pnpm run dev:ui",
     "build:storybook": "storybook build",
     "lint": "eslint",
     "prepublishOnly": "nr build",
