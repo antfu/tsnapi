@@ -33,16 +33,40 @@ function entryNameToStem(name: string): string {
 }
 
 /**
- * Repo-relative candidate paths for a committed snapshot surface. Covers both
- * the CLI layout (`<outputDir>/<stem>`) and the vitest per-package layout
- * (`<outputDir>/<pkgName>/<stem>`).
+ * Common directory names for a monorepo's single, central Vitest test file
+ * (the file that calls `describePackagesApiSnapshots()`), tried in addition
+ * to the workspace root itself.
  */
-function snapshotCandidates(pkgRelDir: string, outputDir: string, pkgName: string, stem: string, ext: string): string[] {
+const COMMON_TEST_DIRS = ['test', 'tests', '__tests__']
+
+/**
+ * Repo-relative candidate paths for a committed snapshot surface.
+ *
+ * The CLI (and tsnapi's rolldown/vite plugins) always write inside the
+ * package's own directory: `<pkgRelDir>/<outputDir>/<stem><ext>`.
+ *
+ * Vitest's own `toMatchFileSnapshot` — which `snapshotApiPerEntry` /
+ * `describePackagesApiSnapshots` build on — instead resolves `outputDir`
+ * relative to the *test file's* directory (per the README: "relative to the
+ * test file"), and always nests each package's files one level deeper, under
+ * `<outputDir>/<pkgName>/`. For a monorepo that's conventionally a single,
+ * central test file — the README's own example lives at the workspace root —
+ * which has no fixed relationship to any individual package's directory. We
+ * can't know exactly where that test file lives (or any custom `outputDir` /
+ * `filter` override — see `describePackagesApiSnapshots`'s `filter` hook),
+ * so alongside the package's own directory, we also try the workspace root
+ * and the common central-test-file directory names, each with and without
+ * the `<pkgName>` subfolder.
+ */
+export function snapshotCandidates(pkgRelDir: string, outputDir: string, pkgName: string, stem: string, ext: string): string[] {
   const join = (...parts: string[]): string => parts.filter(Boolean).join('/')
-  return [
-    join(pkgRelDir, outputDir, `${stem}${ext}`),
-    join(pkgRelDir, outputDir, pkgName, `${stem}${ext}`),
-  ]
+  const bases = new Set([pkgRelDir, '', ...COMMON_TEST_DIRS])
+  const candidates: string[] = []
+  for (const base of bases) {
+    candidates.push(join(base, outputDir, `${stem}${ext}`))
+    candidates.push(join(base, outputDir, pkgName, `${stem}${ext}`))
+  }
+  return candidates
 }
 
 function firstExistingOnDisk(root: string, candidates: string[]): string | null {
