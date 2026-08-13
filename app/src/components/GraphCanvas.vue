@@ -15,13 +15,71 @@ const ROW_GAP = 30
 const NODE_W = 240
 const NODE_H = 24
 
+// A `re-export` member whose target resolved to a known workspace
+// package/entry doesn't get its own graph node — the link line drawn below
+// (from its nearest visible ancestor) already conveys "this entry re-exports
+// from there", so a dot per re-exported symbol is redundant. Unresolved
+// re-exports (external packages, e.g. `export * from 'lodash'`) have nothing
+// to link to, so they still render as an ordinary node.
+function isHiddenReExportMember(d: TreeDatum): boolean {
+  return d.type === 'member' && d.member?.kind === 're-export' && !!d.member.reExportTarget?.packageName
+}
+
+// A `re-export` kind-group (only present when "Group by kind" is on) becomes
+// pointless once every re-export it would group is itself hidden above —
+// nothing would be left to show under it.
+function isEmptyReExportGroup(d: TreeDatum): boolean {
+  return d.type === 'group' && d.kind === 're-export' && (d.children ?? []).every(isHiddenReExportMember)
+}
+
+function isHiddenNode(d: TreeDatum): boolean {
+  return isHiddenReExportMember(d) || isEmptyReExportGroup(d)
+}
+
+/** The tree.ts id a re-export's resolved target would have, if rendered. */
+function reExportTargetId(target: { packageName?: string, entryName?: string }): string | undefined {
+  if (!target.packageName)
+    return undefined
+  return target.entryName ? `${target.packageName}::${target.entryName}` : target.packageName
+}
+
+interface ReExportLink { sourceId: string, targetId: string }
+
+/**
+ * Walk the (unlaid-out) tree collecting one `{sourceId, targetId}` per
+ * resolved re-export, where `sourceId` is the id of the nearest ancestor
+ * that will actually be rendered (skipping over the hidden member itself,
+ * and any kind-group left empty by hiding it) — computed once here so the
+ * layout below never needs to lay out the hidden nodes at all.
+ */
+function collectReExportLinks(node: TreeDatum, nearestVisibleId: string, out: ReExportLink[]): void {
+  for (const child of node.children ?? []) {
+    if (isHiddenReExportMember(child)) {
+      const targetId = reExportTargetId(child.member?.reExportTarget ?? {})
+      if (targetId)
+        out.push({ sourceId: nearestVisibleId, targetId })
+      continue
+    }
+    collectReExportLinks(child, isHiddenNode(child) ? nearestVisibleId : child.id, out)
+  }
+}
+
+const reExportLinks = computed<ReExportLink[]>(() => {
+  const out: ReExportLink[] = []
+  collectReExportLinks(props.root, props.root.id, out)
+  return out
+})
+
 // `root` only exists to give d3-hierarchy a single entry point for layout
 // (it's a `TreeDatum` wrapping the workspace's packages, not a real graph
 // node) — its whole column (one COL_WIDTH, at depth 0) is dropped below so
 // packages render as if they were the roots, instead of showing an empty,
-// non-interactive root node.
+// non-interactive root node. Resolved re-exports (and any kind-group left
+// empty by hiding them, see above) are excluded the same way, one level
+// down, via the `hierarchy()` children accessor — so no row space is
+// reserved for a node we're not going to draw.
 const layout = computed(() => {
-  const h = hierarchy<TreeDatum>(props.root, d => d.children)
+  const h = hierarchy<TreeDatum>(props.root, d => d.children?.filter(c => !isHiddenNode(c)))
   const treeLayout = tree<TreeDatum>().nodeSize([ROW_GAP, COL_WIDTH])
   treeLayout(h)
   const nodes = h.descendants() as HierarchyPointNode<TreeDatum>[]
@@ -64,28 +122,24 @@ const paths = computed(() => {
   })
 })
 
-/** The tree.ts id a re-export's resolved target would have, if rendered. */
-function reExportTargetId(target: { packageName?: string, entryName?: string }): string | undefined {
-  if (!target.packageName)
-    return undefined
-  return target.entryName ? `${target.packageName}::${target.entryName}` : target.packageName
-}
-
-// Extra, non-hierarchy links: one per currently-rendered `re-export` member
-// whose resolved target (a package or entry node) is also currently
-// rendered. Drawn distinctly (dashed, arrowed) from the tree's own edges.
+// Extra, non-hierarchy links: one per resolved re-export whose source
+// (nearest visible ancestor) and target (a package or entry node) are both
+// currently rendered. Drawn distinctly (dashed, arrowed) from the tree's own
+// edges, in place of the hidden re-export member node itself.
 const reExportPaths = computed(() => {
   const byId = new Map(layout.value.nodes.map(item => [item.node.data.id, item]))
+  const seen = new Set<string>()
   const out: string[] = []
-  for (const item of layout.value.nodes) {
-    const datum = item.node.data
-    if (datum.type !== 'member' || datum.member?.kind !== 're-export')
+  for (const { sourceId, targetId } of reExportLinks.value) {
+    const key = `${sourceId}->${targetId}`
+    if (seen.has(key))
       continue
-    const targetId = reExportTargetId(datum.member.reExportTarget ?? {})
-    const targetItem = targetId ? byId.get(targetId) : undefined
-    if (!targetItem || targetItem === item)
+    seen.add(key)
+    const sourceItem = byId.get(sourceId)
+    const targetItem = byId.get(targetId)
+    if (!sourceItem || !targetItem || sourceItem === targetItem)
       continue
-    const source = { x: item.y, y: item.x }
+    const source = { x: sourceItem.y, y: sourceItem.x }
     const target = { x: targetItem.y, y: targetItem.x }
     const d = linkPath({ source, target } as any)
     if (d)

@@ -61,9 +61,20 @@ export const sampleMembers: MemberNode[] = [
     kind: 're-export',
     status: 'unchanged',
     current: { dts: `export * from '@scope/unbuilt';`, runtime: `export * from '@scope/unbuilt';` },
-    // Resolved to a sibling workspace package — GraphCanvas draws a link
-    // line from this member to that package's node.
+    // Resolved to a sibling workspace package — GraphCanvas hides this
+    // member's own node and instead draws a link line from the entry
+    // straight to that package's node.
     reExportTarget: { specifier: '@scope/unbuilt', packageName: '@scope/unbuilt' },
+  }),
+  mockMember({
+    name: '*lodash-es',
+    display: `* from 'lodash-es'`,
+    kind: 're-export',
+    status: 'unchanged',
+    current: { dts: `export * from 'lodash-es';`, runtime: `export * from 'lodash-es';` },
+    // Unresolved (external package) — nothing to link to, so this still
+    // renders as an ordinary node.
+    reExportTarget: { specifier: 'lodash-es' },
   }),
 ]
 
