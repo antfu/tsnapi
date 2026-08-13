@@ -294,13 +294,13 @@ watch(allHistory, () => {
         title="No members match the current filters"
       />
 
-      <!-- TODO: for subexports entry, reuse SummaryPanel -->
       <DetailDrawer
         v-if="selected"
         :datum="selected"
         :is-diff="payload?.isDiff ?? false"
         :dark="isDark"
         @close="closeDrawer"
+        @select-member="selectMember"
       />
       <SummaryPanel
         v-else-if="payload && payload.isDiff"

@@ -3,7 +3,7 @@ import type { MemberNode, SideMeta, WorkspacePayload } from '../types.ts'
 import FeedbackEmptyState from '@antfu/design/components/Feedback/FeedbackEmptyState.vue'
 import { formatTimeAgo } from '@vueuse/core'
 import { computed } from 'vue'
-import EntryItem from './EntryItem.vue'
+import ChangeGroupList from './ChangeGroupList.vue'
 
 const props = defineProps<{ payload: WorkspacePayload }>()
 const emit = defineEmits<{ selectMember: [member: MemberNode] }>()
@@ -16,18 +16,14 @@ function sideAgo(side: SideMeta): string {
   return 'unknown'
 }
 
-interface Group { name: string, dir: string, members: MemberNode[] }
+interface PackageGroup { name: string, dir: string, members: MemberNode[] }
 
-const groups = computed<Group[]>(() => {
-  const out: Group[] = []
+// Group changes by package; change-type grouping within each package is
+// delegated to ChangeGroupList (shared with DetailDrawer's entry/group view).
+const groups = computed<PackageGroup[]>(() => {
+  const out: PackageGroup[] = []
   for (const pkg of props.payload.packages) {
-    const members: MemberNode[] = []
-    for (const entry of pkg.entries) {
-      for (const m of entry.members) {
-        if (m.status !== 'unchanged')
-          members.push(m)
-      }
-    }
+    const members = pkg.entries.flatMap(entry => entry.members.filter(m => m.status !== 'unchanged'))
     if (members.length)
       out.push({ name: pkg.name, dir: pkg.dir, members })
   }
@@ -55,7 +51,6 @@ const total = computed(() => groups.value.reduce((n, g) => n + g.members.length,
       the following API changed:
     </div>
 
-    <!-- TODO: group by change type: Remove -> Narrowed -> Widened -> Added -->
     <div class="p-2 flex-1 overflow-auto">
       <template v-if="total">
         <section v-for="g in groups" :key="g.name" class="mb-3">
@@ -64,12 +59,7 @@ const total = computed(() => groups.value.reduce((n, g) => n + g.members.length,
             <span class="truncate">{{ g.name }}</span>
             <span class="op-mute">{{ g.members.length }}</span>
           </div>
-          <EntryItem
-            v-for="m in g.members" :key="`${g.name}:${m.name}`"
-            :member="m"
-            :show-background="false"
-            @select="emit('selectMember', $event)"
-          />
+          <ChangeGroupList :members="g.members" @select="emit('selectMember', $event)" />
         </section>
       </template>
       <FeedbackEmptyState v-else icon="i-ph-check-circle" title="No API changes between these refs" />

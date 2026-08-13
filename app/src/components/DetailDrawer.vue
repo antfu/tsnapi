@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TreeDatum } from '../tree.ts'
-import type { DiffStatus } from '../types.ts'
+import type { DiffStatus, MemberNode } from '../types.ts'
 import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
 import DisplayBadge from '@antfu/design/components/Display/DisplayBadge.vue'
 import DisplayKeyValue from '@antfu/design/components/Display/DisplayKeyValue.vue'
@@ -8,6 +8,8 @@ import FeedbackEmptyState from '@antfu/design/components/Feedback/FeedbackEmptyS
 import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
 import { computed } from 'vue'
 import { ALL_STATUSES, KIND_ICON, KIND_LABEL, SOURCE_META, sourceOf, STATUS_HEX, STATUS_STYLE } from '../kind.ts'
+import ChangeGroupList from './ChangeGroupList.vue'
+import EntryItem from './EntryItem.vue'
 import PierreDiff from './PierreDiff.vue'
 import PierreFile from './PierreFile.vue'
 
@@ -15,7 +17,7 @@ import PierreFile from './PierreFile.vue'
 // `undefined`), so a plain `props.dark ?? true` fallback silently never
 // triggers — the default has to be declared here instead.
 const props = withDefaults(defineProps<{ datum: TreeDatum | null, isDiff: boolean, dark?: boolean }>(), { dark: true })
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: [], selectMember: [member: MemberNode] }>()
 
 const member = computed(() => (props.datum?.type === 'member' ? props.datum.member ?? null : null))
 
@@ -48,32 +50,40 @@ const surfaces = computed<SurfaceView[]>(() => {
   return result
 })
 
-// Aggregate status counts for a package / entry / group selection.
-const summary = computed<{ title: string, sub?: string, note?: string, counts: Record<DiffStatus, number> } | null>(() => {
+// Package selection: aggregate status counts + build-status notes.
+const packageSummary = computed<{ title: string, sub?: string, note?: string, counts: Record<DiffStatus, number> } | null>(() => {
   const d = props.datum
-  if (!d || d.type === 'member')
+  if (!d || d.type !== 'package' || !d.pkg)
     return null
 
-  if (d.type === 'package' && d.pkg) {
-    const notes: Record<string, string> = {
-      'unbuilt': 'dist not built, showing committed snapshot. Run your build then Re-extract.',
-      'no-api': 'no public API entries resolved',
-      'no-snapshot': 'no committed snapshot at this ref',
-      'ok': '',
-    }
-    return { title: d.label, sub: d.pkg.dir, note: notes[d.pkg.status], counts: d.pkg.counts }
+  const notes: Record<string, string> = {
+    'unbuilt': 'dist not built, showing committed snapshot. Run your build then Re-extract.',
+    'no-api': 'no public API entries resolved',
+    'no-snapshot': 'no committed snapshot at this ref',
+    'ok': '',
   }
+  return { title: d.label, sub: d.pkg.dir, note: notes[d.pkg.status], counts: d.pkg.counts }
+})
 
-  // entry / group: aggregate the member children
-  const counts: Record<DiffStatus, number> = { added: 0, removed: 0, modified: 0, widened: 0, unchanged: 0 }
+// Entry / group selection: when diffing, reuse ChangeGroupList (same
+// changed-members view as SummaryPanel); when browsing a single ref (no
+// diff), every member is 'unchanged' so show the full member list instead.
+const entrySummary = computed<{ title: string, sub: string, members: MemberNode[], hasChanges: boolean } | null>(() => {
+  const d = props.datum
+  if (!d || (d.type !== 'entry' && d.type !== 'group'))
+    return null
+
+  const members: MemberNode[] = []
   const walk = (node: TreeDatum): void => {
     if (node.type === 'member' && node.member)
-      counts[node.member.status]++
+      members.push(node.member)
     node.children?.forEach(walk)
   }
   walk(d)
-  return { title: d.label, sub: d.type === 'group' ? 'kind group' : 'entry', counts }
+  return { title: d.label, sub: d.type === 'group' ? 'kind group' : 'entry', members, hasChanges: members.some(m => m.status !== 'unchanged') }
 })
+
+const summary = computed(() => packageSummary.value ?? entrySummary.value)
 </script>
 
 <template>
@@ -129,16 +139,16 @@ const summary = computed<{ title: string, sub?: string, note?: string, counts: R
       <FeedbackEmptyState v-if="!surfaces.length" icon="i-ph-code" title="No signature captured" />
     </div>
 
-    <!-- package / entry / group body: status summary -->
-    <div v-else-if="summary" class="p-3 flex-1 overflow-auto space-y-3">
-      <FeedbackTip v-if="summary.note" type="warning" icon="i-ph-warning-circle">
-        {{ summary.note }}
+    <!-- package body: status-count summary -->
+    <div v-else-if="packageSummary" class="p-3 flex-1 overflow-auto space-y-3">
+      <FeedbackTip v-if="packageSummary.note" type="warning" icon="i-ph-warning-circle">
+        {{ packageSummary.note }}
       </FeedbackTip>
       <div class="border border-base rounded-lg overflow-hidden">
         <DisplayKeyValue
           v-for="s in ALL_STATUSES" :key="s"
           class="px-3 py-2"
-          :value="summary.counts[s]"
+          :value="packageSummary.counts[s]"
         >
           <template #label>
             <span class="flex gap-1.5 items-center">
@@ -148,6 +158,25 @@ const summary = computed<{ title: string, sub?: string, note?: string, counts: R
           </template>
         </DisplayKeyValue>
       </div>
+    </div>
+
+    <!-- entry / group body: changed members grouped by change type when diffing
+         (reuses SummaryPanel's view); the full member list when just browsing -->
+    <div v-else-if="entrySummary" class="p-2 flex-1 overflow-auto">
+      <template v-if="isDiff">
+        <ChangeGroupList :members="entrySummary.members" @select="emit('selectMember', $event)" />
+        <FeedbackEmptyState v-if="!entrySummary.hasChanges" icon="i-ph-check-circle" title="No API changes in this entry" />
+      </template>
+      <template v-else>
+        <EntryItem
+          v-for="m in entrySummary.members" :key="m.name"
+          :member="m"
+          :show-background="false"
+          :show-status="false"
+          @select="emit('selectMember', $event)"
+        />
+        <FeedbackEmptyState v-if="!entrySummary.members.length" icon="i-ph-code" title="No members" />
+      </template>
     </div>
   </div>
 </template>

@@ -37,3 +37,8 @@ export const MemberRemoved: Story = { render: story(memberNode(sampleMembers[4])
 export const PackageSummary: Story = {
   render: story({ id: 'pkg', type: 'package', label: samplePackage.name, pkg: samplePackage }, true),
 }
+
+/** An entry selection shows its changed members grouped by change type (ChangeGroupList). */
+export const EntryMembers: Story = {
+  render: story({ id: 'entry', type: 'entry', label: '.', children: sampleMembers.map(memberNode) }, true),
+}
