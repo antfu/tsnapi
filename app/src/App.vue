@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SelectOption } from '@antfu/design/components/Form/FormSelect.vue'
+import type { RefOption } from './components/RefSelect.vue'
 import type { TreeDatum } from './tree.ts'
 import type { DiffStatus, MemberNode, MetaPayload, RefsPayload, UiExtractOptions, WorkspacePayload } from './types.ts'
 import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
@@ -11,11 +11,12 @@ import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
 import FormCheckbox from '@antfu/design/components/Form/FormCheckbox.vue'
 import FormNumberInput from '@antfu/design/components/Form/FormNumberInput.vue'
 import FormSearchField from '@antfu/design/components/Form/FormSearchField.vue'
-import FormSelect from '@antfu/design/components/Form/FormSelect.vue'
+
 import { refDebounced, useDark, useToggle } from '@vueuse/core'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DetailDrawer from './components/DetailDrawer.vue'
 import GraphCanvas from './components/GraphCanvas.vue'
+import RefSelect from './components/RefSelect.vue'
 import SummaryPanel from './components/SummaryPanel.vue'
 import { ALL_STATUSES, STATUS_STYLE } from './kind.ts'
 import * as rpc from './rpc.ts'
@@ -54,25 +55,25 @@ const showPickers = computed(() => git.value && !isStatic.value)
 const counts = computed(() => (payload.value ? totalCounts(payload.value) : null))
 
 /** Flat option list for the Base / Compare selects, with disabled group headers. */
-const refOptions = computed<SelectOption[]>(() => {
+const refOptions = computed<RefOption[]>(() => {
   const r = refs.value
-  const opts: SelectOption[] = [{ value: WORKING_TREE, label: 'Working tree' }]
+  const opts: RefOption[] = [{ value: WORKING_TREE, label: 'Working tree', type: 'working' }]
   if (r?.head)
-    opts.push({ value: 'HEAD', label: `HEAD · ${r.head.shortSha}` })
+    opts.push({ value: 'HEAD', label: 'HEAD', type: 'head', subject: r.head.subject, date: r.head.date })
   if (r?.branches.length) {
-    opts.push({ value: '__h_branches', label: 'Branches', disabled: true })
+    opts.push({ value: '__h_branches', label: 'Branches', type: 'header', disabled: true })
     for (const b of r.branches)
-      opts.push({ value: b.name, label: b.name })
+      opts.push({ value: b.name, label: b.name, type: 'branch', date: b.date })
   }
   if (r?.tags.length) {
-    opts.push({ value: '__h_tags', label: 'Tags', disabled: true })
+    opts.push({ value: '__h_tags', label: 'Tags', type: 'header', disabled: true })
     for (const t of r.tags)
-      opts.push({ value: t.name, label: t.name })
+      opts.push({ value: t.name, label: t.name, type: 'tag', date: t.date })
   }
   if (r?.commits.length) {
-    opts.push({ value: '__h_commits', label: allHistory.value ? 'Commits' : 'Commits touching snapshots', disabled: true })
+    opts.push({ value: '__h_commits', label: allHistory.value ? 'Commits' : 'Commits touching snapshots', type: 'header', disabled: true })
     for (const c of r.commits)
-      opts.push({ value: c.sha, label: `${c.shortSha}  ${c.subject}` })
+      opts.push({ value: c.sha, label: c.shortSha, type: 'commit', subject: c.subject, date: c.date })
   }
   return opts
 })
@@ -193,9 +194,9 @@ watch(allHistory, () => {
       </div>
 
       <template v-if="showPickers">
-        <FormSelect v-model="base" :options="refOptions" placeholder="Base" class="text-sm" />
+        <RefSelect v-model="base" :options="refOptions" placeholder="Base" />
         <span class="i-ph-arrow-right op-fade" />
-        <FormSelect v-model="compare" :options="refOptions" placeholder="Compare" class="text-sm" />
+        <RefSelect v-model="compare" :options="refOptions" placeholder="Compare" />
         <ActionToggle v-model="allHistory" icon="i-ph-clock-counter-clockwise" label="All history" />
       </template>
       <div v-else-if="payload" class="text-sm op-fade flex gap-1.5 items-center">

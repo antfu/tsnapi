@@ -32,6 +32,13 @@ html.dark .shiki span {
   text-decoration: var(--shiki-dark-text-decoration) !important;
 }
 
+/* Feed @pierre/diffs our typography so inline diffs match the rest of the code. */
+.pierre-host {
+  --diffs-font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --diffs-font-size: 12px;
+  --diffs-line-height: 18px;
+}
+
 @media (prefers-color-scheme: dark) {
   .shiki,
   .shiki span {

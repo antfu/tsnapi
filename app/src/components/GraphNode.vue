@@ -22,9 +22,10 @@ function select() {
   <!-- member -->
   <button
     v-if="datum.type === 'member'"
-    class="text-xs px-2 rounded border bg-base flex gap-1.5 h-full transition cursor-pointer items-center whitespace-nowrap hover:bg-active"
+    class="text-xs px-2 rounded border flex gap-1.5 h-full transition cursor-pointer items-center whitespace-nowrap hover:bg-active"
     :class="[
       STATUS_STYLE[datum.status!].border,
+      STATUS_STYLE[datum.status!].bg,
       datum.status === 'unchanged' ? 'op-55 hover:op-100' : '',
       selected ? 'ring-2 ring-primary' : '',
     ]"

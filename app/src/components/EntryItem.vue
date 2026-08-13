@@ -19,7 +19,7 @@ const status = () => STATUS_STYLE[props.member.status]
 <template>
   <button
     class="text-xs px-2 py-1 rounded flex gap-1.5 w-full transition cursor-pointer items-center text-left hover:bg-active"
-    :class="selected ? 'bg-active ring-1 ring-primary' : ''"
+    :class="[STATUS_STYLE[member.status].bg, selected ? 'ring-1 ring-primary' : '']"
     :title="`${member.display} · ${KIND_LABEL[member.kind]} · ${SOURCE_META[sourceOf(member)].label}`"
     @click="emit('select', member)"
   >

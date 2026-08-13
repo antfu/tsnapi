@@ -142,7 +142,7 @@ const summary = computed<{ title: string, sub?: string, note?: string, counts: R
         </div>
         <div
           v-if="b.changed"
-          class="border border-base rounded overflow-hidden"
+          class="pierre-host border border-base rounded overflow-hidden"
           v-html="b.diffHtml"
         />
         <div v-else v-html="b.singleHtml" />
