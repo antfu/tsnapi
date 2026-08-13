@@ -15,6 +15,11 @@ const ROW_GAP = 30
 const NODE_W = 240
 const NODE_H = 24
 
+// `root` only exists to give d3-hierarchy a single entry point for layout
+// (it's a `TreeDatum` wrapping the workspace's packages, not a real graph
+// node) — its whole column (one COL_WIDTH, at depth 0) is dropped below so
+// packages render as if they were the roots, instead of showing an empty,
+// non-interactive root node.
 const layout = computed(() => {
   const h = hierarchy<TreeDatum>(props.root, d => d.children)
   const treeLayout = tree<TreeDatum>().nodeSize([ROW_GAP, COL_WIDTH])
@@ -32,10 +37,16 @@ const layout = computed(() => {
   }
   const offsetX = -minX + ROW_GAP
   return {
-    nodes: nodes.map(n => ({ node: n, x: n.y, y: n.x + offsetX })),
-    links,
+    nodes: nodes
+      .filter(n => n.data.type !== 'root')
+      .map(n => ({ node: n, x: n.y - COL_WIDTH, y: n.x + offsetX })),
+    links: links.filter(l => l.source.data.type !== 'root'),
     offsetX,
-    width: maxY + COL_WIDTH,
+    // Removing the root's COL_WIDTH column shifts the rightmost node to
+    // `maxY - COL_WIDTH`; adding COL_WIDTH back gives the same right-edge
+    // render buffer the un-shifted layout had (nodes are narrower than a
+    // column, so the deepest column still needs room to draw).
+    width: maxY,
     height: (maxX - minX) + ROW_GAP * 2,
   }
 })
@@ -47,8 +58,8 @@ const linkPath = linkHorizontal<any, HierarchyPointNode<TreeDatum>>()
 const paths = computed(() => {
   const off = layout.value.offsetX
   return layout.value.links.map((l) => {
-    const source = { x: (l.source as any).x + off, y: (l.source as any).y }
-    const target = { x: (l.target as any).x + off, y: (l.target as any).y }
+    const source = { x: (l.source as any).x + off, y: (l.source as any).y - COL_WIDTH }
+    const target = { x: (l.target as any).x + off, y: (l.target as any).y - COL_WIDTH }
     return linkPath({ source, target } as any) ?? ''
   })
 })
