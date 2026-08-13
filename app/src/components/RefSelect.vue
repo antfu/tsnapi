@@ -48,7 +48,7 @@ function ago(opt: RefOption): string {
 <template>
   <SelectRoot v-model="model">
     <SelectTrigger
-      class="text-sm px-2.5 outline-none border border-base rounded bg-base inline-flex gap-2 h-9 min-w-36 transition items-center justify-between focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      class="text-sm px-2.5 outline-none border border-base rounded bg-base inline-flex gap-2 h-8 min-w-36 transition items-center justify-between focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
       <span class="flex gap-1.5 min-w-0 items-center">
         <span v-if="selected" class="op-fade shrink-0" :class="TYPE_ICON[selected.type]" aria-hidden="true" />

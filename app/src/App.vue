@@ -16,6 +16,7 @@ import { refDebounced, useDark, useToggle } from '@vueuse/core'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DetailDrawer from './components/DetailDrawer.vue'
 import GraphCanvas from './components/GraphCanvas.vue'
+import Logo from './components/Logo.vue'
 import RefSelect from './components/RefSelect.vue'
 import SummaryPanel from './components/SummaryPanel.vue'
 import { ALL_STATUSES } from './kind.ts'
@@ -200,8 +201,7 @@ watch(allHistory, () => {
     <!-- top bar -->
     <header class="flex flex-wrap gap-2 px-3 py-2 border-b border-base items-center z-nav">
       <div class="flex gap-1.5 font-semibold mr-2 items-center">
-        <span class="i-ph-graph-duotone color-active text-lg" /> tsnapi
-        <span class="op-fade font-normal text-sm">Inspector</span>
+        <Logo src="/tsnapi.svg" class="h-12 my--3" alt="tsnapi Inspector" />
       </div>
 
       <template v-if="showPickers">
