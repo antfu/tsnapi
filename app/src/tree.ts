@@ -110,12 +110,3 @@ export function buildTree(payload: WorkspacePayload, f: TreeFilter): TreeDatum {
     children: packages,
   }
 }
-
-export function totalCounts(payload: WorkspacePayload): Record<DiffStatus, number> {
-  const acc: Record<DiffStatus, number> = { added: 0, removed: 0, modified: 0, widened: 0, unchanged: 0 }
-  for (const pkg of payload.packages) {
-    for (const k of Object.keys(acc) as DiffStatus[])
-      acc[k] += pkg.counts[k]
-  }
-  return acc
-}

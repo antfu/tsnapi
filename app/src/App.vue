@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { RefOption } from './components/RefSelect.vue'
 import type { TreeDatum } from './tree.ts'
-import type { DiffStatus, MemberNode, MetaPayload, RefsPayload, SideMeta, UiExtractOptions, WorkspacePayload } from './types.ts'
+import type { MemberNode, MetaPayload, RefsPayload, SideMeta, UiExtractOptions, WorkspacePayload } from './types.ts'
 import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
 import ActionToggle from '@antfu/design/components/Action/ActionToggle.vue'
@@ -11,7 +11,6 @@ import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
 import FormCheckbox from '@antfu/design/components/Form/FormCheckbox.vue'
 import FormNumberInput from '@antfu/design/components/Form/FormNumberInput.vue'
 import FormSearchField from '@antfu/design/components/Form/FormSearchField.vue'
-import LayoutSeparator from '@antfu/design/components/Layout/LayoutSeparator.vue'
 
 import { refDebounced, useDark, useToggle } from '@vueuse/core'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -19,9 +18,9 @@ import DetailDrawer from './components/DetailDrawer.vue'
 import GraphCanvas from './components/GraphCanvas.vue'
 import RefSelect from './components/RefSelect.vue'
 import SummaryPanel from './components/SummaryPanel.vue'
-import { ALL_STATUSES, STATUS_STYLE } from './kind.ts'
+import { ALL_STATUSES } from './kind.ts'
 import * as rpc from './rpc.ts'
-import { buildTree, totalCounts } from './tree.ts'
+import { buildTree } from './tree.ts'
 import { WORKING_TREE } from './types.ts'
 
 const meta = ref<MetaPayload | null>(null)
@@ -40,7 +39,6 @@ const searchDebounced = refDebounced(search, 200)
 const groupByKind = ref(false)
 const showReferenced = ref(false)
 const changedOnly = ref(false)
-const statuses = ref<Set<DiffStatus>>(new Set(ALL_STATUSES))
 const showOptions = ref(false)
 
 const isDark = useDark({ initialValue: 'dark' })
@@ -52,8 +50,6 @@ const selectedId = ref<string | undefined>()
 const isStatic = computed(() => meta.value?.isStatic ?? false)
 const git = computed(() => payload.value?.git ?? false)
 const showPickers = computed(() => git.value && !isStatic.value)
-
-const counts = computed(() => (payload.value ? totalCounts(payload.value) : null))
 
 /** Effective timestamp for a side: "now" for the working tree, else its resolved ref date. */
 function sideTimestamp(side: SideMeta): number | undefined {
@@ -104,7 +100,7 @@ const refOptions = computed<RefOption[]>(() => {
 const tree = computed<TreeDatum | null>(() => {
   if (!payload.value)
     return null
-  const active = new Set(statuses.value)
+  const active = new Set(ALL_STATUSES)
   if (changedOnly.value)
     active.delete('unchanged')
   return buildTree(payload.value, {
@@ -134,14 +130,6 @@ async function loadRefs() {
     refs.value = await rpc.getRefs(allHistory.value)
   }
   catch {}
-}
-
-function toggleStatus(s: DiffStatus) {
-  const next = new Set(statuses.value)
-  if (next.has(s))
-    next.delete(s)
-  else next.add(s)
-  statuses.value = next
 }
 
 function selectNode(datum: TreeDatum) {
@@ -265,8 +253,8 @@ watch(allHistory, () => {
       </label>
     </div>
 
-    <!-- filter bar: view options + status filters, all checkbox toggles -->
-    <div v-if="counts" class="flex flex-wrap gap-3 px-3 py-1.5 border-b border-base items-center">
+    <!-- filter bar: view options, checkbox toggles -->
+    <div v-if="payload" class="flex flex-wrap gap-3 px-3 py-1.5 border-b border-base items-center">
       <FormCheckbox v-model="groupByKind">
         <span class="flex gap-1.5 items-center"><span class="i-ph-tree-structure op-fade" /> Group</span>
       </FormCheckbox>
@@ -275,20 +263,6 @@ watch(allHistory, () => {
       </FormCheckbox>
       <FormCheckbox v-if="payload?.isDiff" v-model="changedOnly">
         <span class="flex gap-1.5 items-center"><span class="i-ph-funnel op-fade" /> Changed only</span>
-      </FormCheckbox>
-
-      <LayoutSeparator orientation="vertical" class="h-4" />
-
-      <FormCheckbox
-        v-for="s in ALL_STATUSES" :key="s"
-        :model-value="statuses.has(s)"
-        @update:model-value="toggleStatus(s)"
-      >
-        <span class="flex gap-1.5 items-center">
-          <span class="h-2 w-2 rounded-full" :class="STATUS_STYLE[s].dot" />
-          {{ STATUS_STYLE[s].label }}
-          <span class="font-mono tabular-nums op-fade">{{ counts[s] }}</span>
-        </span>
       </FormCheckbox>
     </div>
 
