@@ -1,7 +1,6 @@
 import type { DevframeDefinition } from 'devframe'
 import type { PayloadRequest } from './types.ts'
-import { defineRpcFunction } from 'devframe'
-import { defineDevframe } from 'devframe/types'
+import { defineDevframe, defineRpcFunction } from 'devframe'
 import { buildPayload, buildRefs } from './payload.ts'
 import { WORKING_TREE } from './types.ts'
 

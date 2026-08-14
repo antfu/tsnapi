@@ -15,8 +15,8 @@ importers:
         specifier: ^7.0.0
         version: 7.0.0
       devframe:
-        specifier: ^0.8.2
-        version: 0.8.2(cac@7.0.0)(srvx@0.12.5)
+        specifier: ^0.9.0-beta.1
+        version: 0.9.0-beta.1(cac@7.0.0)(srvx@0.12.5)
       magic-string:
         specifier: ^0.30.21
         version: 0.30.21
@@ -2296,6 +2296,9 @@ packages:
   birpc@4.0.0:
     resolution: {integrity: sha512-LShSxJP0KTmd101b6DRyGBj57LZxSDYWKitQNW/mi8GRMvZb078Uf9+pveax1DrVL89vm7mWe+TovdI/UDOuPw==}
 
+  birpc@4.1.0:
+    resolution: {integrity: sha512-O8L9vALWGqdEe0cG4HJckauw3WeJETlJnDRPUYpgwB7wrU43b/5NGMdVjdVcRo+4ROgd3ih2wha1glDe4HRVgw==}
+
   boolbase@1.0.0:
     resolution: {integrity: sha512-JZOSA7Mo9sNGB8+UjSgzdLtokWAky1zbztM3WRLCbZ70/3cTANmQmOdR7y2g+J0e2WXywy1yS468tY+IruqEww==}
 
@@ -2510,8 +2513,8 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
-  devframe@0.8.2:
-    resolution: {integrity: sha512-oodQXEQnrvufA1so/E058Z3SG3bk9AlUE5+NIAsyx5ZJH9P/oX6WMxjC0bs5PPwtKbS7pBHjxja2AD8EwGE8/Q==}
+  devframe@0.9.0-beta.1:
+    resolution: {integrity: sha512-a/KvfF28T5GpukXopeRmAVmnLE+jPW8/NPsQ8+JzgqHVyhDfj/gZCx1Gog7/Hq1a+Ul6OrHa3NYvilNC7vLF2Q==}
     hasBin: true
     peerDependencies:
       '@modelcontextprotocol/client': ^2.0.0
@@ -6142,6 +6145,8 @@ snapshots:
 
   birpc@4.0.0: {}
 
+  birpc@4.1.0: {}
+
   boolbase@1.0.0: {}
 
   brace-expansion@5.0.5:
@@ -6318,10 +6323,10 @@ snapshots:
 
   detect-libc@2.1.2: {}
 
-  devframe@0.8.2(cac@7.0.0)(srvx@0.12.5):
+  devframe@0.9.0-beta.1(cac@7.0.0)(srvx@0.12.5):
     dependencies:
       '@standard-schema/spec': 1.1.0
-      birpc: 4.0.0
+      birpc: 4.1.0
       crossws: 0.4.10(srvx@0.12.5)
       destr: 2.0.5
       h3: 2.0.1-rc.26(crossws@0.4.10(srvx@0.12.5))

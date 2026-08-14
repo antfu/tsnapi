@@ -64,7 +64,7 @@
   "dependencies": {
     "@vitest/utils": "^4.1.9",
     "cac": "^7.0.0",
-    "devframe": "^0.8.2",
+    "devframe": "^0.9.0-beta.1",
     "magic-string": "^0.30.21",
     "oxc-parser": "^0.138.0",
     "tinyglobby": "^0.2.17"
