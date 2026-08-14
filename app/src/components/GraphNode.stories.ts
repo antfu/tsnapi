@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
-import { memberNode, sampleMembers, samplePackage, unbuiltPackage } from '../mock.ts'
+import { memberNode, noSnapshotPackage, sampleMembers, samplePackage } from '../mock.ts'
 import GraphNode from './GraphNode.vue'
 
 const meta = {
@@ -36,12 +36,12 @@ export const Package: Story = {
     components: { GraphNode },
     setup: () => ({
       ok: { id: 'p1', type: 'package', label: samplePackage.name, pkg: samplePackage },
-      unbuilt: { id: 'p2', type: 'package', label: unbuiltPackage.name, pkg: unbuiltPackage },
+      noSnapshot: { id: 'p2', type: 'package', label: noSnapshotPackage.name, pkg: noSnapshotPackage },
     }),
     template: `
       <div class="flex flex-col gap-2 items-start">
         <div class="h-7"><GraphNode :datum="ok" /></div>
-        <div class="h-7"><GraphNode :datum="unbuilt" /></div>
+        <div class="h-7"><GraphNode :datum="noSnapshot" /></div>
       </div>
     `,
   }),

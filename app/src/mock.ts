@@ -56,15 +56,15 @@ export const sampleMembers: MemberNode[] = [
   mockMember({ name: 'VERSION', kind: 'variable', status: 'unchanged', current: { runtime: 'export var VERSION /* const */', dts: 'export declare const VERSION: string;' } }),
   mockMember({ name: 'ResolvedEntry', kind: 'type', status: 'unchanged' }),
   mockMember({
-    name: '*@scope/unbuilt',
-    display: `* from '@scope/unbuilt'`,
+    name: '*@scope/no-snapshot',
+    display: `* from '@scope/no-snapshot'`,
     kind: 're-export',
     status: 'unchanged',
-    current: { dts: `export * from '@scope/unbuilt';`, runtime: `export * from '@scope/unbuilt';` },
+    current: { dts: `export * from '@scope/no-snapshot';`, runtime: `export * from '@scope/no-snapshot';` },
     // Resolved to a sibling workspace package — GraphCanvas hides this
     // member's own node and instead draws a link line from the entry
     // straight to that package's node.
-    reExportTarget: { specifier: '@scope/unbuilt', packageName: '@scope/unbuilt' },
+    reExportTarget: { specifier: '@scope/no-snapshot', packageName: '@scope/no-snapshot' },
   }),
   mockMember({
     name: '*lodash-es',
@@ -91,16 +91,15 @@ export const samplePackage: PackageNode = {
   dir: '.',
   entries: [],
   status: 'ok',
-  usedFallback: false,
   counts: counts({ added: 1, widened: 2, unchanged: 27 }),
 }
 
-export const unbuiltPackage: PackageNode = {
-  name: '@scope/unbuilt',
-  dir: 'packages/unbuilt',
+/** A workspace package with no committed snapshot found at either side. */
+export const noSnapshotPackage: PackageNode = {
+  name: '@scope/no-snapshot',
+  dir: 'packages/no-snapshot',
   entries: [],
-  status: 'unbuilt',
-  usedFallback: true,
+  status: 'no-snapshot',
   counts: counts({ unchanged: 4 }),
 }
 
@@ -120,9 +119,8 @@ export const samplePayload: WorkspacePayload = {
   compare: { kind: 'working', ref: 'WORKING_TREE', label: 'Working tree' },
   packages: [
     { ...samplePackage, entries: [{ name: '.', members: sampleMembers }] },
-    unbuiltPackage,
+    noSnapshotPackage,
   ],
-  options: { omitArgumentNames: true, typeWidening: true, referenceTracingDepth: 1 },
 }
 
 /** A small hierarchy for the GraphCanvas story. */
@@ -148,11 +146,11 @@ export const sampleTree: TreeDatum = {
       ],
     },
     {
-      id: '@scope/unbuilt',
+      id: '@scope/no-snapshot',
       type: 'package',
-      label: '@scope/unbuilt',
-      pkg: unbuiltPackage,
-      sub: 'packages/unbuilt',
+      label: '@scope/no-snapshot',
+      pkg: noSnapshotPackage,
+      sub: 'packages/no-snapshot',
       children: [],
     },
   ],

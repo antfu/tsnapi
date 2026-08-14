@@ -141,7 +141,7 @@ graph, and trace how it changed between two git refs. Built on
 [`@antfu/design`](https://github.com/antfu/design).
 
 ```bash
-# Launch the live inspector for the current workspace (build your packages first)
+# Launch the inspector for the current workspace (reads committed snapshots — generate/update them first)
 tsnapi ui
 
 # Diff two refs / the working tree from the CLI, then explore in the browser
@@ -156,10 +156,12 @@ tsnapi ui build --base v1.1.0 --compare HEAD --out-dir dist-inspector
 
 The tree runs **workspace → package → entry → member**, each member coloured by
 kind and by diff status — added / removed / modified (narrowed) / widened —
-reusing tsnapi's own breaking-change analysis. The **working-tree** side is extracted live from
-`dist` (falling back to the committed snapshot when a package isn't built);
-historical refs are read straight from the committed `__snapshots__` via
-`git show`, so no rebuild is needed to look back in time.
+reusing tsnapi's own breaking-change analysis. The inspector only ever reads
+already-generated `__snapshots__` files, never regenerates them itself:
+historical refs are read straight from the committed snapshot via `git show`,
+and the **working-tree** side reads whatever snapshot currently sits on disk
+(uncommitted edits included). Run `tsnapi`/`tsnapi -u` (or your Vitest
+snapshot tests) to (re)generate a snapshot before inspecting it.
 
 ### With Vitest
 

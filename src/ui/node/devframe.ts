@@ -1,9 +1,9 @@
 import type { DevframeDefinition } from 'devframe'
-import type { PayloadRequest, UiExtractOptions } from './types.ts'
+import type { PayloadRequest } from './types.ts'
 import { defineRpcFunction } from 'devframe'
 import { defineDevframe } from 'devframe/types'
 import { buildPayload, buildRefs } from './payload.ts'
-import { DEFAULT_EXTRACT_OPTIONS, WORKING_TREE } from './types.ts'
+import { WORKING_TREE } from './types.ts'
 
 export interface DevframeAppOptions {
   /** tsnapi version, threaded in from the CLI (kept out of the UI module graph). */
@@ -16,8 +16,6 @@ export interface DevframeAppOptions {
   defaultBase: string
   /** Default compare ref for the initial view. */
   defaultCompare: string
-  /** Extraction options baked into the default request. */
-  options?: Partial<UiExtractOptions>
   /** Port for the dev server. */
   port?: number
   /** Whether the ref/commit picker should list full history by default. */
@@ -30,7 +28,6 @@ export interface MetaPayload {
   isStatic: boolean
   defaultBase: string
   defaultCompare: string
-  options: UiExtractOptions
 }
 
 /**
@@ -41,8 +38,6 @@ export interface MetaPayload {
  * (working-tree / diff) view once and serves it as the fallback for any call.
  */
 export function createInspectorDevframe(app: DevframeAppOptions): DevframeDefinition {
-  const options: UiExtractOptions = { ...DEFAULT_EXTRACT_OPTIONS, ...app.options }
-
   return defineDevframe({
     id: 'tsnapi-inspector',
     name: 'tsnapi Inspector',
@@ -72,7 +67,6 @@ export function createInspectorDevframe(app: DevframeAppOptions): DevframeDefini
             isStatic,
             defaultBase: app.defaultBase,
             defaultCompare: app.defaultCompare,
-            options,
           }
         },
       }))
@@ -86,7 +80,6 @@ export function createInspectorDevframe(app: DevframeAppOptions): DevframeDefini
           return buildPayload(app.cwd, {
             base: req?.base ?? app.defaultBase,
             compare: req?.compare ?? app.defaultCompare,
-            options: req?.options ?? options,
           })
         },
       }))

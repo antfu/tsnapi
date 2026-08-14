@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
 import { ref } from 'vue'
-import { samplePackage, unbuiltPackage } from '../mock.ts'
+import { noSnapshotPackage, samplePackage } from '../mock.ts'
 import PackagesFilter from './PackagesFilter.vue'
 
 const meta = {
@@ -11,7 +11,7 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const packages = [samplePackage, unbuiltPackage, { ...samplePackage, name: '@scope/pkg-c', dir: 'packages/pkg-c' }]
+const packages = [samplePackage, noSnapshotPackage, { ...samplePackage, name: '@scope/pkg-c', dir: 'packages/pkg-c' }]
 
 /** Every package visible (the default) — no count badge on the trigger. */
 export const AllVisible: Story = {
@@ -26,7 +26,7 @@ export const AllVisible: Story = {
 export const SomeHidden: Story = {
   render: () => ({
     components: { PackagesFilter },
-    setup: () => ({ packages, model: ref(new Set(['@scope/unbuilt'])) }),
+    setup: () => ({ packages, model: ref(new Set(['@scope/no-snapshot'])) }),
     template: `<div class="p-4"><PackagesFilter v-model="model" :packages="packages" /></div>`,
   }),
 }

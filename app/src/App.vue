@@ -2,7 +2,7 @@
 import type { SegmentedOption } from '@antfu/design/components/Form/FormSegmentedControl.vue'
 import type { RefOption } from './components/RefSelect.vue'
 import type { SourceFilter, TreeDatum } from './tree.ts'
-import type { MemberNode, MetaPayload, RefsPayload, SideMeta, UiExtractOptions, WorkspacePayload } from './types.ts'
+import type { MemberNode, MetaPayload, RefsPayload, SideMeta, WorkspacePayload } from './types.ts'
 import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
 import ActionToggle from '@antfu/design/components/Action/ActionToggle.vue'
@@ -10,12 +10,11 @@ import FeedbackEmptyState from '@antfu/design/components/Feedback/FeedbackEmptyS
 import FeedbackSpinner from '@antfu/design/components/Feedback/FeedbackSpinner.vue'
 import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
 import FormCheckbox from '@antfu/design/components/Form/FormCheckbox.vue'
-import FormNumberInput from '@antfu/design/components/Form/FormNumberInput.vue'
 import FormSearchField from '@antfu/design/components/Form/FormSearchField.vue'
 import FormSegmentedControl from '@antfu/design/components/Form/FormSegmentedControl.vue'
 
 import { refDebounced, useDark, useToggle } from '@vueuse/core'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import DetailDrawer from './components/DetailDrawer.vue'
 import GraphCanvas from './components/GraphCanvas.vue'
 import Logo from './components/Logo.vue'
@@ -36,14 +35,12 @@ const error = ref<string | null>(null)
 const base = ref('HEAD')
 const compare = ref(WORKING_TREE)
 const allHistory = ref(false)
-const options = reactive<UiExtractOptions>({ omitArgumentNames: true, typeWidening: true, referenceTracingDepth: 1 })
 
 const search = ref('')
 const searchDebounced = refDebounced(search, 200)
 const groupByKind = ref(false)
 const showReferenced = ref(false)
 const changedOnly = ref(false)
-const showOptions = ref(false)
 /** Package names excluded from the graph and the API-changes summary (via `PackagesFilter`). */
 const hiddenPackages = ref<Set<string>>(new Set())
 /** Which signature surface a member must have to show (see `SourceFilter`). */
@@ -130,7 +127,7 @@ async function loadPayload() {
   loading.value = true
   error.value = null
   try {
-    payload.value = await rpc.getPayload({ base: base.value, compare: compare.value, options: { ...options } })
+    payload.value = await rpc.getPayload({ base: base.value, compare: compare.value })
   }
   catch (e: any) {
     error.value = e?.message ?? String(e)
@@ -188,7 +185,6 @@ onMounted(async () => {
     meta.value = await rpc.getMeta()
     base.value = meta.value.defaultBase
     compare.value = meta.value.defaultCompare
-    Object.assign(options, meta.value.options)
   }
   catch (e: any) {
     error.value = `Failed to connect: ${e?.message ?? e}`
@@ -196,9 +192,9 @@ onMounted(async () => {
   await Promise.all([loadRefs(), loadPayload()])
 })
 
-// Refetch when sides or extraction options change (skip in static mode).
+// Refetch when the selected sides change (skip in static mode).
 watch(
-  () => [base.value, compare.value, JSON.stringify(options)],
+  () => [base.value, compare.value],
   () => {
     if (!isStatic.value)
       loadPayload()
@@ -236,9 +232,8 @@ watch(allHistory, () => {
       <FormSearchField v-model="search" placeholder="Search members" size="sm" class="w-52" />
 
       <ActionButton v-if="!isStatic" size="sm" icon="i-ph-arrows-clockwise" :loading="loading" @click="loadPayload">
-        Re-extract
+        Refresh
       </ActionButton>
-      <ActionIconButton v-if="!isStatic" icon="i-ph-sliders" tooltip="Extraction options" :active="showOptions" @click="showOptions = !showOptions" />
       <ActionIconButton
         :icon="isDark ? 'i-ph-moon-stars' : 'i-ph-sun'"
         :tooltip="isDark ? 'Switch to light theme' : 'Switch to dark theme'"
@@ -255,16 +250,6 @@ watch(allHistory, () => {
       <ActionButton v-if="!isStatic" size="sm" icon="i-ph-arrows-left-right" @click="swapRefs">
         Swap
       </ActionButton>
-    </div>
-
-    <!-- options panel -->
-    <div v-if="showOptions" class="flex flex-wrap gap-4 px-4 py-2 border-b border-base bg-active/40 items-center">
-      <FormCheckbox v-model="options.omitArgumentNames" label="Omit argument names" />
-      <FormCheckbox v-model="options.typeWidening" label="Type widening" />
-      <label class="text-sm flex gap-2 items-center">
-        <span class="op-fade">Reference tracing depth</span>
-        <FormNumberInput v-model="options.referenceTracingDepth" :min="0" :max="5" class="w-28" />
-      </label>
     </div>
 
     <!-- filter bar: view options, checkbox toggles -->

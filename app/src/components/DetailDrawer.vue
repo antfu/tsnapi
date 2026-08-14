@@ -50,14 +50,13 @@ const surfaces = computed<SurfaceView[]>(() => {
   return result
 })
 
-// Package selection: aggregate status counts + build-status notes.
+// Package selection: aggregate status counts + a note explaining a missing tree.
 const packageSummary = computed<{ title: string, sub?: string, note?: string, counts: Record<DiffStatus, number> } | null>(() => {
   const d = props.datum
   if (!d || d.type !== 'package' || !d.pkg)
     return null
 
   const notes: Record<string, string> = {
-    'unbuilt': 'dist not built, showing committed snapshot. Run your build then Re-extract.',
     'no-api': 'no public API entries resolved',
     'no-snapshot': 'no committed snapshot at this ref',
     'ok': '',

@@ -9,12 +9,6 @@ export type EntryKind
 
 export type DiffStatus = 'added' | 'removed' | 'modified' | 'widened' | 'unchanged'
 
-export interface UiExtractOptions {
-  omitArgumentNames: boolean
-  typeWidening: boolean
-  referenceTracingDepth: number
-}
-
 /**
  * A resolved (or unresolved) re-export target, present only on members with
  * `kind === 're-export'` that carry a source specifier. `packageName` /
@@ -44,14 +38,13 @@ export interface EntryNode {
   members: MemberNode[]
 }
 
-export type PackageStatus = 'ok' | 'unbuilt' | 'no-api' | 'no-snapshot'
+export type PackageStatus = 'ok' | 'no-api' | 'no-snapshot'
 
 export interface PackageNode {
   name: string
   dir: string
   entries: EntryNode[]
   status: PackageStatus
-  usedFallback: boolean
   note?: string
   counts: Record<DiffStatus, number>
 }
@@ -79,7 +72,6 @@ export interface WorkspacePayload {
   base: SideMeta
   compare: SideMeta
   packages: PackageNode[]
-  options: UiExtractOptions
 }
 
 export interface RefsPayload {
@@ -95,11 +87,9 @@ export interface MetaPayload {
   isStatic: boolean
   defaultBase: string
   defaultCompare: string
-  options: UiExtractOptions
 }
 
 export interface PayloadRequest {
   base: string
   compare: string
-  options?: Partial<UiExtractOptions>
 }

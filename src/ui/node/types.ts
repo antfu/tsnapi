@@ -1,21 +1,12 @@
 import type { DiffStatus, EntryKind } from '../../core/index.ts'
 import type { GitRef } from './git.ts'
 
-/** Sentinel ref meaning "the working tree" (live dist extraction). */
+/**
+ * Sentinel ref meaning "the working tree" — whatever committed snapshot
+ * currently sits on disk (uncommitted edits included), read as-is. Every
+ * side is a pure read; the UI never (re-)generates a snapshot itself.
+ */
 export const WORKING_TREE = 'WORKING_TREE'
-
-/** Extraction knobs the UI can tweak to match a repo's tsnapi config. */
-export interface UiExtractOptions {
-  omitArgumentNames: boolean
-  typeWidening: boolean
-  referenceTracingDepth: number
-}
-
-export const DEFAULT_EXTRACT_OPTIONS: UiExtractOptions = {
-  omitArgumentNames: true,
-  typeWidening: true,
-  referenceTracingDepth: 1,
-}
 
 /** Arguments accepted by the `get-payload` RPC. */
 export interface PayloadRequest {
@@ -23,7 +14,6 @@ export interface PayloadRequest {
   base: string
   /** Compare side ref, or {@link WORKING_TREE}. */
   compare: string
-  options?: Partial<UiExtractOptions>
 }
 
 /**
@@ -59,7 +49,7 @@ export interface EntryNode {
 }
 
 /** Why a package might not render a full API tree. */
-export type PackageStatus = 'ok' | 'unbuilt' | 'no-api' | 'no-snapshot'
+export type PackageStatus = 'ok' | 'no-api' | 'no-snapshot'
 
 export interface PackageNode {
   name: string
@@ -67,11 +57,6 @@ export interface PackageNode {
   dir: string
   entries: EntryNode[]
   status: PackageStatus
-  /**
-   * True when the working-tree side had no built dist and fell back to the
-   * committed snapshot on disk.
-   */
-  usedFallback: boolean
   note?: string
   /** Aggregate counts by diff status, for badges. */
   counts: Record<DiffStatus, number>
@@ -93,7 +78,6 @@ export interface WorkspacePayload {
   base: SideMeta
   compare: SideMeta
   packages: PackageNode[]
-  options: UiExtractOptions
 }
 
 export interface RefsPayload {

@@ -7,7 +7,6 @@ import type {
   ReExportTarget,
   RefsPayload,
   SideMeta,
-  UiExtractOptions,
   WorkspacePayload,
 } from './types.ts'
 import { existsSync, readFileSync } from 'node:fs'
@@ -15,7 +14,6 @@ import { relative, resolve } from 'node:path'
 import {
   diffMembers,
   discoverPackages,
-  generateApiSnapshot,
   isPrivatePackage,
   parseMembers,
   readPackageName,
@@ -23,7 +21,7 @@ import {
   resolvePackageEntries,
 } from '../../core/index.ts'
 import { gitShowFile, isGitRepo, listCommits, listNamedRefs, repoRoot, resolveRef } from './git.ts'
-import { DEFAULT_EXTRACT_OPTIONS, WORKING_TREE } from './types.ts'
+import { WORKING_TREE } from './types.ts'
 
 const EMPTY_COUNTS = (): Record<DiffStatus, number> => ({ added: 0, removed: 0, modified: 0, widened: 0, unchanged: 0 })
 
@@ -103,8 +101,6 @@ export interface PackageCtx {
 /** A resolved side: given an entry stem, returns its snapshot pair (or null). */
 interface Side {
   meta: SideMeta
-  /** Whether this side reads the working tree (live dist). */
-  working: boolean
   get: (pkg: PackageCtx, stem: string) => Promise<SnapshotFile | null> | (SnapshotFile | null)
 }
 
@@ -117,7 +113,7 @@ async function committedAtRef(root: string, ref: string, pkg: PackageCtx, stem: 
   return { runtime: runtime ?? '', dts: dts ?? '' }
 }
 
-/** Committed-snapshot reader for a package/stem on disk (working-tree fallback). */
+/** Committed-snapshot reader for a package/stem on disk (the "working tree" side). */
 function committedOnDisk(root: string, pkg: PackageCtx, stem: string): SnapshotFile | null {
   const runtime = firstExistingOnDisk(root, snapshotCandidates(pkg.relDir, pkg.outputDir, pkg.name, stem, EXT_RUNTIME))
   const dts = firstExistingOnDisk(root, snapshotCandidates(pkg.relDir, pkg.outputDir, pkg.name, stem, EXT_DTS))
@@ -127,74 +123,28 @@ function committedOnDisk(root: string, pkg: PackageCtx, stem: string): SnapshotF
 }
 
 /**
- * Build a working-tree side: extract live from dist when present, otherwise
- * fall back to the committed snapshot on disk. Caches per-package extraction.
+ * Build the working-tree side: a pure read of whatever committed snapshot
+ * currently sits on disk (uncommitted edits included) — no extraction is
+ * ever run here. Generating snapshots is the CLI's/Vitest's job; the UI only
+ * ever reads them.
  */
-function makeWorkingSide(root: string, options: UiExtractOptions): Side {
-  const cache = new Map<string, { map: Map<string, SnapshotFile>, usedFallback: boolean } | Promise<any>>()
-
-  async function loadPackage(pkg: PackageCtx): Promise<{ map: Map<string, SnapshotFile>, usedFallback: boolean }> {
-    const map = new Map<string, SnapshotFile>()
-    // Does any dist file exist?
-    const entries = await resolvePackageEntries(pkg.dir).catch(() => [])
-    const hasDist = entries.some(e => (e.runtime && existsSync(e.runtime)) || (e.dts && existsSync(e.dts)))
-
-    if (hasDist) {
-      try {
-        const api = await generateApiSnapshot(pkg.dir, {
-          header: false,
-          omitArgumentNames: options.omitArgumentNames,
-          typeWidening: options.typeWidening,
-          referenceTracingDepth: options.referenceTracingDepth,
-        })
-        for (const [name, snap] of Object.entries(api))
-          map.set(entryNameToStem(name), snap)
-        return { map, usedFallback: false }
-      }
-      catch {
-        // fall through to committed fallback
-      }
-    }
-
-    // Fallback: committed snapshots on disk.
-    let usedFallback = false
-    for (const { stem } of pkg.entryStems) {
-      const snap = committedOnDisk(root, pkg, stem)
-      if (snap) {
-        map.set(stem, snap)
-        usedFallback = true
-      }
-    }
-    return { map, usedFallback }
-  }
-
+function makeWorkingSide(root: string): Side {
   return {
-    working: true,
     meta: { kind: 'working', ref: WORKING_TREE, label: 'Working tree' },
-    async get(pkg, stem) {
-      let entry = cache.get(pkg.dir)
-      if (!entry) {
-        entry = loadPackage(pkg)
-        cache.set(pkg.dir, entry)
-      }
-      const resolved = await entry
-      cache.set(pkg.dir, resolved)
-      return resolved.map.get(stem) ?? null
-    },
+    get: (pkg, stem) => committedOnDisk(root, pkg, stem),
   }
 }
 
 function makeRefSide(root: string, ref: string, meta: SideMeta): Side {
   return {
-    working: false,
     meta,
     get: (pkg, stem) => committedAtRef(root, ref, pkg, stem),
   }
 }
 
-async function resolveSide(root: string, ref: string, git: boolean, options: UiExtractOptions): Promise<Side> {
+async function resolveSide(root: string, ref: string, git: boolean): Promise<Side> {
   if (ref === WORKING_TREE)
-    return makeWorkingSide(root, options)
+    return makeWorkingSide(root)
   const resolved = git ? await resolveRef(root, ref) : null
   const meta: SideMeta = { kind: 'ref', ref, label: resolved ? (resolved.name || resolved.shortSha) : ref, resolved }
   return makeRefSide(root, ref, meta)
@@ -266,7 +216,7 @@ async function buildPackage(
   const counts = EMPTY_COUNTS()
 
   if (pkg.entryStems.length === 0) {
-    return { name: pkg.name, dir: pkg.relDir || '.', entries: [], status: 'no-api', usedFallback: false, counts }
+    return { name: pkg.name, dir: pkg.relDir || '.', entries: [], status: 'no-api', counts }
   }
 
   const entries: EntryNode[] = []
@@ -299,34 +249,16 @@ async function buildPackage(
     entries.push({ name, members })
   }
 
-  // Determine package-level status from the compare (primary) side.
-  const workingFallback = compare.working && (await isWorkingFallback(compare, pkg))
-  let status: PackageNode['status'] = 'ok'
-  if (!anyMembers) {
-    status = compare.working ? 'unbuilt' : 'no-snapshot'
-  }
-  else if (!anyCompareData && !compare.working) {
-    status = 'no-snapshot'
-  }
-  else if (workingFallback) {
-    status = 'unbuilt'
-  }
+  // No committed snapshot for this package at the compare side, at all.
+  const status: PackageNode['status'] = (!anyMembers || !anyCompareData) ? 'no-snapshot' : 'ok'
 
   return {
     name: pkg.name,
     dir: pkg.relDir || '.',
     entries,
     status,
-    usedFallback: workingFallback,
     counts,
   }
-}
-
-async function isWorkingFallback(side: Side, pkg: PackageCtx): Promise<boolean> {
-  // Re-run get for the first stem to observe the cached fallback flag is
-  // awkward; instead, cheaply re-check dist presence.
-  const entries = await resolvePackageEntries(pkg.dir).catch(() => [])
-  return !entries.some(e => (e.runtime && existsSync(e.runtime)) || (e.dts && existsSync(e.dts)))
 }
 
 async function buildPackageCtxs(root: string): Promise<PackageCtx[]> {
@@ -360,15 +292,14 @@ async function buildPackageCtxs(root: string): Promise<PackageCtx[]> {
 export async function buildPayload(cwd: string, req: PayloadRequest): Promise<WorkspacePayload> {
   const root = (await repoRoot(cwd)) ?? resolve(cwd)
   const git = await isGitRepo(cwd)
-  const options: UiExtractOptions = { ...DEFAULT_EXTRACT_OPTIONS, ...req.options }
 
   const baseRef = req.base
   const compareRef = req.compare
   const isDiff = baseRef !== compareRef
 
   const [base, compare] = await Promise.all([
-    resolveSide(root, baseRef, git, options),
-    resolveSide(root, compareRef, git, options),
+    resolveSide(root, baseRef, git),
+    resolveSide(root, compareRef, git),
   ])
 
   const ctxs = await buildPackageCtxs(root)
@@ -383,7 +314,6 @@ export async function buildPayload(cwd: string, req: PayloadRequest): Promise<Wo
     base: base.meta,
     compare: compare.meta,
     packages,
-    options,
   }
 }
 
