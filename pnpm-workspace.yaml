@@ -4,3 +4,6 @@ allowBuilds:
 shellEmulator: true
 
 trustPolicy: no-downgrade
+update:
+  ignoreDeps:
+    - typescript@7
