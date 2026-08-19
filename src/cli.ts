@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 import cac from 'cac'
 import { version } from '../package.json'
 import { snapshotPackage } from './core/index.ts'
@@ -14,9 +13,8 @@ async function main(): Promise<void> {
   // keeps the process alive via its own open handles; `build` returns and the
   // process exits naturally.
   if (argv[0] === 'ui') {
-    const distDir = fileURLToPath(new URL('./ui', import.meta.url))
     const { runUi } = await import('./ui/cli.ts')
-    await runUi(argv.slice(1), distDir, version)
+    await runUi(argv.slice(1), version)
     return
   }
 

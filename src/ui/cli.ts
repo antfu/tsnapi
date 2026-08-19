@@ -58,18 +58,18 @@ function parseUiArgs(argv: string[]): ParsedUiArgs {
 }
 
 /**
- * Entry point for `tsnapi ui [build] [flags]`. `distDir` is the built SPA
- * directory and `version` the tsnapi version — both passed in by the caller so
- * the UI module graph never imports the root `package.json`.
+ * Entry point for `tsnapi ui [build] [flags]`. `version` (the tsnapi version)
+ * is passed in by the caller so the UI module graph never imports the root
+ * `package.json`; the SPA itself is fetched from the versioned
+ * `tsnapi-inspector-assets` package (see `devframe.ts`), not a local dir.
  */
-export async function runUi(argv: string[], distDir: string, version: string): Promise<void> {
+export async function runUi(argv: string[], version: string): Promise<void> {
   const parsed = parseUiArgs(argv)
   const cwd = process.cwd()
 
   const definition = createInspectorDevframe({
     version,
     cwd,
-    distDir,
     defaultBase: parsed.base,
     defaultCompare: parsed.compare,
     port: parsed.port,

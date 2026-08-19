@@ -1,16 +1,25 @@
-import type { DevframeDefinition } from 'devframe'
+import type { DevframeDefinition, RemoteAssets } from 'devframe'
 import type { PayloadRequest } from './types.ts'
 import { defineDevframe, defineRpcFunction } from 'devframe'
 import { buildPayload, buildRefs } from './payload.ts'
 import { WORKING_TREE } from './types.ts'
+
+/**
+ * The inspector SPA is published as its own npm package and fetched on
+ * demand (CDN back-proxy, cached locally) rather than bundled into the main
+ * `tsnapi` tarball — keeping the install footprint small, since the SPA
+ * (with its Shiki grammar bundles) dwarfs the library itself.
+ *
+ * Its version is kept in lockstep with `tsnapi`'s (the `release` script
+ * bumps both), so the exact-version pointer always resolves to matching UI.
+ */
+const INSPECTOR_ASSETS_PACKAGE = 'tsnapi-inspector-assets'
 
 export interface DevframeAppOptions {
   /** tsnapi version, threaded in from the CLI (kept out of the UI module graph). */
   version: string
   /** Directory to inspect (the target workspace). */
   cwd: string
-  /** Built SPA directory served as the UI. */
-  distDir?: string
   /** Default base ref for the initial view. */
   defaultBase: string
   /** Default compare ref for the initial view. */
@@ -37,17 +46,28 @@ export interface MetaPayload {
  * (working-tree / diff) view once and serves it as the fallback for any call.
  */
 export function createInspectorDevframe(app: DevframeAppOptions): DevframeDefinition {
+  // A locally-installed copy of the assets package (the workspace link in
+  // this repo, or an explicit `npm i tsnapi-inspector-assets` for air-gapped
+  // use) is served with zero network; otherwise files stream from jsDelivr
+  // and are cached. The `importMetaUrl` below is the resolution base for that
+  // locally-installed-copy fast path.
+  const distDir: RemoteAssets = {
+    package: INSPECTOR_ASSETS_PACKAGE,
+    version: app.version,
+  }
+
   return defineDevframe({
     id: 'tsnapi-inspector',
     name: 'tsnapi Inspector',
     version: app.version,
     packageName: 'tsnapi',
+    importMetaUrl: import.meta.url,
     homepage: 'https://github.com/antfu/tsnapi#readme',
     description: 'Visualize and diff the public API surface of every package in a monorepo.',
     icon: 'ph:graph-duotone',
     cli: {
       command: 'tsnapi-inspector',
-      distDir: app.distDir,
+      distDir,
       port: app.port ?? 4599,
       // Trusted single-user localhost tool — skip the OTP gate.
       auth: false,

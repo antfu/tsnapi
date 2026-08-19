@@ -42,7 +42,10 @@ export default defineConfig({
     host: '0.0.0.0',
   },
   build: {
-    outDir: fileURLToPath(new URL('../dist/ui', import.meta.url)),
+    // The SPA ships as its own npm package (`tsnapi-inspector-assets`),
+    // fetched on demand via devframe remote assets (see `devframe.ts`) — so
+    // the heavy Shiki grammar bundles never bloat the main `tsnapi` tarball.
+    outDir: fileURLToPath(new URL('../packages/inspector-assets/dist', import.meta.url)),
     emptyOutDir: true,
     target: 'esnext',
   },
