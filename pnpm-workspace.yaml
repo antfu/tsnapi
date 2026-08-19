@@ -4,7 +4,8 @@ allowBuilds:
   vue-demi: false
 minimumReleaseAgeExclude:
   - '@antfu/design@0.3.4'
-  - devframe@0.9.0-beta.1
+  - devframe@0.9.0
+  - '@devframes/vite@0.9.0'
 shellEmulator: true
 
 trustPolicy: no-downgrade
@@ -12,3 +13,6 @@ trustPolicyExclude:
   # @pierre/diffs (pinned to 1.2.12) pulls @pierre/theme@1.1.0, which dropped
   # its npm provenance vs earlier versions. Reviewed and accepted.
   - '@pierre/theme@1.1.0'
+update:
+  ignoreDeps:
+    - typescript@7

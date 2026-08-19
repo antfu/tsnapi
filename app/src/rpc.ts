@@ -5,7 +5,16 @@ let clientPromise: Promise<any> | undefined
 
 async function client(): Promise<any> {
   if (!clientPromise) {
-    clientPromise = connectDevframe().catch((cause) => {
+    clientPromise = connectDevframe({
+      // Two serving modes share this same bundle: the standalone CLI dev
+      // server and the static build (`tsnapi ui[ build]`) serve
+      // `__connection.json` at the site root, while `pnpm dev:ui`'s Vite
+      // bridge (app/vite.config.ts) mounts it scoped under `/__<id>/`
+      // instead — sharing Vite's own origin/root means it can't also own
+      // the root path. Try root first (the common case), then the scoped
+      // path as a fallback.
+      baseURL: ['./', './__tsnapi-inspector/'],
+    }).catch((cause) => {
       clientPromise = undefined
       throw new Error(
         'Could not reach the tsnapi backend (failed to load __connection.json).\n\n'
