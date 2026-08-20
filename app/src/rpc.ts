@@ -3,7 +3,7 @@ import { connectDevframe } from 'devframe/client'
 
 let clientPromise: Promise<any> | undefined
 
-async function client(): Promise<any> {
+export async function client(): Promise<any> {
   if (!clientPromise) {
     clientPromise = connectDevframe({
       // Two serving modes share this same bundle: the standalone CLI dev

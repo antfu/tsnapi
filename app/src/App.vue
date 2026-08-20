@@ -302,7 +302,6 @@ watch(allHistory, () => {
         v-if="selected"
         :datum="selected"
         :is-diff="payload?.isDiff ?? false"
-        :dark="isDark"
         @close="closeDrawer"
         @select-member="selectMember"
       />

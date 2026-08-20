@@ -65,6 +65,13 @@ export function createInspectorDevframe(app: DevframeAppOptions): DevframeDefini
     homepage: 'https://github.com/antfu/tsnapi#readme',
     description: 'Visualize and diff the public API surface of every package in a monorepo.',
     icon: 'ph:graph-duotone',
+    // Server-side syntax highlighting: the SPA calls this shared wire service's
+    // `code-to-tokens` RPC instead of bundling Shiki grammars/themes itself.
+    // Resolved from `importMetaUrl` (tsnapi's own dependency). Only TS/JS
+    // signatures are ever highlighted, so preload just those grammars.
+    services: [
+      { package: '@devframes/service-shiki', options: { langs: ['typescript', 'javascript'] } },
+    ],
     cli: {
       command: 'tsnapi-inspector',
       distDir,

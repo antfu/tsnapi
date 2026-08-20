@@ -9,14 +9,11 @@ import FeedbackTip from '@antfu/design/components/Feedback/FeedbackTip.vue'
 import { computed } from 'vue'
 import { ALL_STATUSES, KIND_ICON, KIND_LABEL, SOURCE_META, sourceOf, STATUS_HEX, STATUS_STYLE } from '../kind.ts'
 import ChangeGroupList from './ChangeGroupList.vue'
+import CodeBlock from './CodeBlock.vue'
+import CodeDiff from './CodeDiff.vue'
 import EntryItem from './EntryItem.vue'
-import PierreDiff from './PierreDiff.vue'
-import PierreFile from './PierreFile.vue'
 
-// `dark` defaults true. Vue casts an absent *boolean* prop to `false` (not
-// `undefined`), so a plain `props.dark ?? true` fallback silently never
-// triggers — the default has to be declared here instead.
-const props = withDefaults(defineProps<{ datum: TreeDatum | null, isDiff: boolean, dark?: boolean }>(), { dark: true })
+const props = defineProps<{ datum: TreeDatum | null, isDiff: boolean }>()
 const emit = defineEmits<{ close: [], selectMember: [member: MemberNode] }>()
 
 const member = computed(() => (props.datum?.type === 'member' ? props.datum.member ?? null : null))
@@ -29,10 +26,9 @@ interface SurfaceView {
   after: string
 }
 
-// Both a changed surface (PierreDiff) and an unchanged/single-state one
-// (PierreFile) render through @pierre/diffs' client components, so their
-// styling (theme, font, chrome) is identical. Purely derived from props —
-// each child component owns its own async mount/render lifecycle.
+// A changed surface (CodeDiff) and an unchanged/single-state one (CodeBlock)
+// share the same shiki-highlighted styling. Purely derived from props — each
+// child owns its own async highlight lifecycle.
 const surfaces = computed<SurfaceView[]>(() => {
   const m = member.value
   if (!m)
@@ -132,8 +128,8 @@ const summary = computed(() => packageSummary.value ?? entrySummary.value)
         <div class="text-micro tracking-wide color-faint mb-1 uppercase">
           {{ s.label }}
         </div>
-        <PierreDiff v-if="s.changed" :before="s.before" :after="s.after" :dark="dark" />
-        <PierreFile v-else :code="s.after || s.before" :dark="dark" />
+        <CodeDiff v-if="s.changed" :before="s.before" :after="s.after" />
+        <CodeBlock v-else :code="s.after || s.before" />
       </section>
       <FeedbackEmptyState v-if="!surfaces.length" icon="i-ph-code" title="No signature captured" />
     </div>
