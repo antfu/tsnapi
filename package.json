@@ -62,10 +62,10 @@
     }
   },
   "dependencies": {
-    "@devframes/service-shiki": "^0.9.3",
+    "@devframes/service-shiki": "^0.9.5",
     "@vitest/utils": "^4.1.10",
     "cac": "^7.0.0",
-    "devframe": "^0.9.3",
+    "devframe": "^0.9.5",
     "magic-string": "^1.2.0",
     "oxc-parser": "^0.144.0",
     "tinyglobby": "^0.2.17"
@@ -75,7 +75,7 @@
     "@antfu/eslint-config": "^9.3.0",
     "@antfu/ni": "^30.5.0",
     "@antfu/utils": "^9.3.0",
-    "@devframes/vite": "^0.9.3",
+    "@devframes/vite": "^0.9.5",
     "@iconify-json/ph": "^1.2.2",
     "@oxc-project/types": "^0.144.0",
     "@storybook/vue3-vite": "^10.5.7",

@@ -4,9 +4,9 @@ allowBuilds:
   vue-demi: false
 minimumReleaseAgeExclude:
   - '@antfu/design@0.3.4'
-  - devframe@0.9.3
-  - '@devframes/vite@0.9.3'
-  - '@devframes/service-shiki@0.9.3'
+  - devframe@0.9.5
+  - '@devframes/vite@0.9.5'
+  - '@devframes/service-shiki@0.9.5'
 shellEmulator: true
 
 trustPolicy: no-downgrade

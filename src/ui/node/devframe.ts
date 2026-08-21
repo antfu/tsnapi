@@ -51,7 +51,7 @@ export function createInspectorDevframe(app: DevframeAppOptions): DevframeDefini
   // use) is served with zero network; otherwise files stream from jsDelivr
   // and are cached. The `importMetaUrl` below is the resolution base for that
   // locally-installed-copy fast path.
-  const distDir: RemoteAssets = {
+  const clientAssets: RemoteAssets = {
     package: INSPECTOR_ASSETS_PACKAGE,
     version: app.version,
   }
@@ -62,6 +62,9 @@ export function createInspectorDevframe(app: DevframeAppOptions): DevframeDefini
     version: app.version,
     packageName: 'tsnapi',
     importMetaUrl: import.meta.url,
+    // The inspector SPA, fetched on demand via remote assets (devframe 0.9.5
+    // promoted this from the former `cli.distDir` to a top-level field).
+    clientAssets,
     homepage: 'https://github.com/antfu/tsnapi#readme',
     description: 'Visualize and diff the public API surface of every package in a monorepo.',
     icon: 'ph:graph-duotone',
@@ -74,7 +77,6 @@ export function createInspectorDevframe(app: DevframeAppOptions): DevframeDefini
     ],
     cli: {
       command: 'tsnapi-inspector',
-      distDir,
       port: app.port ?? 4599,
       // Trusted single-user localhost tool — skip the OTP gate.
       auth: false,
