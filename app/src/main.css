@@ -1,0 +1,70 @@
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+#app {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * Syntax-highlighted code + diff blocks (CodeBlock.vue / CodeDiff.vue).
+ * Highlighting comes from the shiki wire service as dual-theme tokens: each
+ * <span> carries an inline light `color` plus a `--shiki-dark` custom prop, so
+ * we only need to flip to the dark value under `.dark` (Shiki's documented
+ * dual-theme pattern). When the service is unavailable the spans are absent and
+ * plain text renders with the container's own colour.
+ */
+.tsnapi-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 6px 0;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.tsnapi-code .code-line {
+  padding: 0 10px;
+  min-height: 18px;
+}
+
+.dark .tsnapi-code span[style] {
+  color: var(--shiki-dark) !important;
+}
+
+/* Unified diff layout: two line-number gutters + a marker column. */
+.tsnapi-diff .diff-line {
+  display: grid;
+  grid-template-columns: 3ch 3ch 1.5ch 1fr;
+  column-gap: 4px;
+  padding: 0 8px;
+  min-height: 18px;
+}
+
+.tsnapi-diff .diff-gutter {
+  text-align: right;
+  opacity: 0.4;
+  user-select: none;
+}
+
+.tsnapi-diff .diff-marker {
+  text-align: center;
+  user-select: none;
+  opacity: 0.7;
+}
+
+.tsnapi-diff .diff-add {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.tsnapi-diff .diff-del {
+  background: rgba(239, 68, 68, 0.12);
+}
+

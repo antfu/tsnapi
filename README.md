@@ -133,6 +133,36 @@ tsnapi -u
 tsnapi -u --allow-breaking
 ```
 
+### Interactive inspector (`tsnapi ui`)
+
+Visualize the public API of every package in a workspace as an interactive
+graph, and trace how it changed between two git refs. Built on
+[devframe](https://github.com/devframes/devframe) and
+[`@antfu/design`](https://github.com/antfu/design).
+
+```bash
+# Launch the inspector for the current workspace (reads committed snapshots — generate/update them first)
+tsnapi ui
+
+# Diff two refs / the working tree from the CLI, then explore in the browser
+#   — the picker lets you pick Base/Compare (working tree, HEAD, branch, tag, sha)
+
+# Export a self-contained static build (single current state)
+tsnapi ui build --out-dir dist-inspector
+
+# Bake a shareable, read-only diff between two refs
+tsnapi ui build --base v1.1.0 --compare HEAD --out-dir dist-inspector
+```
+
+The tree runs **workspace → package → entry → member**, each member coloured by
+kind and by diff status — added / removed / modified (narrowed) / widened —
+reusing tsnapi's own breaking-change analysis. The inspector only ever reads
+already-generated `__snapshots__` files, never regenerates them itself:
+historical refs are read straight from the committed snapshot via `git show`,
+and the **working-tree** side reads whatever snapshot currently sits on disk
+(uncommitted edits included). Run `tsnapi`/`tsnapi -u` (or your Vitest
+snapshot tests) to (re)generate a snapshot before inspecting it.
+
 ### With Vitest
 
 `tsnapi/vitest` provides higher-level Vitest integration that uses [`toMatchFileSnapshot`](https://vitest.dev/guide/snapshot#file-snapshots) to store snapshots as individual files.

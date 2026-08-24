@@ -8,5 +8,6 @@ dist
 lib-cov
 logs
 node_modules
+storybook-static
 temp
 .context
