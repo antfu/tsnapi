@@ -46,7 +46,7 @@
     "play": "pnpm run dev:ui",
     "build:storybook": "storybook build",
     "lint": "eslint",
-    "prepublishOnly": "nr build",
+    "prepack": "nr build",
     "release": "bumpp package.json packages/inspector-assets/package.json",
     "start": "tsx src/cli.ts",
     "test": "vitest",

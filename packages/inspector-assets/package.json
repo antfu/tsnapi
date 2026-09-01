@@ -16,5 +16,8 @@
   },
   "files": [
     "dist"
-  ]
+  ],
+  "scripts": {
+    "prepack": "pnpm -w run build:ui"
+  }
 }
