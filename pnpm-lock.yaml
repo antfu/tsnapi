@@ -133,6 +133,8 @@ importers:
         specifier: ^3.5.41
         version: 3.5.41(typescript@6.0.3)
 
+  packages/inspector-assets: {}
+
 packages:
 
   '@adobe/css-tools@4.5.0':
