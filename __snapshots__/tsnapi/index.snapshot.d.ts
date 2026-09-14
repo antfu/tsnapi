@@ -13,6 +13,9 @@ export interface ApiSnapshotOptions {
   referenceTracingDepth?: number;
   update?: boolean;
   allowBreaking?: boolean;
+  entryFilter?: (_: SnapshotEntryContext) => boolean | void;
+  transformEntries?: (_: Entry[], _: TransformEntriesContext) => Entry[] | null | void;
+  transformSnapshot?: (_: TransformSnapshotContext) => string | null | void;
 }
 export interface BreakingChange {
   entryName: string;
@@ -21,10 +24,19 @@ export interface BreakingChange {
   widened: string[];
   added: string[];
 }
+export interface Entry {
+  name: string;
+  text: string;
+  kind: EntryKind;
+}
 export interface ResolvedEntry {
   name: string;
   runtime: string | null;
   dts: string | null;
+}
+export interface SnapshotEntryContext {
+  packageName: string;
+  entryName: string;
 }
 export interface SnapshotExtensions {
   runtime: string;
@@ -49,6 +61,17 @@ export interface SnapshotResult {
   diff: string | null;
   breaking: BreakingChange[];
 }
+export interface TransformEntriesContext extends SnapshotEntryContext {
+  surface: SnapshotSurface;
+}
+export interface TransformSnapshotContext extends TransformEntriesContext {
+  content: string;
+}
+// #endregion
+
+// #region Types
+export type EntryKind = 'interface' | 'type' | 'enum' | 'class' | 'namespace' | 'function' | 'variable' | 'default' | 're-export' | 'referenced' | 'other';
+export type SnapshotSurface = 'runtime' | 'dts';
 // #endregion
 
 // #region Functions
@@ -82,5 +105,6 @@ interface ExtractOptions {
   typeWidening?: boolean;
   categorizedExports?: boolean;
   referenceTracingDepth?: number;
+  transformEntries?: (_: Entry[]) => Entry[] | null | void;
 }
 // #endregion

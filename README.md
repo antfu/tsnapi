@@ -313,6 +313,46 @@ await describePackagesApiSnapshots({
 
 Run `vitest -u` to update snapshots when you intentionally change the API.
 
+#### Per-entry hooks
+
+Three hooks let you intervene per entry point, at increasing depth. They live on `ApiSnapshotOptions`, so they work with `snapshotApiPerEntry`, `describePackagesApiSnapshots`, `generateApiSnapshot`, the CLI helpers, and the rolldown plugin alike.
+
+`entryFilter` skips entries entirely — useful when a package exports large default-data objects (themes, color palettes) that are low-signal for an API guard:
+
+```ts
+import { describePackagesApiSnapshots } from 'tsnapi/vitest'
+
+await describePackagesApiSnapshots({
+  entryFilter: ({ packageName, entryName }) =>
+    entryName !== './theme' && entryName !== './colors',
+})
+```
+
+`transformEntries` modifies the structural representation before it is serialized: each snapshot surface is a list of entries (`{ name, kind, text }` — one per export or referenced declaration). Mutate the array in place, or return a replacement array:
+
+```ts
+await describePackagesApiSnapshots({
+  transformEntries(entries, { entryName, surface }) {
+    for (const entry of entries) {
+      // Collapse a huge data export to an opaque declaration,
+      // while still guarding everything else
+      if (entry.name === 'theme' && surface === 'dts')
+        entry.text = 'export declare const theme: Record<string, string>'
+    }
+    // or filter: return entries.filter(e => e.kind !== 'variable')
+  },
+})
+```
+
+`transformSnapshot` rewrites the final snapshot string (header excluded) before it is written or compared:
+
+```ts
+await describePackagesApiSnapshots({
+  transformSnapshot: ({ entryName, surface, content }) =>
+    surface === 'dts' ? content.replaceAll('\u00A0', ' ') : null, // null keeps content unchanged
+})
+```
+
 #### Low-level
 
 You can also use `generateApiSnapshot` directly with Vitest's built-in snapshot system:
@@ -379,8 +419,16 @@ interface ApiSnapshotOptions {
    * @default false
    */
   allowBreaking?: boolean
+  /** Skip entry points: return false to skip. */
+  entryFilter?: (ctx: SnapshotEntryContext) => boolean | void
+  /** Modify the structural entries of a surface before serialization. */
+  transformEntries?: (entries: Entry[], ctx: TransformEntriesContext) => Entry[] | null | void
+  /** Rewrite snapshot content before write/compare. */
+  transformSnapshot?: (ctx: TransformSnapshotContext) => string | null | void
 }
 ```
+
+See [Per-entry hooks](#per-entry-hooks) for details on the three hooks.
 
 ### `typeWidening`
 

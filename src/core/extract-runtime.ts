@@ -67,6 +67,8 @@ export interface ExtractOptions {
   typeWidening?: boolean
   categorizedExports?: boolean
   referenceTracingDepth?: number
+  /** Transform the extracted entries before serialization; mutate in place or return a replacement array. */
+  transformEntries?: (entries: Entry[]) => Entry[] | null | void
 }
 
 /** Minimal marker prepended above declarations that carry an `@deprecated` tag. */
@@ -218,11 +220,12 @@ export async function extractRuntime(fileName: string, code: string, options?: E
       applyDeprecated(entries, entriesBefore)
   }
 
+  const finalEntries = options?.transformEntries?.(entries) ?? entries
   if (categorized) {
-    return formatGroupedEntries(entries)
+    return formatGroupedEntries(finalEntries)
   }
-  entries.sort((a, b) => a.name.localeCompare(b.name))
-  return `${entries.map(e => e.text).join('\n')}\n`
+  finalEntries.sort((a, b) => a.name.localeCompare(b.name))
+  return `${finalEntries.map(e => e.text).join('\n')}\n`
 }
 
 /**

@@ -3,11 +3,25 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { analyzeApiChanges, formatBreakingChanges, generateApiSnapshot, isBreakingChange, resolveAllowBreaking } from './core/index.ts'
+import { analyzeApiChanges, createEntryHooks, formatBreakingChanges, generateApiSnapshot, isBreakingChange, resolveAllowBreaking } from './core/index.ts'
 import { resolvePackageEntriesSync } from './core/resolve.ts'
 import { readPackageName, resolveWorkspacePackages } from './core/workspace.ts'
 
-export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header' | 'allowBreaking' | 'referenceTracingDepth'> {
+export type { Entry, EntryKind } from './core/kind.ts'
+export type { SnapshotEntryContext, SnapshotSurface, TransformEntriesContext, TransformSnapshotContext } from './core/types.ts'
+
+export interface SnapshotApiOptions extends Pick<
+  ApiSnapshotOptions,
+  | 'omitArgumentNames'
+  | 'header'
+  | 'allowBreaking'
+  | 'referenceTracingDepth'
+  | 'typeWidening'
+  | 'categorizedExports'
+  | 'entryFilter'
+  | 'transformEntries'
+  | 'transformSnapshot'
+> {
   /**
    * Snapshot output directory, relative to the test file.
    * @default '__snapshots__/tsnapi'
@@ -73,7 +87,8 @@ export function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOptions): 
   const outputDir = options?.outputDir ?? '__snapshots__/tsnapi'
   const pkgName = readPackageName(cwd) ?? 'unknown'
   const allowBreaking = resolveAllowBreaking(options?.allowBreaking)
-  const entries = resolvePackageEntriesSync(cwd)
+  const hooks = createEntryHooks(pkgName, options)
+  const entries = resolvePackageEntriesSync(cwd).filter(entry => hooks.includeEntry(entry.name))
 
   if (entries.length === 0) {
     it.skip('no exports', () => {})

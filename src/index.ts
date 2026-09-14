@@ -18,9 +18,15 @@ export {
 export type {
   ApiSnapshotOptions,
   BreakingChange,
+  Entry,
+  EntryKind,
   ResolvedEntry,
+  SnapshotEntryContext,
   SnapshotExtensions,
   SnapshotFile,
   SnapshotMismatch,
   SnapshotResult,
+  SnapshotSurface,
+  TransformEntriesContext,
+  TransformSnapshotContext,
 } from './core/index.ts'
