@@ -7,6 +7,7 @@ import { hasArgvFlag } from './argv.ts'
 import { analyzeApiChanges, formatBreakingChanges, isBreakingChange } from './breaking.ts'
 import { extractDts } from './extract-dts.ts'
 import { extractRuntime } from './extract-runtime.ts'
+import { createEntryHooks } from './hooks.ts'
 import { resolvePackageEntries } from './resolve.ts'
 import {
   compareSnapshots,
@@ -20,14 +21,16 @@ export type { BreakingChange } from './breaking.ts'
 export { analyzeApiChanges, formatBreakingChanges, isBreakingChange } from './breaking.ts'
 export { extractDts } from './extract-dts.ts'
 export { extractRuntime } from './extract-runtime.ts'
-export type { EntryKind } from './kind.ts'
+export type { EntryHooks } from './hooks.ts'
+export { createEntryHooks } from './hooks.ts'
+export type { Entry, EntryKind } from './kind.ts'
 export { KIND_LABELS, KIND_ORDER } from './kind.ts'
 export type { DiffMember, DiffStatus, Member } from './members.ts'
 export { diffMembers, displayName, parseMembers } from './members.ts'
 export { resolvePackageEntries, resolvePackageEntriesSync } from './resolve.ts'
 export type { SnapshotExtensions, SnapshotFile, SnapshotMismatch } from './snapshot.ts'
 export { compareSnapshots, formatMismatchError, generateHeader, readSnapshot, stripHeader, writeSnapshot } from './snapshot.ts'
-export type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.ts'
+export type { ApiSnapshotOptions, ResolvedEntry, SnapshotEntryContext, SnapshotResult, SnapshotSurface, TransformEntriesContext, TransformSnapshotContext } from './types.ts'
 export { discoverPackages, isPrivatePackage, readPackageName, readWorkspacePatterns, resolveWorkspacePackages } from './workspace.ts'
 
 async function readPackageName(cwd: string): Promise<string> {
@@ -165,20 +168,23 @@ export async function generateApiSnapshot(cwd: string, options?: ApiSnapshotOpti
   const result: Record<string, { runtime: string, dts: string }> = {}
   const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports, referenceTracingDepth: options?.referenceTracingDepth }
   const showHeader = options?.header ?? true
-  const packageName = showHeader ? await readPackageName(cwd) : ''
+  const packageName = await readPackageName(cwd)
+  const hooks = createEntryHooks(packageName, options)
   const chunkSourcesFor = createChunkSourceLoader()
 
   for (const entry of entries) {
+    if (!hooks.includeEntry(entry.name))
+      continue
     const runtime = entry.runtime
-      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.runtime)).runtime })
+      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.runtime)).runtime, transformEntries: hooks.transformEntriesFor(entry.name, 'runtime') })
       : ''
     const dts = entry.dts
-      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.dts)).dts })
+      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.dts)).dts, transformEntries: hooks.transformEntriesFor(entry.name, 'dts') })
       : ''
     const prefix = showHeader ? generateHeader(packageName, entry.name) : ''
     result[entry.name] = {
-      runtime: prefix + (runtime.trim() || '/* no exports */'),
-      dts: prefix + (dts.trim() || '/* no exports */'),
+      runtime: prefix + hooks.transformSnapshot(entry.name, 'runtime', runtime.trim() || '/* no exports */'),
+      dts: prefix + hooks.transformSnapshot(entry.name, 'dts', dts.trim() || '/* no exports */'),
     }
   }
 
@@ -218,7 +224,8 @@ async function snapshotEntries(
   const resolvedOutputDir = resolve(cwd, outputDir)
   const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports, referenceTracingDepth: options?.referenceTracingDepth }
   const showHeader = options?.header ?? true
-  const packageName = showHeader ? await readPackageName(cwd) : ''
+  const packageName = await readPackageName(cwd)
+  const hooks = createEntryHooks(packageName, options)
   const chunkSourcesFor = createChunkSourceLoader()
 
   const mismatches: SnapshotResult['mismatches'] = []
@@ -226,17 +233,22 @@ async function snapshotEntries(
   const breaking: SnapshotResult['breaking'] = []
 
   for (const entry of entries) {
+    if (!hooks.includeEntry(entry.name))
+      continue
     const stem = entryNameToStem(entry.name)
 
     const runtime = entry.runtime
-      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.runtime)).runtime })
+      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.runtime)).runtime, transformEntries: hooks.transformEntriesFor(entry.name, 'runtime') })
       : ''
     const dts = entry.dts
-      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.dts)).dts })
+      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.dts)).dts, transformEntries: hooks.transformEntriesFor(entry.name, 'dts') })
       : ''
 
     const header = showHeader ? generateHeader(packageName, entry.name) : undefined
-    const current = { runtime, dts }
+    const current = {
+      runtime: hooks.transformSnapshot(entry.name, 'runtime', runtime),
+      dts: hooks.transformSnapshot(entry.name, 'dts', dts),
+    }
     const existing = await readSnapshot(resolvedOutputDir, stem, ext)
 
     if (!existing) {

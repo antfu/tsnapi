@@ -1,3 +1,26 @@
+import type { Entry } from './kind.ts'
+
+/** Which snapshot surface a hook is operating on. */
+export type SnapshotSurface = 'runtime' | 'dts'
+
+/** Identifies the entry point a per-entry hook is running for. */
+export interface SnapshotEntryContext {
+  /** Package name from `package.json` (`'unknown'` when unavailable). */
+  packageName: string
+  /** Export path of the entry, e.g. `'.'`, `'./utils'`. */
+  entryName: string
+}
+
+export interface TransformEntriesContext extends SnapshotEntryContext {
+  /** Surface being generated. */
+  surface: SnapshotSurface
+}
+
+export interface TransformSnapshotContext extends TransformEntriesContext {
+  /** Generated snapshot content for the surface (header excluded). */
+  content: string
+}
+
 export interface ApiSnapshotOptions {
   /**
    * Snapshot output directory, relative to the project root.
@@ -89,6 +112,44 @@ export interface ApiSnapshotOptions {
    * @default false
    */
   allowBreaking?: boolean
+
+  /**
+   * Filter entry points before snapshotting.
+   * Return `false` to skip the entry entirely. Keep it pure — integrations
+   * may call it more than once per entry (e.g. Vitest filters both at test
+   * registration and at generation time).
+   * @example
+   * ```ts
+   * entryFilter: ({ entryName }) => entryName !== './theme'
+   * ```
+   */
+  entryFilter?: (ctx: SnapshotEntryContext) => boolean | void
+
+  /**
+   * Transform the structural representation of an entry's exports before it
+   * is serialized into snapshot text. Runs once per surface with the full
+   * list of extracted entries (each an export or referenced declaration with
+   * `name`, `kind`, and rendered `text`). Mutate the array in place, or
+   * return a replacement array; return `null`/`undefined` to keep it as-is.
+   * @example
+   * ```ts
+   * // Collapse a large data export to an opaque declaration
+   * transformEntries(entries, { surface }) {
+   *   for (const entry of entries) {
+   *     if (entry.name === 'theme' && surface === 'dts')
+   *       entry.text = 'export declare const theme: Record<string, string>'
+   *   }
+   * }
+   * ```
+   */
+  transformEntries?: (entries: Entry[], ctx: TransformEntriesContext) => Entry[] | null | void
+
+  /**
+   * Rewrite snapshot content before it is written or compared.
+   * Receives the generated content for one surface (header excluded);
+   * return the replacement string, or `null`/`undefined` to leave it unchanged.
+   */
+  transformSnapshot?: (ctx: TransformSnapshotContext) => string | null | void
 }
 
 export interface SnapshotResult {

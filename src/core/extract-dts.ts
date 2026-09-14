@@ -122,11 +122,12 @@ export async function extractDts(fileName: string, code: string, options?: impor
     traceReferencedDeclarations(s, program, declMap, entries, referenceTracingDepth)
   }
 
+  const finalEntries = options?.transformEntries?.(entries) ?? entries
   if (categorized) {
-    return formatGroupedEntries(entries)
+    return formatGroupedEntries(finalEntries)
   }
-  entries.sort((a, b) => a.name.localeCompare(b.name))
-  return `${entries.map(e => e.text).join('\n')}\n`
+  finalEntries.sort((a, b) => a.name.localeCompare(b.name))
+  return `${finalEntries.map(e => e.text).join('\n')}\n`
 }
 
 /**

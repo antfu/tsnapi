@@ -6,7 +6,7 @@ import process from 'node:process'
 import { analyzeApiChanges, formatBreakingChanges, isBreakingChange } from './core/breaking.ts'
 import { extractDts } from './core/extract-dts.ts'
 import { extractRuntime } from './core/extract-runtime.ts'
-import { resolveAllowBreaking, resolveUpdateMode } from './core/index.ts'
+import { createEntryHooks, resolveAllowBreaking, resolveUpdateMode } from './core/index.ts'
 import {
   compareSnapshots,
   formatMismatchError,
@@ -84,26 +84,31 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
           }
         }
 
-        // Read package name for header
+        // Read package name for headers and hook contexts
         let packageName = 'unknown'
-        if (showHeader) {
-          const pkgPath = join(projectRoot, 'package.json')
-          try {
-            await access(pkgPath)
-            packageName = JSON.parse(await readFile(pkgPath, 'utf-8')).name ?? 'unknown'
-          }
-          catch {}
+        const pkgPath = join(projectRoot, 'package.json')
+        try {
+          await access(pkgPath)
+          packageName = JSON.parse(await readFile(pkgPath, 'utf-8')).name ?? 'unknown'
         }
+        catch {}
+        const hooks = createEntryHooks(packageName, options)
 
         const mismatches: SnapshotMismatch[] = []
         const breaking: import('./core/breaking.ts').BreakingChange[] = []
 
         for (const [stem, jsChunk] of jsChunks) {
+          const entryName = stem === 'index' ? '.' : `./${stem}`
+          if (!hooks.includeEntry(entryName))
+            continue
           const dtsChunk = dtsChunks.get(stem)
-          const runtime = await extractRuntime(jsChunk.fileName, jsChunk.code, { chunkSources: jsChunkSources, ...extractOptions })
-          const dts = dtsChunk ? await extractDts(dtsChunk.fileName, dtsChunk.code, { chunkSources: dtsChunkSources, ...extractOptions }) : ''
-          const header = showHeader ? generateHeader(packageName, stem === 'index' ? '.' : `./${stem}`) : undefined
-          const current = { runtime, dts }
+          const runtime = await extractRuntime(jsChunk.fileName, jsChunk.code, { chunkSources: jsChunkSources, ...extractOptions, transformEntries: hooks.transformEntriesFor(entryName, 'runtime') })
+          const dts = dtsChunk ? await extractDts(dtsChunk.fileName, dtsChunk.code, { chunkSources: dtsChunkSources, ...extractOptions, transformEntries: hooks.transformEntriesFor(entryName, 'dts') }) : ''
+          const header = showHeader ? generateHeader(packageName, entryName) : undefined
+          const current = {
+            runtime: hooks.transformSnapshot(entryName, 'runtime', runtime),
+            dts: hooks.transformSnapshot(entryName, 'dts', dts),
+          }
           const existing = await readSnapshot(resolvedOutputDir, stem, ext)
 
           if (!existing) {

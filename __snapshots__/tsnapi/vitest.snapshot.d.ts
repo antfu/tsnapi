@@ -9,6 +9,11 @@ export interface DescribePackagesApiSnapshotsOptions extends SnapshotApiOptions 
   beforeEach?: (_: PackageContext) => void | Promise<void>;
   afterEach?: (_: PackageContext) => void | Promise<void>;
 }
+export interface Entry {
+  name: string;
+  text: string;
+  kind: EntryKind;
+}
 export interface PackageContext {
   cwd: string;
   workspaceRoot: string;
@@ -16,9 +21,24 @@ export interface PackageContext {
   packageName: string;
   outputDir: string;
 }
-export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header' | 'allowBreaking' | 'referenceTracingDepth'> {
+export interface SnapshotApiOptions extends Pick<ApiSnapshotOptions, 'omitArgumentNames' | 'header' | 'allowBreaking' | 'referenceTracingDepth' | 'typeWidening' | 'categorizedExports' | 'entryFilter' | 'transformEntries' | 'transformSnapshot'> {
   outputDir?: string;
 }
+export interface SnapshotEntryContext {
+  packageName: string;
+  entryName: string;
+}
+export interface TransformEntriesContext extends SnapshotEntryContext {
+  surface: SnapshotSurface;
+}
+export interface TransformSnapshotContext extends TransformEntriesContext {
+  content: string;
+}
+// #endregion
+
+// #region Types
+export type EntryKind = 'interface' | 'type' | 'enum' | 'class' | 'namespace' | 'function' | 'variable' | 'default' | 're-export' | 'referenced' | 'other';
+export type SnapshotSurface = 'runtime' | 'dts';
 // #endregion
 
 // #region Functions
