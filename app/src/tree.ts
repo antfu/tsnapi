@@ -102,7 +102,9 @@ export function buildTree(payload: WorkspacePayload, f: TreeFilter): TreeDatum {
         type: 'entry',
         label: entry.name,
         sub: String(visible.length),
-        children: f.groupByKind ? groupMembers(visible, entryId) : visible.map(m => memberDatum(m, entryId)),
+        children: f.groupByKind
+          ? groupMembers(visible, entryId)
+          : visible.map(m => memberDatum(m, entryId)),
       })
     }
 

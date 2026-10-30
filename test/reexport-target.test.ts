@@ -3,12 +3,26 @@ import { describe, expect, it } from 'vitest'
 import { resolveReExportTarget } from '../src/ui/node/payload.ts'
 
 function ctx(over: Partial<PackageCtx> & { name: string }): PackageCtx {
-  return { dir: over.name, relDir: over.name, outputDir: '__snapshots__/tsnapi', entryStems: [{ name: '.', stem: 'index' }], ...over }
+  return {
+    dir: over.name,
+    relDir: over.name,
+    outputDir: '__snapshots__/tsnapi',
+    entryStems: [
+      { name: '.', stem: 'index' },
+    ],
+    ...over,
+  }
 }
 
 const ctxs: PackageCtx[] = [
   ctx({ name: 'tsnapi' }),
-  ctx({ name: '@scope/pkg-b', entryStems: [{ name: '.', stem: 'index' }, { name: './utils', stem: 'utils' }] }),
+  ctx({
+    name: '@scope/pkg-b',
+    entryStems: [
+      { name: '.', stem: 'index' },
+      { name: './utils', stem: 'utils' },
+    ],
+  }),
 ]
 
 describe('resolveReExportTarget', () => {

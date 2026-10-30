@@ -108,7 +108,9 @@ function bareDeclarationNames(stmt: any): string[] {
     || stmt.type === 'FunctionDeclaration'
     || stmt.type === 'TSModuleDeclaration'
   ) {
-    return typeof stmt.id?.name === 'string' && stmt.id.name.length > 0 ? [stmt.id.name] : []
+    return typeof stmt.id?.name === 'string' && stmt.id.name.length > 0
+      ? [stmt.id.name]
+      : []
   }
   return []
 }
@@ -145,10 +147,18 @@ async function parseSurface(fileName: string, code: string): Promise<Map<string,
  */
 function mergeSurfaces(runtime: Map<string, string>, dts: Map<string, string>): Map<string, Member> {
   const members = new Map<string, Member>()
-  for (const [name, text] of runtime)
-    members.set(name, { ...members.get(name), runtime: text })
-  for (const [name, text] of dts)
-    members.set(name, { ...members.get(name), dts: text })
+  for (const [name, text] of runtime) {
+    members.set(name, {
+      ...members.get(name),
+      runtime: text,
+    })
+  }
+  for (const [name, text] of dts) {
+    members.set(name, {
+      ...members.get(name),
+      dts: text,
+    })
+  }
   return members
 }
 
@@ -265,7 +275,13 @@ export async function analyzeApiChanges(
   widened.sort()
   added.sort()
 
-  return { entryName, removed, modified, widened, added }
+  return {
+    entryName,
+    removed,
+    modified,
+    widened,
+    added,
+  }
 }
 
 // ANSI helpers for the surrounding message.
@@ -274,7 +290,11 @@ const red = (s: string): string => `\x1B[31m${s}\x1B[39m`
 const yellow = (s: string): string => `\x1B[33m${s}\x1B[39m`
 const dim = (s: string): string => `\x1B[2m${s}\x1B[22m`
 
-const stripDefault = (name: string): string => name === 'default' ? 'default' : name.replace(/^\*/, '* from ')
+function stripDefault(name: string): string {
+  return name === 'default'
+    ? 'default'
+    : name.replace(/^\*/, '* from ')
+}
 
 /**
  * Format the breaking-change report for terminal output.

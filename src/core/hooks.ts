@@ -25,6 +25,11 @@ export function createEntryHooks(
       ? entries => transformEntries(entries, { packageName, entryName, surface })
       : undefined,
     transformSnapshot: (entryName, surface, content) =>
-      transformSnapshot?.({ packageName, entryName, surface, content }) ?? content,
+      transformSnapshot?.({
+        packageName,
+        entryName,
+        surface,
+        content,
+      }) ?? content,
   }
 }

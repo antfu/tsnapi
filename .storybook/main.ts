@@ -17,7 +17,9 @@ const config: StorybookConfig = {
   viteFinal: config => mergeConfig(config, {
     plugins: [
       Vue(),
-      Unocss({ configFile: fileURLToPath(new URL('../app/uno.config.ts', import.meta.url)) }),
+      Unocss({
+        configFile: fileURLToPath(new URL('../app/uno.config.ts', import.meta.url)),
+      }),
     ],
   }),
 }

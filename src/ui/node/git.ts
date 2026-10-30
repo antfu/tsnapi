@@ -63,9 +63,21 @@ export async function gitShowFile(cwd: string, ref: string, relPath: string): Pr
 /** Resolve any ref/sha to a concrete {@link GitRef}, or `null` when unknown. */
 export async function resolveRef(cwd: string, ref: string): Promise<GitRef | null> {
   try {
-    const out = await git(cwd, ['log', '-1', '--format=%H%x00%h%x00%s%x00%aI', ref])
+    const out = await git(cwd, [
+      'log',
+      '-1',
+      '--format=%H%x00%h%x00%s%x00%aI',
+      ref,
+    ])
     const [sha, shortSha, subject, date] = out.trim().split('\0')
-    return { sha, shortSha, name: ref, type: 'commit', subject, date }
+    return {
+      sha,
+      shortSha,
+      name: ref,
+      type: 'commit',
+      subject,
+      date,
+    }
   }
   catch {
     return null
@@ -87,7 +99,14 @@ async function forEachRef(cwd: string, pattern: string, type: 'branch' | 'tag'):
     ])
     return out.split('\n').filter(Boolean).map((line) => {
       const [name, sha, shortSha, subject, date] = line.split('\0')
-      return { name, sha, shortSha, type, subject, date }
+      return {
+        name,
+        sha,
+        shortSha,
+        type,
+        subject,
+        date,
+      }
     })
   }
   catch {
@@ -107,7 +126,14 @@ export async function listCommits(cwd: string, snapshotPaths: string[], limit = 
     const out = await git(cwd, args)
     return out.split('\n').filter(Boolean).map((line) => {
       const [sha, shortSha, subject, date] = line.split('\0')
-      return { sha, shortSha, name: shortSha, type: 'commit' as const, subject, date }
+      return {
+        sha,
+        shortSha,
+        name: shortSha,
+        type: 'commit' as const,
+        subject,
+        date,
+      }
     })
   }
   catch {

@@ -51,24 +51,35 @@ describe('isPrivatePackage', () => {
 describe('resolveWorkspacePackages', () => {
   it('excludes node_modules even under a recursive workspace pattern', () => {
     const cwd = createTempDir()
-    writeJson(join(cwd, 'package.json'), { name: 'root', workspaces: ['packages/**'] })
+    writeJson(join(cwd, 'package.json'), {
+      name: 'root',
+      workspaces: ['packages/**'],
+    })
     writeJson(join(cwd, 'packages/pkg-a/package.json'), { name: 'pkg-a' })
     // A hoisted/nested dependency inside a package's own node_modules has a
     // package.json too — it must not be mistaken for a workspace package.
     writeJson(join(cwd, 'packages/pkg-a/node_modules/some-dep/package.json'), { name: 'some-dep' })
 
     const dirs = resolveWorkspacePackages(cwd)
-    expect(dirs).toEqual([resolve(cwd, 'packages/pkg-a')])
+    expect(dirs).toEqual([
+      resolve(cwd, 'packages/pkg-a'),
+    ])
   })
 
   it('still resolves ordinary one-level workspace packages', () => {
     const cwd = createTempDir()
-    writeJson(join(cwd, 'package.json'), { name: 'root', workspaces: ['packages/*'] })
+    writeJson(join(cwd, 'package.json'), {
+      name: 'root',
+      workspaces: ['packages/*'],
+    })
     writeJson(join(cwd, 'packages/pkg-a/package.json'), { name: 'pkg-a' })
     writeJson(join(cwd, 'packages/pkg-b/package.json'), { name: 'pkg-b' })
 
     const dirs = resolveWorkspacePackages(cwd)
-    expect(dirs).toEqual([resolve(cwd, 'packages/pkg-a'), resolve(cwd, 'packages/pkg-b')])
+    expect(dirs).toEqual([
+      resolve(cwd, 'packages/pkg-a'),
+      resolve(cwd, 'packages/pkg-b'),
+    ])
   })
 })
 
@@ -80,6 +91,8 @@ describe('discoverPackages', () => {
     // discoverPackages itself doesn't filter by `private` — that's scoped to
     // the UI's own package-listing logic (`payload.ts`), not this shared
     // discovery helper (which the CLI/vitest paths also rely on).
-    expect(discoverPackages(cwd)).toEqual([resolve(cwd)])
+    expect(discoverPackages(cwd)).toEqual([
+      resolve(cwd),
+    ])
   })
 })

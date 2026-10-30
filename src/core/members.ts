@@ -74,8 +74,11 @@ function statementMembers(stmt: any): { name: string, kind: EntryKind, reference
           .filter((n: unknown): n is string => typeof n === 'string' && n.length > 0)
           .map((name: string) => ({ name, kind, referenced: false }))
       }
-      if (decl.id?.name)
-        return [{ name: decl.id.name, kind, referenced: false }]
+      if (decl.id?.name) {
+        return [
+          { name: decl.id.name, kind, referenced: false },
+        ]
+      }
       return []
     }
     if (stmt.specifiers?.length) {
@@ -84,15 +87,30 @@ function statementMembers(stmt: any): { name: string, kind: EntryKind, reference
       return stmt.specifiers
         .map((spec: any) => nameOf(spec.exported) || nameOf(spec.local))
         .filter((n: string) => n.length > 0)
-        .map((name: string) => ({ name, kind, referenced: false, source }))
+        .map((name: string) => ({
+          name,
+          kind,
+          referenced: false,
+          source,
+        }))
     }
     return []
   }
-  if (stmt.type === 'ExportDefaultDeclaration')
-    return [{ name: 'default', kind: 'default', referenced: false }]
+  if (stmt.type === 'ExportDefaultDeclaration') {
+    return [
+      { name: 'default', kind: 'default', referenced: false },
+    ]
+  }
   if (stmt.type === 'ExportAllDeclaration') {
     const source: string | undefined = stmt.source?.value
-    return [{ name: `*${source ?? ''}`, kind: 're-export', referenced: false, source }]
+    return [
+      {
+        name: `*${source ?? ''}`,
+        kind: 're-export',
+        referenced: false,
+        source,
+      },
+    ]
   }
 
   // Bare (non-exported) declaration — the `Referenced (internal)` region.
@@ -106,7 +124,9 @@ function statementMembers(stmt: any): { name: string, kind: EntryKind, reference
       .map((name: string) => ({ name, kind, referenced: true }))
   }
   return typeof stmt.id?.name === 'string' && stmt.id.name.length > 0
-    ? [{ name: stmt.id.name, kind, referenced: true }]
+    ? [
+        { name: stmt.id.name, kind, referenced: true },
+      ]
     : []
 }
 
@@ -131,8 +151,14 @@ async function parseSurface(fileName: string, code: string): Promise<Map<string,
     if (members.length === 0)
       continue
     const text = source.slice(stmt.start, stmt.end).trim()
-    for (const m of members)
-      map.set(m.name, { kind: m.kind, referenced: m.referenced, text, source: m.source })
+    for (const m of members) {
+      map.set(m.name, {
+        kind: m.kind,
+        referenced: m.referenced,
+        text,
+        source: m.source,
+      })
+    }
   }
   return map
 }
@@ -151,7 +177,12 @@ export async function parseMembers(file: SnapshotFile): Promise<Member[]> {
   const ensure = (name: string, kind: EntryKind, referenced: boolean, source?: string): Member => {
     let m = members.get(name)
     if (!m) {
-      m = { name, display: displayName(name), kind, referenced }
+      m = {
+        name,
+        display: displayName(name),
+        kind,
+        referenced,
+      }
       members.set(name, m)
     }
     // Prefer a concrete (non-`other`) kind if one surface knows better.
@@ -167,7 +198,9 @@ export async function parseMembers(file: SnapshotFile): Promise<Member[]> {
   for (const [name, info] of dts)
     ensure(name, info.kind, info.referenced, info.source).dts = info.text
 
-  return [...members.values()].sort((a, b) => a.display.localeCompare(b.display))
+  return [
+    ...members.values(),
+  ].sort((a, b) => a.display.localeCompare(b.display))
 }
 
 /**
@@ -189,7 +222,10 @@ export async function diffMembers(entryName: string, base: SnapshotFile, current
 
   const baseByName = new Map(baseMembers.map(m => [m.name, m]))
   const currentByName = new Map(currentMembers.map(m => [m.name, m]))
-  const names = new Set<string>([...baseByName.keys(), ...currentByName.keys()])
+  const names = new Set<string>([
+    ...baseByName.keys(),
+    ...currentByName.keys(),
+  ])
 
   const out: DiffMember[] = []
   for (const name of names) {
@@ -212,8 +248,12 @@ export async function diffMembers(entryName: string, base: SnapshotFile, current
       kind: ref.kind,
       referenced: ref.referenced,
       status,
-      base: b ? { runtime: b.runtime, dts: b.dts } : undefined,
-      current: c ? { runtime: c.runtime, dts: c.dts } : undefined,
+      base: b
+        ? { runtime: b.runtime, dts: b.dts }
+        : undefined,
+      current: c
+        ? { runtime: c.runtime, dts: c.dts }
+        : undefined,
       source: ref.source,
     })
   }

@@ -5,7 +5,12 @@ import { join, resolve } from 'node:path'
 
 const DTS_RE = /\.d\.[cm]?ts$/
 const JS_RE = /\.[cm]?[jt]sx?$/
-const RUNTIME_CONDITIONS = ['import', 'module-sync', 'default', 'require'] as const
+const RUNTIME_CONDITIONS = [
+  'import',
+  'module-sync',
+  'default',
+  'require',
+] as const
 
 /**
  * Resolve package.json exports field into runtime + DTS file pairs.
@@ -28,8 +33,14 @@ export async function resolvePackageEntries(cwd: string): Promise<ResolvedEntry[
     if (runtime || dts) {
       entries.push({
         name: '.',
-        runtime: runtime ? resolve(cwd, runtime) : null,
-        dts: dts ? resolve(cwd, dts) : (runtime ? await tryResolveDts(runtime, cwd) : null),
+        runtime: runtime
+          ? resolve(cwd, runtime)
+          : null,
+        dts: dts
+          ? resolve(cwd, dts)
+          : (runtime
+              ? await tryResolveDts(runtime, cwd)
+              : null),
       })
     }
   }
@@ -60,15 +71,27 @@ async function resolveExportsField(
 
   // Check if this is a conditions object (has keys like "import", "require", "types")
   const keys = Object.keys(exports)
-  const isConditions = keys.some(k => ['import', 'require', 'default', 'types', 'module-sync'].includes(k))
+  const isConditions = keys.some(k => [
+    'import',
+    'require',
+    'default',
+    'types',
+    'module-sync',
+  ].includes(k))
 
   if (isConditions) {
     const resolvedBranches = resolveConditionBranches(exports)
     for (const branch of resolvedBranches) {
       entries.push({
         name: prefix,
-        runtime: branch.runtime ? resolve(cwd, branch.runtime) : null,
-        dts: branch.dts ? resolve(cwd, branch.dts) : (branch.runtime ? await tryResolveDts(branch.runtime, cwd) : null),
+        runtime: branch.runtime
+          ? resolve(cwd, branch.runtime)
+          : null,
+        dts: branch.dts
+          ? resolve(cwd, branch.dts)
+          : (branch.runtime
+              ? await tryResolveDts(branch.runtime, cwd)
+              : null),
       })
     }
     return
@@ -82,7 +105,9 @@ async function resolveExportsField(
     if (key.includes('*'))
       continue
 
-    const subpath = key.startsWith('.') ? key : `./${key}`
+    const subpath = key.startsWith('.')
+      ? key
+      : `./${key}`
     await resolveExportsField(value, cwd, entries, subpath)
   }
 }
@@ -223,8 +248,14 @@ export function resolvePackageEntriesSync(cwd: string): ResolvedEntry[] {
     if (runtime || dts) {
       entries.push({
         name: '.',
-        runtime: runtime ? resolve(cwd, runtime) : null,
-        dts: dts ? resolve(cwd, dts) : (runtime ? tryResolveDtsSync(runtime, cwd) : null),
+        runtime: runtime
+          ? resolve(cwd, runtime)
+          : null,
+        dts: dts
+          ? resolve(cwd, dts)
+          : (runtime
+              ? tryResolveDtsSync(runtime, cwd)
+              : null),
       })
     }
   }
@@ -244,7 +275,11 @@ function resolveExportsFieldSync(
       entries.push({ name: prefix, runtime: null, dts: resolved })
     }
     else {
-      entries.push({ name: prefix, runtime: resolved, dts: tryResolveDtsSync(exports, cwd) })
+      entries.push({
+        name: prefix,
+        runtime: resolved,
+        dts: tryResolveDtsSync(exports, cwd),
+      })
     }
     return
   }
@@ -253,15 +288,27 @@ function resolveExportsFieldSync(
     return
 
   const keys = Object.keys(exports)
-  const isConditions = keys.some(k => ['import', 'require', 'default', 'types', 'module-sync'].includes(k))
+  const isConditions = keys.some(k => [
+    'import',
+    'require',
+    'default',
+    'types',
+    'module-sync',
+  ].includes(k))
 
   if (isConditions) {
     const resolvedBranches = resolveConditionBranches(exports)
     for (const branch of resolvedBranches) {
       entries.push({
         name: prefix,
-        runtime: branch.runtime ? resolve(cwd, branch.runtime) : null,
-        dts: branch.dts ? resolve(cwd, branch.dts) : (branch.runtime ? tryResolveDtsSync(branch.runtime, cwd) : null),
+        runtime: branch.runtime
+          ? resolve(cwd, branch.runtime)
+          : null,
+        dts: branch.dts
+          ? resolve(cwd, branch.dts)
+          : (branch.runtime
+              ? tryResolveDtsSync(branch.runtime, cwd)
+              : null),
       })
     }
     return
@@ -273,7 +320,9 @@ function resolveExportsFieldSync(
     if (key.includes('*'))
       continue
 
-    const subpath = key.startsWith('.') ? key : `./${key}`
+    const subpath = key.startsWith('.')
+      ? key
+      : `./${key}`
     resolveExportsFieldSync(value, cwd, entries, subpath)
   }
 }

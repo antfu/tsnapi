@@ -53,7 +53,11 @@ export function resolveWorkspacePackages(cwd: string): string[] {
     // name — tinyglobby's `expandDirectories` turns that into `<dir>/**` too)
     // would otherwise walk into every package's own `node_modules`, and any
     // nested/hoisted dependency in there has a `package.json` of its own.
-    const matches = globSync(pattern, { cwd, onlyDirectories: true, ignore: ['**/node_modules/**'] })
+    const matches = globSync(pattern, {
+      cwd,
+      onlyDirectories: true,
+      ignore: ['**/node_modules/**'],
+    })
     for (const match of matches) {
       const abs = resolve(cwd, match)
       if (existsSync(join(abs, 'package.json')))
@@ -79,7 +83,11 @@ export function discoverPackages(cwd: string): string[] {
       return dirs
   }
   // Single-package repo (or an empty workspace): fall back to cwd itself.
-  return existsSync(join(cwd, 'package.json')) ? [resolve(cwd)] : []
+  return existsSync(join(cwd, 'package.json'))
+    ? [
+        resolve(cwd),
+      ]
+    : []
 }
 
 /**
@@ -102,7 +110,9 @@ export function readWorkspacePatterns(cwd: string): string[] {
   if (existsSync(pkgPath)) {
     try {
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
-      const workspaces = Array.isArray(pkg.workspaces) ? pkg.workspaces : pkg.workspaces?.packages
+      const workspaces = Array.isArray(pkg.workspaces)
+        ? pkg.workspaces
+        : pkg.workspaces?.packages
       if (Array.isArray(workspaces))
         return workspaces
     }

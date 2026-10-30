@@ -101,7 +101,9 @@ export function snapshotApiPerEntry(cwd: string, options?: SnapshotApiOptions): 
   }
 
   for (const entry of entries) {
-    const stem = entry.name === '.' ? 'index' : entry.name.replace(/^\.\//, '')
+    const stem = entry.name === '.'
+      ? 'index'
+      : entry.name.replace(/^\.\//, '')
 
     it(`runtime: ${entry.name}`, async () => {
       const snapshot = (await getApi())[entry.name]
@@ -151,8 +153,12 @@ export async function guardBreakingSnapshot(options: {
   if (!updating || allowBreaking || existing == null)
     return
 
-  const before = surface === 'runtime' ? { runtime: existing, dts: '' } : { runtime: '', dts: existing }
-  const after = surface === 'runtime' ? { runtime: current, dts: '' } : { runtime: '', dts: current }
+  const before = surface === 'runtime'
+    ? { runtime: existing, dts: '' }
+    : { runtime: '', dts: existing }
+  const after = surface === 'runtime'
+    ? { runtime: current, dts: '' }
+    : { runtime: '', dts: current }
   const change = await analyzeApiChanges(entryName, before, after)
   if (isBreakingChange(change))
     throw new Error(formatBreakingChanges([change]))
@@ -174,11 +180,20 @@ async function guardBreakingUpdate(
   const testPath = expect.getState().testPath
   let existing: string | null = null
   if (testPath) {
-    const existingPath = isAbsolute(file) ? file : resolve(dirname(testPath), file)
+    const existingPath = isAbsolute(file)
+      ? file
+      : resolve(dirname(testPath), file)
     if (existsSync(existingPath))
       existing = readFileSync(existingPath, 'utf-8')
   }
-  await guardBreakingSnapshot({ entryName, surface, current, existing, updating: isUpdatingSnapshots(), allowBreaking })
+  await guardBreakingSnapshot({
+    entryName,
+    surface,
+    current,
+    existing,
+    updating: isUpdatingSnapshots(),
+    allowBreaking,
+  })
 }
 
 /**
@@ -204,7 +219,13 @@ export function describePackagesApiSnapshots(options?: DescribePackagesApiSnapsh
 
   for (const dir of dirs) {
     const pkgName = readPackageName(dir) ?? dir
-    const ctx: PackageContext = { cwd, workspaceRoot: cwd, packageRoot: dir, packageName: pkgName, outputDir: defaultOutputDir }
+    const ctx: PackageContext = {
+      cwd,
+      workspaceRoot: cwd,
+      packageRoot: dir,
+      packageName: pkgName,
+      outputDir: defaultOutputDir,
+    }
 
     if (options?.filter) {
       if (options.filter(ctx) === false)

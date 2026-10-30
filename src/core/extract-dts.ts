@@ -77,7 +77,9 @@ export async function extractDts(fileName: string, code: string, options?: impor
   }
 
   // Track imports for resolving re-exports through chunks
-  const importMap = chunkSources ? collectImportBindings(program) : new Map<string, ChunkImport>()
+  const importMap = chunkSources
+    ? collectImportBindings(program)
+    : new Map<string, ChunkImport>()
 
   for (const stmt of program.body) {
     const entriesBefore = entries.length
@@ -121,13 +123,19 @@ export async function extractDts(fileName: string, code: string, options?: impor
 function collectDtsDeclarations(stmt: any, map: Map<string, Array<{ stmt: any, decl: any }>>): void {
   const decl = stmt.declaration ?? stmt
   if (decl.type === 'TSInterfaceDeclaration' && decl.id?.name) {
-    map.set(decl.id.name, [{ stmt, decl }])
+    map.set(decl.id.name, [
+      { stmt, decl },
+    ])
   }
   else if (decl.type === 'TSTypeAliasDeclaration' && decl.id?.name) {
-    map.set(decl.id.name, [{ stmt, decl }])
+    map.set(decl.id.name, [
+      { stmt, decl },
+    ])
   }
   else if (decl.type === 'TSEnumDeclaration' && decl.id?.name) {
-    map.set(decl.id.name, [{ stmt, decl }])
+    map.set(decl.id.name, [
+      { stmt, decl },
+    ])
   }
   else if ((decl.type === 'TSDeclareFunction' || decl.type === 'FunctionDeclaration') && decl.id?.name) {
     const existing = map.get(decl.id.name)
@@ -136,21 +144,32 @@ function collectDtsDeclarations(stmt: any, map: Map<string, Array<{ stmt: any, d
       existing.push({ stmt, decl })
     }
     else {
-      map.set(decl.id.name, [{ stmt, decl }])
+      map.set(decl.id.name, [
+        { stmt, decl },
+      ])
     }
   }
   else if (decl.type === 'ClassDeclaration' && decl.id?.name) {
-    map.set(decl.id.name, [{ stmt, decl }])
+    map.set(decl.id.name, [
+      { stmt, decl },
+    ])
   }
   else if (decl.type === 'VariableDeclaration') {
     for (const declarator of decl.declarations ?? []) {
       if (declarator.id?.name) {
-        map.set(declarator.id.name, [{ stmt, decl: { ...decl, _declarator: declarator } }])
+        map.set(declarator.id.name, [
+          {
+            stmt,
+            decl: { ...decl, _declarator: declarator },
+          },
+        ])
       }
     }
   }
   else if (decl.type === 'TSModuleDeclaration' && typeof decl.id?.name === 'string') {
-    map.set(decl.id.name, [{ stmt, decl }])
+    map.set(decl.id.name, [
+      { stmt, decl },
+    ])
   }
 }
 
@@ -345,9 +364,15 @@ async function processExportNamedDeclaration(
       }
     }
     else if (decl.type === 'TSModuleDeclaration') {
-      const name = typeof decl.id?.name === 'string' ? decl.id.name : ''
+      const name = typeof decl.id?.name === 'string'
+        ? decl.id.name
+        : ''
       const expanded = expandNamespaceText(s, decl, declMap, undefined, typeWidening)
-      entries.push({ name, text: normalizeWhitespace(`export declare ${expanded}`), kind })
+      entries.push({
+        name,
+        text: normalizeWhitespace(`export declare ${expanded}`),
+        kind,
+      })
     }
   }
   else if (stmt.specifiers && stmt.specifiers.length > 0) {
@@ -369,7 +394,9 @@ async function processExportNamedDeclaration(
         || spec.exportKind === 'type'
         || s.slice(spec.start, spec.end).trimStart().startsWith('type ')
 
-      const resolved = fromChunk ? undefined : declMap.get(localName)
+      const resolved = fromChunk
+        ? undefined
+        : declMap.get(localName)
       if (resolved && resolved.length > 0) {
         for (const r of resolved) {
           const { text, kind } = extractResolvedDeclaration(s, r, exportedName, isTypeExport, typeWidening, declMap)
@@ -391,12 +418,16 @@ async function processExportNamedDeclaration(
         }
         else {
           // Fallback: just output the specifier
-          const fallbackName = fromChunk ? readableChunkLocal(stmt, localName) : localName
+          const fallbackName = fromChunk
+            ? readableChunkLocal(stmt, localName)
+            : localName
           if (exportedName === 'default') {
             entries.push({ name: '\x00default', text: `export default ${fallbackName}`, kind: 'default' })
           }
           else {
-            entries.push({ name: exportedName, text: `export { ${fallbackName === exportedName ? fallbackName : `${fallbackName} as ${exportedName}`} }`, kind: 'other' })
+            entries.push({ name: exportedName, text: `export { ${fallbackName === exportedName
+              ? fallbackName
+              : `${fallbackName} as ${exportedName}`} }`, kind: 'other' })
           }
         }
       }
@@ -441,7 +472,9 @@ async function resolveFromChunkDts(
 
   // Find the local declaration name for the chunk's exported name
   const chunkLocalName = resolveChunkExportLocalDts(program, importInfo.imported, chunkDeclMap)
-  const resolved = chunkLocalName ? chunkDeclMap.get(chunkLocalName) : undefined
+  const resolved = chunkLocalName
+    ? chunkDeclMap.get(chunkLocalName)
+    : undefined
   if (!resolved || resolved.length === 0) {
     // The chunk may forward the binding from yet another chunk
     const forward = findChunkForward(program, importInfo.imported, chunk.key)
@@ -514,7 +547,10 @@ function extractResolvedDeclaration(
     const text = exportedName !== (decl.id?.name ?? '')
       ? body.replace(decl.id.name, exportedName)
       : body
-    return { text: normalizeWhitespace(`export ${text}`), kind }
+    return {
+      text: normalizeWhitespace(`export ${text}`),
+      kind,
+    }
   }
 
   if (decl.type === 'TSTypeAliasDeclaration') {
@@ -522,7 +558,10 @@ function extractResolvedDeclaration(
     const text = exportedName !== (decl.id?.name ?? '')
       ? body.replace(decl.id.name, exportedName)
       : body
-    return { text: normalizeWhitespace(`export ${text}`), kind }
+    return {
+      text: normalizeWhitespace(`export ${text}`),
+      kind,
+    }
   }
 
   if (decl.type === 'TSEnumDeclaration') {
@@ -530,7 +569,10 @@ function extractResolvedDeclaration(
     const text = exportedName !== (decl.id?.name ?? '')
       ? body.replace(decl.id.name, exportedName)
       : body
-    return { text: normalizeWhitespace(`export ${text}`), kind }
+    return {
+      text: normalizeWhitespace(`export ${text}`),
+      kind,
+    }
   }
 
   if (decl.type === 'TSDeclareFunction' || decl.type === 'FunctionDeclaration') {
@@ -538,8 +580,13 @@ function extractResolvedDeclaration(
     if (exportedName !== (decl.id?.name ?? '')) {
       text = text.replace(decl.id.name, exportedName)
     }
-    const prefix = text.trimStart().startsWith('declare') ? 'export ' : 'export declare '
-    return { text: normalizeWhitespace(`${prefix}${text.trimStart()}`), kind }
+    const prefix = text.trimStart().startsWith('declare')
+      ? 'export '
+      : 'export declare '
+    return {
+      text: normalizeWhitespace(`${prefix}${text.trimStart()}`),
+      kind,
+    }
   }
 
   if (decl.type === 'ClassDeclaration') {
@@ -547,19 +594,30 @@ function extractResolvedDeclaration(
     const text = exportedName !== (decl.id?.name ?? '')
       ? body.replace(decl.id.name, exportedName)
       : body
-    const prefix = text.trimStart().startsWith('declare') ? 'export ' : 'export declare '
-    return { text: normalizeWhitespace(`${prefix}${text.trimStart()}`), kind }
+    const prefix = text.trimStart().startsWith('declare')
+      ? 'export '
+      : 'export declare '
+    return {
+      text: normalizeWhitespace(`${prefix}${text.trimStart()}`),
+      kind,
+    }
   }
 
   if (decl.type === 'TSModuleDeclaration') {
     const expanded = expandNamespaceText(s, decl, declMap ?? new Map(), exportedName, typeWidening)
-    return { text: normalizeWhitespace(`export declare ${expanded}`), kind }
+    return {
+      text: normalizeWhitespace(`export declare ${expanded}`),
+      kind,
+    }
   }
 
   if (decl.type === 'VariableDeclaration') {
     const declarator = decl._declarator ?? decl.declarations?.[0]
     if (declarator) {
-      return { text: widenVariableDecl(s, decl, declarator, 'export ', exportedName, typeWidening), kind }
+      return {
+        text: widenVariableDecl(s, decl, declarator, 'export ', exportedName, typeWidening),
+        kind,
+      }
     }
   }
 
@@ -577,7 +635,9 @@ function indentLines(text: string, spaces: number): string {
   const pad = ' '.repeat(spaces)
   return text
     .split('\n')
-    .map(line => (line === '' ? line : pad + line))
+    .map(line => (line === ''
+      ? line
+      : pad + line))
     .join('\n')
 }
 
@@ -587,7 +647,9 @@ function indentLines(text: string, spaces: number): string {
  */
 function declarationName(stmt: any): string | undefined {
   const decl = stmt.declaration ?? stmt
-  return typeof decl?.id?.name === 'string' ? decl.id.name : undefined
+  return typeof decl?.id?.name === 'string'
+    ? decl.id.name
+    : undefined
 }
 
 /**
@@ -609,7 +671,9 @@ function expandNamespaceText(
   nameOverride?: string,
   typeWidening = true,
 ): string {
-  const originalName = typeof moduleDecl.id?.name === 'string' ? moduleDecl.id.name : ''
+  const originalName = typeof moduleDecl.id?.name === 'string'
+    ? moduleDecl.id.name
+    : ''
   const name = nameOverride ?? originalName
   const block = moduleDecl.body
 
@@ -649,7 +713,9 @@ function expandNamespaceText(
     members.push(...renderNamespaceMembers(s, stmt, declMap, localMap, consumedLocal, typeWidening))
 
   const body = members.map(m => indentLines(m, 2)).join('\n')
-  return body ? `namespace ${name} {\n${body}\n}` : `namespace ${name} {}`
+  return body
+    ? `namespace ${name} {\n${body}\n}`
+    : `namespace ${name} {}`
 }
 
 /**
@@ -671,7 +737,9 @@ function renderNamespaceMembers(
         return (decl.declarations ?? []).map((declarator: any) =>
           renderNamespaceMember(s, decl, declMap, undefined, true, typeWidening, declarator))
       }
-      return [renderNamespaceMember(s, decl, declMap, undefined, true, typeWidening)]
+      return [
+        renderNamespaceMember(s, decl, declMap, undefined, true, typeWidening),
+      ]
     }
     // `export { a, b as c }` — resolve each specifier to its declaration.
     if (stmt.specifiers && !stmt.source) {
@@ -686,15 +754,20 @@ function renderNamespaceMembers(
             out.push(renderNamespaceMember(s, r.decl, declMap, exportedName, true, typeWidening, r.decl._declarator, isTypeExport))
         }
         else {
-          const clause = localName === exportedName ? localName : `${localName} as ${exportedName}`
+          const clause = localName === exportedName
+            ? localName
+            : `${localName} as ${exportedName}`
           out.push(`export { ${isTypeExport ? 'type ' : ''}${clause} };`)
         }
       }
       return out
     }
     // `export { x } from './y'` — cannot resolve locally, keep verbatim.
-    if (stmt.source)
-      return [s.slice(stmt.start, stmt.end).trim()]
+    if (stmt.source) {
+      return [
+        s.slice(stmt.start, stmt.end).trim(),
+      ]
+    }
     return []
   }
 
@@ -703,9 +776,14 @@ function renderNamespaceMembers(
   const declName = declarationName(stmt)
   if (declName && consumedLocal.has(declName))
     return []
-  if (stmt.type === 'TSModuleDeclaration')
-    return [renderNamespaceMember(s, stmt, declMap, undefined, false, typeWidening)]
-  return [s.slice(stmt.start, stmt.end).trim()]
+  if (stmt.type === 'TSModuleDeclaration') {
+    return [
+      renderNamespaceMember(s, stmt, declMap, undefined, false, typeWidening),
+    ]
+  }
+  return [
+    s.slice(stmt.start, stmt.end).trim(),
+  ]
 }
 
 /**
@@ -730,7 +808,12 @@ function renderNamespaceMember(
     return `${prefix}${expandNamespaceText(s, decl, declMap, nameOverride, typeWidening)}`
 
   const effectiveName = nameOverride ?? decl.id?.name ?? declarator?.id?.name ?? ''
-  const wrapped = { stmt: decl, decl: declarator ? { ...decl, _declarator: declarator } : decl }
+  const wrapped = {
+    stmt: decl,
+    decl: declarator
+      ? { ...decl, _declarator: declarator }
+      : decl,
+  }
   const { text } = extractResolvedDeclaration(s, wrapped, effectiveName, isTypeExport, typeWidening, declMap)
   const memberText = text.replace(RE_EXPORT_PREFIX, '').replace(/^declare\s+/, '')
   return `${prefix}${memberText}`
@@ -802,7 +885,9 @@ function widenLiteral(init: any, s: MagicString): string | null {
   if (init.type === 'TemplateLiteral')
     return 'string'
   if (init.type === 'UnaryExpression' && init.operator === '-' && init.argument?.type === 'Literal') {
-    return typeof init.argument.value === 'number' ? 'number' : 'bigint'
+    return typeof init.argument.value === 'number'
+      ? 'number'
+      : 'bigint'
   }
   if (init.type === 'ArrayExpression')
     return `${widenArrayElements(init, s)}[]`
