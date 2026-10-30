@@ -45,7 +45,12 @@ describe('hasArgvFlag', () => {
   })
 
   it('matches among other flags', () => {
-    expect(hasArgvFlag(['--verbose', '--update-snapshot', '--format', 'json'], '--update-snapshot')).toBe(true)
+    expect(hasArgvFlag([
+      '--verbose',
+      '--update-snapshot',
+      '--format',
+      'json',
+    ], '--update-snapshot')).toBe(true)
     expect(hasArgvFlag(['--verbose', '-u', '--format', 'json'], '--update-snapshot', '-u')).toBe(true)
   })
 

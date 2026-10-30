@@ -29,7 +29,10 @@ const preview: Preview = {
       const dark = context.globals.theme !== 'light'
       document.documentElement.classList.toggle('dark', dark)
       document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-      return { components: { story }, template: '<story />' }
+      return {
+        components: { story },
+        template: '<story />',
+      }
     },
   ],
 }

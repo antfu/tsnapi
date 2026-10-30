@@ -63,7 +63,14 @@ export function computeDiffRows(before: string, after: string): DiffRow[] {
     }
     else {
       for (const text of lines) {
-        rows.push({ kind: 'context', oldNo, newNo, oldIndex, newIndex, text })
+        rows.push({
+          kind: 'context',
+          oldNo,
+          newNo,
+          oldIndex,
+          newIndex,
+          text,
+        })
         oldNo++
         newNo++
         oldIndex++

@@ -11,13 +11,20 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const packages = [samplePackage, noSnapshotPackage, { ...samplePackage, name: '@scope/pkg-c', dir: 'packages/pkg-c' }]
+const packages = [
+  samplePackage,
+  noSnapshotPackage,
+  { ...samplePackage, name: '@scope/pkg-c', dir: 'packages/pkg-c' },
+]
 
 /** Every package visible (the default) — no count badge on the trigger. */
 export const AllVisible: Story = {
   render: () => ({
     components: { PackagesFilter },
-    setup: () => ({ packages, model: ref(new Set<string>()) }),
+    setup: () => ({
+      packages,
+      model: ref(new Set<string>()),
+    }),
     template: `<div class="p-4"><PackagesFilter v-model="model" :packages="packages" /></div>`,
   }),
 }
@@ -26,7 +33,10 @@ export const AllVisible: Story = {
 export const SomeHidden: Story = {
   render: () => ({
     components: { PackagesFilter },
-    setup: () => ({ packages, model: ref(new Set(['@scope/no-snapshot'])) }),
+    setup: () => ({
+      packages,
+      model: ref(new Set(['@scope/no-snapshot'])),
+    }),
     template: `<div class="p-4"><PackagesFilter v-model="model" :packages="packages" /></div>`,
   }),
 }

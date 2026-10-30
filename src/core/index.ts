@@ -58,7 +58,12 @@ function resolveOptions(options?: ApiSnapshotOptions): {
   }
   const update = resolveUpdateMode(options?.update)
   const allowBreaking = resolveAllowBreaking(options?.allowBreaking)
-  return { outputDir, ext, update, allowBreaking }
+  return {
+    outputDir,
+    ext,
+    update,
+    allowBreaking,
+  }
 }
 
 export function resolveUpdateMode(explicit?: boolean): boolean {
@@ -179,7 +184,9 @@ function createChunkSourceLoader(root: string): (entryFile: string) => Promise<C
         runtime.set(prefix + name, code)
       for (const [name, code] of chunks.dts)
         dts.set(prefix + name, code)
-      prefix = prefix === './' ? '../' : `../${prefix}`
+      prefix = prefix === './'
+        ? '../'
+        : `../${prefix}`
     }
     return { runtime, dts }
   }
@@ -210,7 +217,12 @@ function createChunkSourceLoader(root: string): (entryFile: string) => Promise<C
 export async function generateApiSnapshot(cwd: string, options?: ApiSnapshotOptions): Promise<Record<string, { runtime: string, dts: string }>> {
   const entries = await resolvePackageEntries(cwd)
   const result: Record<string, { runtime: string, dts: string }> = {}
-  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports, referenceTracingDepth: options?.referenceTracingDepth }
+  const extractOptions = {
+    omitArgumentNames: options?.omitArgumentNames,
+    typeWidening: options?.typeWidening,
+    categorizedExports: options?.categorizedExports,
+    referenceTracingDepth: options?.referenceTracingDepth,
+  }
   const showHeader = options?.header ?? true
   const packageName = await readPackageName(cwd)
   const hooks = createEntryHooks(packageName, options)
@@ -220,12 +232,22 @@ export async function generateApiSnapshot(cwd: string, options?: ApiSnapshotOpti
     if (!hooks.includeEntry(entry.name))
       continue
     const runtime = entry.runtime
-      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.runtime)).runtime, transformEntries: hooks.transformEntriesFor(entry.name, 'runtime') })
+      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), {
+          ...extractOptions,
+          chunkSources: (await chunkSourcesFor(entry.runtime)).runtime,
+          transformEntries: hooks.transformEntriesFor(entry.name, 'runtime'),
+        })
       : ''
     const dts = entry.dts
-      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.dts)).dts, transformEntries: hooks.transformEntriesFor(entry.name, 'dts') })
+      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), {
+          ...extractOptions,
+          chunkSources: (await chunkSourcesFor(entry.dts)).dts,
+          transformEntries: hooks.transformEntriesFor(entry.name, 'dts'),
+        })
       : ''
-    const prefix = showHeader ? generateHeader(packageName, entry.name) : ''
+    const prefix = showHeader
+      ? generateHeader(packageName, entry.name)
+      : ''
     result[entry.name] = {
       runtime: prefix + hooks.transformSnapshot(entry.name, 'runtime', runtime.trim() || '/* no exports */'),
       dts: prefix + hooks.transformSnapshot(entry.name, 'dts', dts.trim() || '/* no exports */'),
@@ -253,8 +275,12 @@ export async function snapshotFiles(
 ): Promise<SnapshotResult> {
   const entries: ResolvedEntry[] = files.map(f => ({
     name: f.name,
-    runtime: f.runtime ? resolve(cwd, f.runtime) : null,
-    dts: f.dts ? resolve(cwd, f.dts) : null,
+    runtime: f.runtime
+      ? resolve(cwd, f.runtime)
+      : null,
+    dts: f.dts
+      ? resolve(cwd, f.dts)
+      : null,
   }))
   return snapshotEntries(entries, cwd, options)
 }
@@ -266,7 +292,12 @@ async function snapshotEntries(
 ): Promise<SnapshotResult> {
   const { outputDir, ext, update, allowBreaking } = resolveOptions(options)
   const resolvedOutputDir = resolve(cwd, outputDir)
-  const extractOptions = { omitArgumentNames: options?.omitArgumentNames, typeWidening: options?.typeWidening, categorizedExports: options?.categorizedExports, referenceTracingDepth: options?.referenceTracingDepth }
+  const extractOptions = {
+    omitArgumentNames: options?.omitArgumentNames,
+    typeWidening: options?.typeWidening,
+    categorizedExports: options?.categorizedExports,
+    referenceTracingDepth: options?.referenceTracingDepth,
+  }
   const showHeader = options?.header ?? true
   const packageName = await readPackageName(cwd)
   const hooks = createEntryHooks(packageName, options)
@@ -282,13 +313,23 @@ async function snapshotEntries(
     const stem = entryNameToStem(entry.name)
 
     const runtime = entry.runtime
-      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.runtime)).runtime, transformEntries: hooks.transformEntriesFor(entry.name, 'runtime') })
+      ? await extractRuntime(entry.runtime, await readFile(entry.runtime, 'utf-8'), {
+          ...extractOptions,
+          chunkSources: (await chunkSourcesFor(entry.runtime)).runtime,
+          transformEntries: hooks.transformEntriesFor(entry.name, 'runtime'),
+        })
       : ''
     const dts = entry.dts
-      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), { ...extractOptions, chunkSources: (await chunkSourcesFor(entry.dts)).dts, transformEntries: hooks.transformEntriesFor(entry.name, 'dts') })
+      ? await extractDts(entry.dts, await readFile(entry.dts, 'utf-8'), {
+          ...extractOptions,
+          chunkSources: (await chunkSourcesFor(entry.dts)).dts,
+          transformEntries: hooks.transformEntriesFor(entry.name, 'dts'),
+        })
       : ''
 
-    const header = showHeader ? generateHeader(packageName, entry.name) : undefined
+    const header = showHeader
+      ? generateHeader(packageName, entry.name)
+      : undefined
     const current = {
       runtime: hooks.transformSnapshot(entry.name, 'runtime', runtime),
       dts: hooks.transformSnapshot(entry.name, 'dts', dts),
@@ -331,7 +372,12 @@ async function snapshotEntries(
       ? formatMismatchError(allMismatchDetails, outputDir, ext)
       : null
 
-  return { hasChanges, mismatches, diff: diffOutput, breaking }
+  return {
+    hasChanges,
+    mismatches,
+    diff: diffOutput,
+    breaking,
+  }
 }
 
 /**

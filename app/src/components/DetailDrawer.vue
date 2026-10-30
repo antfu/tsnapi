@@ -16,7 +16,9 @@ import EntryItem from './EntryItem.vue'
 const props = defineProps<{ datum: TreeDatum | null, isDiff: boolean }>()
 const emit = defineEmits<{ close: [], selectMember: [member: MemberNode] }>()
 
-const member = computed(() => (props.datum?.type === 'member' ? props.datum.member ?? null : null))
+const member = computed(() => (props.datum?.type === 'member'
+  ? props.datum.member ?? null
+  : null))
 
 interface SurfaceView {
   surface: 'dts' | 'runtime'
@@ -35,13 +37,22 @@ const surfaces = computed<SurfaceView[]>(() => {
     return []
 
   const result: SurfaceView[] = []
-  for (const [surface, label] of [['dts', 'Type (.d.ts)'], ['runtime', 'Runtime (.js)']] as const) {
+  for (const [surface, label] of [
+    ['dts', 'Type (.d.ts)'],
+    ['runtime', 'Runtime (.js)'],
+  ] as const) {
     const before = (m.base?.[surface] ?? '').trim()
     const after = (m.current?.[surface] ?? '').trim()
     if (!before && !after)
       continue
     const changed = props.isDiff && !!before && !!after && before !== after
-    result.push({ surface, label, changed, before, after })
+    result.push({
+      surface,
+      label,
+      changed,
+      before,
+      after,
+    })
   }
   return result
 })
@@ -57,7 +68,12 @@ const packageSummary = computed<{ title: string, sub?: string, note?: string, co
     'no-snapshot': 'no committed snapshot at this ref',
     'ok': '',
   }
-  return { title: d.label, sub: d.pkg.dir, note: notes[d.pkg.status], counts: d.pkg.counts }
+  return {
+    title: d.label,
+    sub: d.pkg.dir,
+    note: notes[d.pkg.status],
+    counts: d.pkg.counts,
+  }
 })
 
 // Entry / group selection: when diffing, reuse ChangeGroupList (same
@@ -75,7 +91,14 @@ const entrySummary = computed<{ title: string, sub: string, members: MemberNode[
     node.children?.forEach(walk)
   }
   walk(d)
-  return { title: d.label, sub: d.type === 'group' ? 'kind group' : 'entry', members, hasChanges: members.some(m => m.status !== 'unchanged') }
+  return {
+    title: d.label,
+    sub: d.type === 'group'
+      ? 'kind group'
+      : 'entry',
+    members,
+    hasChanges: members.some(m => m.status !== 'unchanged'),
+  }
 })
 
 const summary = computed(() => packageSummary.value ?? entrySummary.value)

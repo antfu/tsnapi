@@ -109,9 +109,20 @@ export const STATUS_HEX: Record<DiffStatus, string | false> = {
   unchanged: false,
 }
 
-export const ALL_STATUSES: DiffStatus[] = ['added', 'removed', 'modified', 'widened', 'unchanged']
+export const ALL_STATUSES: DiffStatus[] = [
+  'added',
+  'removed',
+  'modified',
+  'widened',
+  'unchanged',
+]
 /** Display order for grouping changes by type: removed, then narrowed, widened, added. */
-export const CHANGED_STATUSES: DiffStatus[] = ['removed', 'modified', 'widened', 'added']
+export const CHANGED_STATUSES: DiffStatus[] = [
+  'removed',
+  'modified',
+  'widened',
+  'added',
+]
 
 /** Which snapshot surface(s) an export appears in. */
 export type MemberSource = 'runtime' | 'dts' | 'both' | 'none'

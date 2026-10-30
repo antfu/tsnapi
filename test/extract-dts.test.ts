@@ -187,7 +187,9 @@ declare function formatMismatchError(mismatches: SnapshotMismatch[]): string;
 export { SnapshotFile as a, formatMismatchError as c };
 `
     const result = await extractDts('index.d.mts', entryCode, {
-      chunkSources: new Map([['./index-abc123.d.mts', chunkCode]]),
+      chunkSources: new Map([
+        ['./index-abc123.d.mts', chunkCode],
+      ]),
     })
     expect(result).toMatchInlineSnapshot(`
       "// #region Interfaces
@@ -217,7 +219,9 @@ interface SnapshotFile {
 export { SnapshotFile as a };
 `
     const result = await extractDts('src/index.d.mts', entryCode, {
-      chunkSources: new Map([['./engine-abc123.d.mts', chunkCode]]),
+      chunkSources: new Map([
+        ['./engine-abc123.d.mts', chunkCode],
+      ]),
     })
     expect(result).toMatchInlineSnapshot(`
       "// #region Interfaces
@@ -244,7 +248,9 @@ declare function createShared(options?: SharedOptions): void;
 export { SharedOptions as i, createShared as t };
 `
     const result = await extractDts('node/index.d.mts', entryCode, {
-      chunkSources: new Map([['../shared-abc123.mjs', chunkCode]]),
+      chunkSources: new Map([
+        ['../shared-abc123.mjs', chunkCode],
+      ]),
     })
     expect(result).toMatchInlineSnapshot(`
       "// #region Interfaces
@@ -667,7 +673,9 @@ declare function formatMismatchError(message: string): string;
 export { formatMismatchError as c };
 `
     const result = await extractDts('index.d.mts', entryCode, {
-      chunkSources: new Map([['./index-abc123.d.mts', chunkCode]]),
+      chunkSources: new Map([
+        ['./index-abc123.d.mts', chunkCode],
+      ]),
     })
     expect(result).toMatchInlineSnapshot(`
       "// #region Functions

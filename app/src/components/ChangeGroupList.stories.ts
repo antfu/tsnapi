@@ -27,7 +27,9 @@ export const Default: Story = {
 export const NoChanges: Story = {
   render: () => ({
     components: { ChangeGroupList },
-    setup: () => ({ members: sampleMembers.filter(m => m.status === 'unchanged') }),
+    setup: () => ({
+      members: sampleMembers.filter(m => m.status === 'unchanged'),
+    }),
     template: `<div class="w-72 border border-base rounded p-1"><ChangeGroupList :members="members" /></div>`,
   }),
 }
