@@ -1,7 +1,8 @@
+import type { ChunkImport } from './extract-runtime.ts'
 import type { Entry, EntryKind } from './kind.ts'
 import MagicString from 'magic-string'
 import { parse } from 'oxc-parser'
-import { applyDeprecated, collectDeprecatedStarts, resolveChunkSource } from './extract-runtime.ts'
+import { applyDeprecated, collectDeprecatedStarts, collectImportBindings, findChunkForward, isChunkReExport, lookupChunk, MAX_CHUNK_DEPTH, readableChunkLocal } from './extract-runtime.ts'
 import { formatGroupedEntries } from './kind.ts'
 
 /**
@@ -76,28 +77,7 @@ export async function extractDts(fileName: string, code: string, options?: impor
   }
 
   // Track imports for resolving re-exports through chunks
-  const importMap = new Map<string, { source: string, imported: string }>()
-  if (chunkSources) {
-    for (const stmt of program.body) {
-      if (stmt.type === 'ImportDeclaration' && (stmt as any).source) {
-        const source = (stmt as any).source.value as string
-        for (const spec of (stmt as any).specifiers ?? []) {
-          if (spec.type === 'ImportSpecifier') {
-            importMap.set(
-              getExportName(spec.local),
-              { source, imported: getExportName(spec.imported) },
-            )
-          }
-          else if (spec.type === 'ImportDefaultSpecifier') {
-            importMap.set(
-              getExportName(spec.local),
-              { source, imported: 'default' },
-            )
-          }
-        }
-      }
-    }
-  }
+  const importMap = chunkSources ? collectImportBindings(program) : new Map<string, ChunkImport>()
 
   for (const stmt of program.body) {
     const entriesBefore = entries.length
@@ -321,7 +301,7 @@ async function processExportNamedDeclaration(
   s: MagicString,
   entries: Entry[],
   declMap: Map<string, Array<{ stmt: any, decl: any }>>,
-  importMap: Map<string, { source: string, imported: string }>,
+  importMap: Map<string, ChunkImport>,
   deprecatedStarts: Set<number>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
@@ -371,7 +351,8 @@ async function processExportNamedDeclaration(
     }
   }
   else if (stmt.specifiers && stmt.specifiers.length > 0) {
-    if (stmt.source) {
+    const fromChunk = isChunkReExport(stmt, chunkSources)
+    if (stmt.source && !fromChunk) {
       // Re-export from another module: export { foo } from '...'
       const text = normalizeWhitespace(s.slice(stmt.start, stmt.end))
       const firstName = getExportName(stmt.specifiers[0]?.exported)
@@ -379,14 +360,16 @@ async function processExportNamedDeclaration(
       entries.push({ name: firstName, text, kind: 're-export' })
       return
     }
-    // Handle `export { A, type B }` — resolve each specifier to its declaration
+    // Handle `export { A, type B }` and chunk re-exports `export { t as A } from './chunk.mjs'`
+    // — resolve each specifier to its declaration
     for (const spec of stmt.specifiers) {
       const localName = getExportName(spec.local)
       const exportedName = getExportName(spec.exported) || localName
-      const isTypeExport = spec.exportKind === 'type'
+      const isTypeExport = stmt.exportKind === 'type'
+        || spec.exportKind === 'type'
         || s.slice(spec.start, spec.end).trimStart().startsWith('type ')
 
-      const resolved = declMap.get(localName)
+      const resolved = fromChunk ? undefined : declMap.get(localName)
       if (resolved && resolved.length > 0) {
         for (const r of resolved) {
           const { text, kind } = extractResolvedDeclaration(s, r, exportedName, isTypeExport, typeWidening, declMap)
@@ -399,17 +382,21 @@ async function processExportNamedDeclaration(
       }
       else {
         // Try resolving through imports into chunk files
-        const chunkResolved = await resolveFromChunkDts(localName, exportedName, isTypeExport, importMap, chunkSources, omitArgs, typeWidening)
+        const importInfo = fromChunk
+          ? { source: stmt.source.value as string, imported: localName }
+          : importMap.get(localName)
+        const chunkResolved = importInfo && await resolveFromChunkDts(importInfo, exportedName, isTypeExport, chunkSources, omitArgs, typeWidening)
         if (chunkResolved) {
           entries.push(...chunkResolved)
         }
         else {
           // Fallback: just output the specifier
+          const fallbackName = fromChunk ? readableChunkLocal(stmt, localName) : localName
           if (exportedName === 'default') {
-            entries.push({ name: '\x00default', text: `export default ${localName}`, kind: 'default' })
+            entries.push({ name: '\x00default', text: `export default ${fallbackName}`, kind: 'default' })
           }
           else {
-            entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }`, kind: 'other' })
+            entries.push({ name: exportedName, text: `export { ${fallbackName === exportedName ? fallbackName : `${fallbackName} as ${exportedName}`} }`, kind: 'other' })
           }
         }
       }
@@ -419,30 +406,28 @@ async function processExportNamedDeclaration(
 
 /**
  * Resolve an import binding through a chunk DTS file to get the expanded declaration.
+ * Follows chunk-to-chunk forwarding up to {@link MAX_CHUNK_DEPTH} hops.
  */
 async function resolveFromChunkDts(
-  localName: string,
+  importInfo: ChunkImport,
   exportedName: string,
   isTypeExport: boolean,
-  importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
   typeWidening = true,
+  depth = 0,
 ): Promise<Entry[] | undefined> {
-  if (!chunkSources)
+  if (!chunkSources || depth > MAX_CHUNK_DEPTH)
     return undefined
-  const importInfo = importMap.get(localName)
-  if (!importInfo)
-    return undefined
-  const chunkCode = resolveChunkSource(chunkSources, importInfo.source)
-  if (!chunkCode)
+  const chunk = lookupChunk(chunkSources, importInfo.source)
+  if (!chunk)
     return undefined
 
   // Use .d.mts extension for parsing since the code is TypeScript DTS
   // (import source paths may use .mjs but the actual chunk code is .d.mts)
-  const parseFileName = importInfo.source.replace(RE_MJS_EXT, '.d.mts')
-  const { program, comments: chunkComments } = await parse(parseFileName, chunkCode)
-  const chunkS = new MagicString(chunkCode)
+  const parseFileName = chunk.key.replace(RE_MJS_EXT, '.d.mts')
+  const { program, comments: chunkComments } = await parse(parseFileName, chunk.code)
+  const chunkS = new MagicString(chunk.code)
   for (const c of chunkComments)
     chunkS.remove(c.start, c.end)
   if (omitArgs) {
@@ -456,12 +441,12 @@ async function resolveFromChunkDts(
 
   // Find the local declaration name for the chunk's exported name
   const chunkLocalName = resolveChunkExportLocalDts(program, importInfo.imported, chunkDeclMap)
-  if (!chunkLocalName)
-    return undefined
-
-  const resolved = chunkDeclMap.get(chunkLocalName)
-  if (!resolved || resolved.length === 0)
-    return undefined
+  const resolved = chunkLocalName ? chunkDeclMap.get(chunkLocalName) : undefined
+  if (!resolved || resolved.length === 0) {
+    // The chunk may forward the binding from yet another chunk
+    const forward = findChunkForward(program, importInfo.imported, chunk.key)
+    return forward && resolveFromChunkDts(forward, exportedName, isTypeExport, chunkSources, omitArgs, typeWidening, depth + 1)
+  }
 
   return resolved.map((r) => {
     const { text, kind } = extractResolvedDeclaration(chunkS, r, exportedName, isTypeExport, typeWidening, chunkDeclMap)

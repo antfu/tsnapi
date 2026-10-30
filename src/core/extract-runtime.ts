@@ -1,4 +1,5 @@
 import type { Entry, EntryKind } from './kind.ts'
+import { posix } from 'node:path'
 import MagicString from 'magic-string'
 import { parse } from 'oxc-parser'
 import { formatGroupedEntries } from './kind.ts'
@@ -11,15 +12,118 @@ import { formatGroupedEntries } from './kind.ts'
  * so the literal lookup misses. Fall back to matching by basename, which is unambiguous
  * since chunk filenames are content-hashed and unique. Without this, re-exported
  * declarations from shared chunks collapse to a bare `export { name }` with no signature.
+ *
+ * Only relative sources are considered: bare specifiers point at real packages, never
+ * at chunks, and must not be matched by basename.
  */
 export function resolveChunkSource(chunkSources: Map<string, string>, source: string): string | undefined {
+  return lookupChunk(chunkSources, source)?.code
+}
+
+/**
+ * Like {@link resolveChunkSource}, but also returns the key the chunk was found under,
+ * so imports inside that chunk can be resolved relative to its location.
+ */
+export function lookupChunk(chunkSources: Map<string, string>, source: string): { key: string, code: string } | undefined {
+  if (!source.startsWith('.'))
+    return undefined
   const direct = chunkSources.get(source)
   if (direct !== undefined)
-    return direct
+    return { key: source, code: direct }
   const base = source.split('/').pop()
   for (const [key, value] of chunkSources) {
     if (key.split('/').pop() === base)
-      return value
+      return { key, code: value }
+  }
+  return undefined
+}
+
+/** A binding imported from (or re-exported through) another module. */
+export interface ChunkImport {
+  source: string
+  imported: string
+}
+
+/** Maximum number of chunk-to-chunk hops followed when resolving a binding. */
+export const MAX_CHUNK_DEPTH = 8
+
+/**
+ * Resolve `source`, as written inside the chunk stored under `fromKey`, to a key in
+ * the same `./`/`../`-relative space as the chunk source map.
+ */
+export function joinChunkSource(fromKey: string, source: string): string {
+  if (!source.startsWith('.'))
+    return source
+  const joined = posix.join(posix.dirname(fromKey), source)
+  return joined.startsWith('.') ? joined : `./${joined}`
+}
+
+/**
+ * Map every local binding introduced by an `import` statement to its source and
+ * imported name.
+ */
+export function collectImportBindings(program: any): Map<string, ChunkImport> {
+  const importMap = new Map<string, ChunkImport>()
+  for (const stmt of program.body) {
+    if (stmt.type !== 'ImportDeclaration' || !stmt.source)
+      continue
+    const source = stmt.source.value as string
+    for (const spec of stmt.specifiers ?? []) {
+      if (spec.type === 'ImportSpecifier')
+        importMap.set(getExportName(spec.local), { source, imported: getExportName(spec.imported) })
+      else if (spec.type === 'ImportDefaultSpecifier')
+        importMap.set(getExportName(spec.local), { source, imported: 'default' })
+    }
+  }
+  return importMap
+}
+
+/**
+ * Whether an `export { ... } from '<source>'` statement points into a known chunk,
+ * in which case its specifiers are resolved like `import` + local `export { ... }`
+ * (rolldown >= 1.2.13 emits `export { t as foo } from "./chunk.mjs"` for entries).
+ * Re-exports from real packages stay as raw re-export entries.
+ */
+export function isChunkReExport(stmt: any, chunkSources?: Map<string, string>): boolean {
+  return !!(stmt.source && chunkSources && lookupChunk(chunkSources, stmt.source.value) !== undefined)
+}
+
+/**
+ * Pick a readable name for a chunk binding that couldn't be resolved: chunk exports
+ * are mangled (`t`, `n`, ...), so prefer a public name the same statement exports it as.
+ */
+export function readableChunkLocal(stmt: any, localName: string): string {
+  for (const spec of stmt.specifiers ?? []) {
+    const exported = getExportName(spec.exported)
+    if (getExportName(spec.local) === localName && exported && exported !== 'default')
+      return exported
+  }
+  return localName
+}
+
+/**
+ * When a chunk doesn't declare `importedName` itself but forwards it from another
+ * module (`export { x as t } from './other.mjs'`, or `import { x } from './other.mjs'`
+ * followed by `export { x as t }`), return where to continue looking. The returned
+ * source is joined against `chunkKey` so it can be looked up in the chunk map.
+ */
+export function findChunkForward(program: any, importedName: string, chunkKey: string): ChunkImport | undefined {
+  let imports: Map<string, ChunkImport> | undefined
+  for (const stmt of program.body) {
+    if (stmt.type !== 'ExportNamedDeclaration' || stmt.declaration)
+      continue
+    for (const spec of stmt.specifiers ?? []) {
+      if (getExportName(spec.exported) !== importedName)
+        continue
+      const local = getExportName(spec.local)
+      if (stmt.source)
+        return { source: joinChunkSource(chunkKey, stmt.source.value), imported: local }
+      imports ??= collectImportBindings(program)
+      const imported = imports.get(local)
+      if (imported)
+        return { source: joinChunkSource(chunkKey, imported.source), imported: imported.imported }
+      return undefined
+    }
   }
   return undefined
 }
@@ -125,28 +229,7 @@ export async function extractRuntime(fileName: string, code: string, options?: E
   }
 
   // Track imports for resolving re-exports through chunks
-  const importMap = new Map<string, { source: string, imported: string }>()
-  if (chunkSources) {
-    for (const stmt of program.body) {
-      if (stmt.type === 'ImportDeclaration' && (stmt as any).source) {
-        const source = (stmt as any).source.value as string
-        for (const spec of (stmt as any).specifiers ?? []) {
-          if (spec.type === 'ImportSpecifier') {
-            importMap.set(
-              getExportName(spec.local),
-              { source, imported: getExportName(spec.imported) },
-            )
-          }
-          else if (spec.type === 'ImportDefaultSpecifier') {
-            importMap.set(
-              getExportName(spec.local),
-              { source, imported: 'default' },
-            )
-          }
-        }
-      }
-    }
-  }
+  const importMap = chunkSources ? collectImportBindings(program) : new Map<string, ChunkImport>()
 
   for (const stmt of program.body) {
     const entriesBefore = entries.length
@@ -157,7 +240,8 @@ export async function extractRuntime(fileName: string, code: string, options?: E
       }
       else if ((stmt as any).specifiers?.length > 0) {
         const source = (stmt as any).source
-        if (source) {
+        const fromChunk = isChunkReExport(stmt, chunkSources)
+        if (source && !fromChunk) {
           // Re-export from another module: export { foo } from '...'
           const text = s.slice(stmt.start, stmt.end).trim()
           const firstName = getExportName((stmt as any).specifiers[0]?.exported)
@@ -165,12 +249,13 @@ export async function extractRuntime(fileName: string, code: string, options?: E
           entries.push({ name: firstName, text, kind: 're-export' })
         }
         else {
-          // Local re-export: export { foo, bar }
+          // Local re-export: export { foo, bar }, or a re-export from a chunk:
+          // export { t as foo } from './chunk.mjs'
           // Resolve each specifier to its declaration
           for (const spec of (stmt as any).specifiers) {
             const localName = getExportName(spec.local)
             const exportedName = getExportName(spec.exported) || localName
-            const decl = declMap.get(localName)
+            const decl = fromChunk ? undefined : declMap.get(localName)
             if (decl) {
               const kind = kindFromRuntimeDecl(decl)
               const skeleton = extractDeclarationSkeleton(s, decl, exportedName, omitArgs, typeWidening)
@@ -180,16 +265,20 @@ export async function extractRuntime(fileName: string, code: string, options?: E
             }
             else {
               // Try resolving through imports into chunk files
-              const resolved = await resolveFromChunkRuntime(localName, exportedName, importMap, chunkSources, omitArgs, typeWidening)
+              const importInfo = fromChunk
+                ? { source: source.value as string, imported: localName }
+                : importMap.get(localName)
+              const resolved = importInfo && await resolveFromChunkRuntime(importInfo, exportedName, chunkSources, omitArgs, typeWidening)
               if (resolved) {
                 entries.push(resolved)
               }
               else {
+                const fallbackName = fromChunk ? readableChunkLocal(stmt, localName) : localName
                 if (exportedName === 'default') {
-                  entries.push({ name: '\x00default', text: `export default ${localName}`, kind: 'default' })
+                  entries.push({ name: '\x00default', text: `export default ${fallbackName}`, kind: 'default' })
                 }
                 else {
-                  entries.push({ name: exportedName, text: `export { ${localName === exportedName ? localName : `${localName} as ${exportedName}`} }`, kind: 'other' })
+                  entries.push({ name: exportedName, text: `export { ${fallbackName === exportedName ? fallbackName : `${fallbackName} as ${exportedName}`} }`, kind: 'other' })
                 }
               }
             }
@@ -230,26 +319,24 @@ export async function extractRuntime(fileName: string, code: string, options?: E
 
 /**
  * Resolve an import binding through a chunk file to get the expanded declaration.
+ * Follows chunk-to-chunk forwarding up to {@link MAX_CHUNK_DEPTH} hops.
  */
 async function resolveFromChunkRuntime(
-  localName: string,
+  importInfo: ChunkImport,
   exportedName: string,
-  importMap: Map<string, { source: string, imported: string }>,
   chunkSources?: Map<string, string>,
   omitArgs = true,
   typeWidening = true,
+  depth = 0,
 ): Promise<Entry | undefined> {
-  if (!chunkSources)
+  if (!chunkSources || depth > MAX_CHUNK_DEPTH)
     return undefined
-  const importInfo = importMap.get(localName)
-  if (!importInfo)
-    return undefined
-  const chunkCode = resolveChunkSource(chunkSources, importInfo.source)
-  if (!chunkCode)
+  const chunk = lookupChunk(chunkSources, importInfo.source)
+  if (!chunk)
     return undefined
 
-  const { program } = await parse(importInfo.source, chunkCode)
-  const chunkS = new MagicString(chunkCode)
+  const { program } = await parse(chunk.key, chunk.code)
+  const chunkS = new MagicString(chunk.code)
   const chunkDeclMap = new Map<string, any>()
   for (const stmt of program.body) {
     collectDeclarations(stmt as any, chunkDeclMap)
@@ -257,12 +344,12 @@ async function resolveFromChunkRuntime(
 
   // Find the local declaration name for the chunk's exported name
   const chunkLocalName = resolveChunkExportLocal(program, importInfo.imported, chunkDeclMap)
-  if (!chunkLocalName)
-    return undefined
-
-  const decl = chunkDeclMap.get(chunkLocalName)
-  if (!decl)
-    return undefined
+  const decl = chunkLocalName ? chunkDeclMap.get(chunkLocalName) : undefined
+  if (!decl) {
+    // The chunk may forward the binding from yet another chunk
+    const forward = findChunkForward(program, importInfo.imported, chunk.key)
+    return forward && resolveFromChunkRuntime(forward, exportedName, chunkSources, omitArgs, typeWidening, depth + 1)
+  }
 
   const kind = kindFromRuntimeDecl(decl)
   const skeleton = extractDeclarationSkeleton(chunkS, decl, exportedName, omitArgs, typeWidening)

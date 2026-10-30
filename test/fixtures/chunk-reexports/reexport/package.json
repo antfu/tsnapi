@@ -1,0 +1,15 @@
+{
+  "name": "fixture-chunk-reexports-reexport",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.mts",
+      "import": "./lib/index.mjs"
+    },
+    "./node": {
+      "types": "./lib/node/index.d.mts",
+      "import": "./lib/node/index.mjs"
+    }
+  }
+}
