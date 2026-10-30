@@ -1,7 +1,7 @@
 import type { SnapshotExtensions } from './snapshot.ts'
 import type { ApiSnapshotOptions, ResolvedEntry, SnapshotResult } from './types.ts'
 import { access, readdir, readFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { hasArgvFlag } from './argv.ts'
 import { analyzeApiChanges, formatBreakingChanges, isBreakingChange } from './breaking.ts'
@@ -93,17 +93,16 @@ interface ChunkSources {
 }
 
 /**
- * Read every sibling chunk next to an entry file so that re-exports pointing
- * into shared chunks (as produced by any code-splitting bundler) can be
- * expanded to their full declarations. Without this, reading a code-split
- * `index.mjs` that only does `export { foo } from './chunk.mjs'` would snapshot
- * a bare `export { foo }` instead of `foo`'s real signature.
+ * Read every chunk file in `dir` so that re-exports pointing into shared chunks
+ * (as produced by any code-splitting bundler) can be expanded to their full
+ * declarations. Without this, reading a code-split `index.mjs` that only does
+ * `export { foo } from './chunk.mjs'` would snapshot a bare `export { foo }`
+ * instead of `foo`'s real signature.
  *
- * Keys mirror the `./<fileName>` form used in bundler import statements; DTS
- * chunks are also registered under their `.mjs` alias because `.d.ts` re-export
- * sources reference the runtime extension.
+ * Keys are bare file names; DTS chunks are also registered under their `.mjs`
+ * alias because `.d.ts` re-export sources reference the runtime extension.
  */
-async function loadChunkSources(dir: string): Promise<ChunkSources> {
+async function readChunkDir(dir: string): Promise<ChunkSources> {
   const runtime = new Map<string, string>()
   const dts = new Map<string, string>()
   let names: string[]
@@ -122,11 +121,11 @@ async function loadChunkSources(dir: string): Promise<ChunkSources> {
     if (code == null)
       return
     if (isDts) {
-      dts.set(`./${name}`, code)
-      dts.set(`./${name.replace(DTS_EXT_RE, '.mjs')}`, code)
+      dts.set(name, code)
+      dts.set(name.replace(DTS_EXT_RE, '.mjs'), code)
     }
     else {
-      runtime.set(`./${name}`, code)
+      runtime.set(name, code)
     }
   }))
 
@@ -134,17 +133,62 @@ async function loadChunkSources(dir: string): Promise<ChunkSources> {
 }
 
 /**
- * Create a `loadChunkSources` wrapper that caches results per directory, so a
- * multi-entry package sharing one dist directory reads its chunks only once.
+ * The entry's directory followed by its ancestors, stopping below `root` (the
+ * package root is only included when the entry lives directly in it).
  */
-function createChunkSourceLoader(): (entryFile: string) => Promise<ChunkSources> {
-  const cache = new Map<string, Promise<ChunkSources>>()
+function chunkSearchDirs(entryDir: string, root: string): string[] {
+  const dirs = [entryDir]
+  let dir = entryDir
+  while (true) {
+    const parent = dirname(dir)
+    const rel = relative(root, parent)
+    if (parent === dir || !rel || rel.startsWith('..') || isAbsolute(rel))
+      break
+    dirs.push(parent)
+    dir = parent
+  }
+  return dirs
+}
+
+/**
+ * Create a loader returning the chunk sources visible from an entry file,
+ * keyed the way the entry imports them: `./<name>` for siblings and
+ * `../<name>` (`../../<name>`, ...) for chunks in parent directories, so an
+ * entry emitted in a subfolder (e.g. `dist/node/index.mjs`) resolves chunks
+ * at the dist root. Directory reads are cached, so a multi-entry package
+ * sharing one dist directory reads its chunks only once.
+ */
+function createChunkSourceLoader(root: string): (entryFile: string) => Promise<ChunkSources> {
+  const dirCache = new Map<string, Promise<ChunkSources>>()
+  const entryCache = new Map<string, Promise<ChunkSources>>()
+  const readDir = (dir: string): Promise<ChunkSources> => {
+    let pending = dirCache.get(dir)
+    if (!pending) {
+      pending = readChunkDir(dir)
+      dirCache.set(dir, pending)
+    }
+    return pending
+  }
+  const load = async (entryDir: string): Promise<ChunkSources> => {
+    const runtime = new Map<string, string>()
+    const dts = new Map<string, string>()
+    let prefix = './'
+    for (const dir of chunkSearchDirs(entryDir, root)) {
+      const chunks = await readDir(dir)
+      for (const [name, code] of chunks.runtime)
+        runtime.set(prefix + name, code)
+      for (const [name, code] of chunks.dts)
+        dts.set(prefix + name, code)
+      prefix = prefix === './' ? '../' : `../${prefix}`
+    }
+    return { runtime, dts }
+  }
   return (entryFile) => {
     const dir = dirname(entryFile)
-    let pending = cache.get(dir)
+    let pending = entryCache.get(dir)
     if (!pending) {
-      pending = loadChunkSources(dir)
-      cache.set(dir, pending)
+      pending = load(dir)
+      entryCache.set(dir, pending)
     }
     return pending
   }
@@ -170,7 +214,7 @@ export async function generateApiSnapshot(cwd: string, options?: ApiSnapshotOpti
   const showHeader = options?.header ?? true
   const packageName = await readPackageName(cwd)
   const hooks = createEntryHooks(packageName, options)
-  const chunkSourcesFor = createChunkSourceLoader()
+  const chunkSourcesFor = createChunkSourceLoader(cwd)
 
   for (const entry of entries) {
     if (!hooks.includeEntry(entry.name))
@@ -226,7 +270,7 @@ async function snapshotEntries(
   const showHeader = options?.header ?? true
   const packageName = await readPackageName(cwd)
   const hooks = createEntryHooks(packageName, options)
-  const chunkSourcesFor = createChunkSourceLoader()
+  const chunkSourcesFor = createChunkSourceLoader(cwd)
 
   const mismatches: SnapshotResult['mismatches'] = []
   const allMismatchDetails: import('./snapshot.ts').SnapshotMismatch[] = []

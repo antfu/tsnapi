@@ -26,6 +26,10 @@ export async function setup(): Promise<void> {
       continue
     }
 
+    // Fixtures without a build config ship hand-written output (e.g. chunk-reexports)
+    if (!existsSync(join(fixtureDir, 'tsdown.config.ts')))
+      continue
+
     rmSync(join(fixtureDir, 'dist'), { recursive: true, force: true })
     await build({ cwd: fixtureDir, logLevel: 'silent' })
   }

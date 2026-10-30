@@ -271,6 +271,84 @@ export { resolvePackageEntries as a, resolvePackageDir as i };
     `)
   })
 
+  it('resolves re-exports from a chunk (rolldown >= 1.2.13 form)', async () => {
+    const entryCode = `
+export { helper } from "some-pkg";
+export { t as createShared, t as default } from "../shared-abc123.mjs";
+`
+    const chunkCode = `
+import { n as defineThing } from "./define-abc123.mjs";
+function createShared(options) {
+  return { options };
+}
+export { createShared as t, defineThing as r };
+`
+    const result = await extractRuntime('node/index.mjs', entryCode, {
+      chunkSources: new Map([['./shared-abc123.mjs', chunkCode]]),
+    })
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export function createShared(_) {}
+      // #endregion
+
+      // #region Default Export
+      function _default(_) {}
+      export default _default
+      // #endregion
+
+      // #region Re-exports
+      export { helper } from "some-pkg";
+      // #endregion
+      "
+    `)
+  })
+
+  it('follows chunk-to-chunk forwarding relative to the chunk', async () => {
+    const entryCode = `export { r as defineThing } from "../shared-abc123.mjs";`
+    const sharedCode = `
+import { n as defineThing } from "./define-abc123.mjs";
+export { defineThing as r };
+`
+    const defineCode = `
+function defineThing(name, setup) {}
+export { defineThing as n };
+`
+    const result = await extractRuntime('node/index.mjs', entryCode, {
+      chunkSources: new Map([
+        ['../shared-abc123.mjs', sharedCode],
+        ['../define-abc123.mjs', defineCode],
+      ]),
+    })
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export function defineThing(_, _) {}
+      // #endregion
+      "
+    `)
+  })
+
+  it('falls back to a readable name for unresolvable chunk re-exports', async () => {
+    const entryCode = `export { t as createShared, t as default, n as other } from "./shared-abc123.mjs";`
+    const chunkCode = `
+import { createShared, other } from "external";
+export { createShared as t, other as n };
+`
+    const result = await extractRuntime('index.mjs', entryCode, {
+      chunkSources: new Map([['./shared-abc123.mjs', chunkCode]]),
+    })
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Default Export
+      export default createShared
+      // #endregion
+
+      // #region Other
+      export { createShared }
+      export { other }
+      // #endregion
+      "
+    `)
+  })
+
   it('handles export { X as default } with valid syntax', async () => {
     const code = `
 function rolldownPlugin(options) {

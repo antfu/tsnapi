@@ -230,6 +230,66 @@ export { SnapshotFile as a };
     `)
   })
 
+  it('resolves re-exports from a chunk (rolldown >= 1.2.13 form)', async () => {
+    const entryCode = `
+export * from "some-pkg";
+export { t as createShared, t as default } from "../shared-abc123.mjs";
+export type { i as SharedOptions } from "../shared-abc123.mjs";
+`
+    const chunkCode = `
+interface SharedOptions {
+  name: string;
+}
+declare function createShared(options?: SharedOptions): void;
+export { SharedOptions as i, createShared as t };
+`
+    const result = await extractDts('node/index.d.mts', entryCode, {
+      chunkSources: new Map([['../shared-abc123.mjs', chunkCode]]),
+    })
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Interfaces
+      export interface SharedOptions {
+        name: string;
+      }
+      // #endregion
+
+      // #region Functions
+      export declare function createShared(_?: SharedOptions): void;
+      // #endregion
+
+      // #region Default Export
+      declare function _default(_?: SharedOptions): void;
+      export default _default
+      // #endregion
+
+      // #region Re-exports
+      export * from "some-pkg";
+      // #endregion
+      "
+    `)
+  })
+
+  it('follows chunk-to-chunk forwarding in DTS chunks', async () => {
+    const entryCode = `export { r as defineThing } from "./shared-abc123.mjs";`
+    const sharedCode = `export { n as r } from "./define-abc123.mjs";`
+    const defineCode = `
+declare function defineThing(name: string): void;
+export { defineThing as n };
+`
+    const result = await extractDts('index.d.mts', entryCode, {
+      chunkSources: new Map([
+        ['./shared-abc123.mjs', sharedCode],
+        ['./define-abc123.mjs', defineCode],
+      ]),
+    })
+    expect(result).toMatchInlineSnapshot(`
+      "// #region Functions
+      export declare function defineThing(_: string): void;
+      // #endregion
+      "
+    `)
+  })
+
   it('expands a re-exported local declare namespace', async () => {
     const code = `
 declare namespace utils {
