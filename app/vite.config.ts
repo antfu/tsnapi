@@ -25,7 +25,9 @@ export default defineConfig({
   base: './',
   plugins: [
     vue(),
-    unocss({ configFile: fileURLToPath(new URL('./uno.config.ts', import.meta.url)) }),
+    unocss({
+      configFile: fileURLToPath(new URL('./uno.config.ts', import.meta.url)),
+    }),
     // Serves `__connection.json` + starts an RPC/WS side-car so `pnpm dev:ui`
     // has a working backend with hot-reload. Mounted under the scoped
     // `/__<id>/` base (matching `devframe.ts`'s `id: 'tsnapi-inspector'`) —

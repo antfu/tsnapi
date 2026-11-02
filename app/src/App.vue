@@ -65,7 +65,9 @@ const showPickers = computed(() => git.value && !isStatic.value)
 function sideTimestamp(side: SideMeta): number | undefined {
   if (side.kind === 'working')
     return Date.now()
-  return side.resolved?.date ? new Date(side.resolved.date).getTime() : undefined
+  return side.resolved?.date
+    ? new Date(side.resolved.date).getTime()
+    : undefined
 }
 
 /** True when Base is newer than Compare, i.e. the diff direction looks backwards. */
@@ -86,23 +88,66 @@ function swapRefs() {
 /** Flat option list for the Base / Compare selects, with disabled group headers. */
 const refOptions = computed<RefOption[]>(() => {
   const r = refs.value
-  const opts: RefOption[] = [{ value: WORKING_TREE, label: 'Working tree', type: 'working' }]
-  if (r?.head)
-    opts.push({ value: 'HEAD', label: 'HEAD', type: 'head', subject: r.head.subject, date: r.head.date })
+  const opts: RefOption[] = [
+    { value: WORKING_TREE, label: 'Working tree', type: 'working' },
+  ]
+  if (r?.head) {
+    opts.push({
+      value: 'HEAD',
+      label: 'HEAD',
+      type: 'head',
+      subject: r.head.subject,
+      date: r.head.date,
+    })
+  }
   if (r?.branches.length) {
-    opts.push({ value: '__h_branches', label: 'Branches', type: 'header', disabled: true })
-    for (const b of r.branches)
-      opts.push({ value: b.name, label: b.name, type: 'branch', date: b.date })
+    opts.push({
+      value: '__h_branches',
+      label: 'Branches',
+      type: 'header',
+      disabled: true,
+    })
+    for (const b of r.branches) {
+      opts.push({
+        value: b.name,
+        label: b.name,
+        type: 'branch',
+        date: b.date,
+      })
+    }
   }
   if (r?.tags.length) {
-    opts.push({ value: '__h_tags', label: 'Tags', type: 'header', disabled: true })
-    for (const t of r.tags)
-      opts.push({ value: t.name, label: t.name, type: 'tag', date: t.date })
+    opts.push({
+      value: '__h_tags',
+      label: 'Tags',
+      type: 'header',
+      disabled: true,
+    })
+    for (const t of r.tags) {
+      opts.push({
+        value: t.name,
+        label: t.name,
+        type: 'tag',
+        date: t.date,
+      })
+    }
   }
   if (r?.commits.length) {
-    opts.push({ value: '__h_commits', label: allHistory.value ? 'Commits' : 'Commits touching snapshots', type: 'header', disabled: true })
-    for (const c of r.commits)
-      opts.push({ value: c.sha, label: c.shortSha, type: 'commit', subject: c.subject, date: c.date })
+    opts.push({
+      value: '__h_commits',
+      label: allHistory.value ? 'Commits' : 'Commits touching snapshots',
+      type: 'header',
+      disabled: true,
+    })
+    for (const c of r.commits) {
+      opts.push({
+        value: c.sha,
+        label: c.shortSha,
+        type: 'commit',
+        subject: c.subject,
+        date: c.date,
+      })
+    }
   }
   return opts
 })
@@ -164,13 +209,22 @@ function findByMember(node: TreeDatum, m: MemberNode): TreeDatum | undefined {
 
 /** Select a member picked from the summary list, highlighting its graph node when visible. */
 function selectMember(m: MemberNode) {
-  const hit = tree.value ? findByMember(tree.value, m) : undefined
+  const hit = tree.value
+    ? findByMember(tree.value, m)
+    : undefined
   if (hit) {
     selectNode(hit)
   }
   else {
     // Filtered out of the current tree; still show its detail.
-    selected.value = { id: `member::${m.name}`, type: 'member', label: m.display, kind: m.kind, status: m.status, member: m }
+    selected.value = {
+      id: `member::${m.name}`,
+      type: 'member',
+      label: m.display,
+      kind: m.kind,
+      status: m.status,
+      member: m,
+    }
     selectedId.value = undefined
   }
 }
@@ -189,7 +243,10 @@ onMounted(async () => {
   catch (e: any) {
     error.value = `Failed to connect: ${e?.message ?? e}`
   }
-  await Promise.all([loadRefs(), loadPayload()])
+  await Promise.all([
+    loadRefs(),
+    loadPayload(),
+  ])
 })
 
 // Refetch when the selected sides change (skip in static mode).

@@ -38,9 +38,13 @@ export class App {
 
     const bundle = await rolldown({
       input: entry,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR })],
+      plugins: [
+        ApiSnapshot({ outputDir: SNAPSHOT_DIR }),
+      ],
     })
-    await bundle.write({ dir: join(FIXTURE_DIR, 'dist') })
+    await bundle.write({
+      dir: join(FIXTURE_DIR, 'dist'),
+    })
 
     const snapshotPath = join(SNAPSHOT_DIR, 'index.snapshot.js')
     expect(existsSync(snapshotPath)).toBe(true)
@@ -59,9 +63,13 @@ export function hello() { return 'hi'; }
     const buildOnce = async () => {
       const bundle = await rolldown({
         input: entry,
-        plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR })],
+        plugins: [
+          ApiSnapshot({ outputDir: SNAPSHOT_DIR }),
+        ],
       })
-      await bundle.write({ dir: join(FIXTURE_DIR, 'dist') })
+      await bundle.write({
+        dir: join(FIXTURE_DIR, 'dist'),
+      })
     }
 
     // First build creates snapshot
@@ -79,9 +87,13 @@ export function hello() { return 'hi'; }
     writeFileSync(entryPath, `export function hello() { return 'hi'; }`)
     const bundle1 = await rolldown({
       input: entryPath,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR })],
+      plugins: [
+        ApiSnapshot({ outputDir: SNAPSHOT_DIR }),
+      ],
     })
-    await bundle1.write({ dir: join(FIXTURE_DIR, 'dist') })
+    await bundle1.write({
+      dir: join(FIXTURE_DIR, 'dist'),
+    })
 
     // Modify the API
     writeFileSync(entryPath, `export function hello(name) { return 'hi ' + name; }\nexport function goodbye() { return 'bye'; }`)
@@ -89,12 +101,16 @@ export function hello() { return 'hi'; }
     // Second build should error
     const bundle2 = await rolldown({
       input: entryPath,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR })],
+      plugins: [
+        ApiSnapshot({ outputDir: SNAPSHOT_DIR }),
+      ],
     })
 
     vi.spyOn(console, 'error').mockImplementation(() => {})
     await expect(
-      bundle2.write({ dir: join(FIXTURE_DIR, 'dist') }),
+      bundle2.write({
+        dir: join(FIXTURE_DIR, 'dist'),
+      }),
     ).rejects.toThrow(/snapshot mismatch/)
     vi.restoreAllMocks()
   })
@@ -108,9 +124,13 @@ export function hello() { return 'hi'; }
     writeFileSync(entryPath, `export function hello() { return 'hi'; }`)
     const bundle1 = await rolldown({
       input: entryPath,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR })],
+      plugins: [
+        ApiSnapshot({ outputDir: SNAPSHOT_DIR }),
+      ],
     })
-    await bundle1.write({ dir: join(FIXTURE_DIR, 'dist') })
+    await bundle1.write({
+      dir: join(FIXTURE_DIR, 'dist'),
+    })
 
     // Modify the API (adding a parameter only widens the signature, so this
     // is additive and updates without allowBreaking)
@@ -119,9 +139,13 @@ export function hello() { return 'hi'; }
     // Build with update mode - should not error
     const bundle2 = await rolldown({
       input: entryPath,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR, update: true })],
+      plugins: [
+        ApiSnapshot({ outputDir: SNAPSHOT_DIR, update: true }),
+      ],
     })
-    await bundle2.write({ dir: join(FIXTURE_DIR, 'dist') })
+    await bundle2.write({
+      dir: join(FIXTURE_DIR, 'dist'),
+    })
 
     // Verify updated snapshot reflects the new param
     const content = readFileSync(join(SNAPSHOT_DIR, 'index.snapshot.js'), 'utf-8')
@@ -137,17 +161,25 @@ export function hello() { return 'hi'; }
     writeFileSync(entryPath, `export function hello() { return 'hi'; }`)
     const bundle1 = await rolldown({
       input: entryPath,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR })],
+      plugins: [
+        ApiSnapshot({ outputDir: SNAPSHOT_DIR }),
+      ],
     })
-    await bundle1.write({ dir: join(FIXTURE_DIR, 'dist') })
+    await bundle1.write({
+      dir: join(FIXTURE_DIR, 'dist'),
+    })
 
     // Add a new export — purely additive, so update should succeed
     writeFileSync(entryPath, `export function hello() { return 'hi'; }\nexport function goodbye() { return 'bye'; }`)
     const bundle2 = await rolldown({
       input: entryPath,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR, update: true })],
+      plugins: [
+        ApiSnapshot({ outputDir: SNAPSHOT_DIR, update: true }),
+      ],
     })
-    await bundle2.write({ dir: join(FIXTURE_DIR, 'dist') })
+    await bundle2.write({
+      dir: join(FIXTURE_DIR, 'dist'),
+    })
 
     const content = readFileSync(join(SNAPSHOT_DIR, 'index.snapshot.js'), 'utf-8')
     expect(content).toContain('goodbye')
@@ -162,20 +194,28 @@ export function hello() { return 'hi'; }
     writeFileSync(entryPath, `export function hello() { return 'hi'; }\nexport function goodbye() { return 'bye'; }`)
     const bundle1 = await rolldown({
       input: entryPath,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR })],
+      plugins: [
+        ApiSnapshot({ outputDir: SNAPSHOT_DIR }),
+      ],
     })
-    await bundle1.write({ dir: join(FIXTURE_DIR, 'dist') })
+    await bundle1.write({
+      dir: join(FIXTURE_DIR, 'dist'),
+    })
 
     // Remove an export — breaking
     writeFileSync(entryPath, `export function hello() { return 'hi'; }`)
     const bundle2 = await rolldown({
       input: entryPath,
-      plugins: [ApiSnapshot({ outputDir: SNAPSHOT_DIR, update: true })],
+      plugins: [
+        ApiSnapshot({ outputDir: SNAPSHOT_DIR, update: true }),
+      ],
     })
 
     vi.spyOn(console, 'error').mockImplementation(() => {})
     await expect(
-      bundle2.write({ dir: join(FIXTURE_DIR, 'dist') }),
+      bundle2.write({
+        dir: join(FIXTURE_DIR, 'dist'),
+      }),
     ).rejects.toThrow(/Breaking API changes/)
     vi.restoreAllMocks()
 

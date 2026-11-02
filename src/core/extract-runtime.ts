@@ -55,7 +55,9 @@ export function joinChunkSource(fromKey: string, source: string): string {
   if (!source.startsWith('.'))
     return source
   const joined = posix.join(posix.dirname(fromKey), source)
-  return joined.startsWith('.') ? joined : `./${joined}`
+  return joined.startsWith('.')
+    ? joined
+    : `./${joined}`
 }
 
 /**
@@ -69,10 +71,15 @@ export function collectImportBindings(program: any): Map<string, ChunkImport> {
       continue
     const source = stmt.source.value as string
     for (const spec of stmt.specifiers ?? []) {
-      if (spec.type === 'ImportSpecifier')
-        importMap.set(getExportName(spec.local), { source, imported: getExportName(spec.imported) })
-      else if (spec.type === 'ImportDefaultSpecifier')
+      if (spec.type === 'ImportSpecifier') {
+        importMap.set(getExportName(spec.local), {
+          source,
+          imported: getExportName(spec.imported),
+        })
+      }
+      else if (spec.type === 'ImportDefaultSpecifier') {
         importMap.set(getExportName(spec.local), { source, imported: 'default' })
+      }
     }
   }
   return importMap
@@ -116,12 +123,20 @@ export function findChunkForward(program: any, importedName: string, chunkKey: s
       if (getExportName(spec.exported) !== importedName)
         continue
       const local = getExportName(spec.local)
-      if (stmt.source)
-        return { source: joinChunkSource(chunkKey, stmt.source.value), imported: local }
+      if (stmt.source) {
+        return {
+          source: joinChunkSource(chunkKey, stmt.source.value),
+          imported: local,
+        }
+      }
       imports ??= collectImportBindings(program)
       const imported = imports.get(local)
-      if (imported)
-        return { source: joinChunkSource(chunkKey, imported.source), imported: imported.imported }
+      if (imported) {
+        return {
+          source: joinChunkSource(chunkKey, imported.source),
+          imported: imported.imported,
+        }
+      }
       return undefined
     }
   }
@@ -229,7 +244,9 @@ export async function extractRuntime(fileName: string, code: string, options?: E
   }
 
   // Track imports for resolving re-exports through chunks
-  const importMap = chunkSources ? collectImportBindings(program) : new Map<string, ChunkImport>()
+  const importMap = chunkSources
+    ? collectImportBindings(program)
+    : new Map<string, ChunkImport>()
 
   for (const stmt of program.body) {
     const entriesBefore = entries.length
@@ -255,7 +272,9 @@ export async function extractRuntime(fileName: string, code: string, options?: E
           for (const spec of (stmt as any).specifiers) {
             const localName = getExportName(spec.local)
             const exportedName = getExportName(spec.exported) || localName
-            const decl = fromChunk ? undefined : declMap.get(localName)
+            const decl = fromChunk
+              ? undefined
+              : declMap.get(localName)
             if (decl) {
               const kind = kindFromRuntimeDecl(decl)
               const skeleton = extractDeclarationSkeleton(s, decl, exportedName, omitArgs, typeWidening)
@@ -273,12 +292,16 @@ export async function extractRuntime(fileName: string, code: string, options?: E
                 entries.push(resolved)
               }
               else {
-                const fallbackName = fromChunk ? readableChunkLocal(stmt, localName) : localName
+                const fallbackName = fromChunk
+                  ? readableChunkLocal(stmt, localName)
+                  : localName
                 if (exportedName === 'default') {
                   entries.push({ name: '\x00default', text: `export default ${fallbackName}`, kind: 'default' })
                 }
                 else {
-                  entries.push({ name: exportedName, text: `export { ${fallbackName === exportedName ? fallbackName : `${fallbackName} as ${exportedName}`} }`, kind: 'other' })
+                  entries.push({ name: exportedName, text: `export { ${fallbackName === exportedName
+                    ? fallbackName
+                    : `${fallbackName} as ${exportedName}`} }`, kind: 'other' })
                 }
               }
             }
@@ -344,7 +367,9 @@ async function resolveFromChunkRuntime(
 
   // Find the local declaration name for the chunk's exported name
   const chunkLocalName = resolveChunkExportLocal(program, importInfo.imported, chunkDeclMap)
-  const decl = chunkLocalName ? chunkDeclMap.get(chunkLocalName) : undefined
+  const decl = chunkLocalName
+    ? chunkDeclMap.get(chunkLocalName)
+    : undefined
   if (!decl) {
     // The chunk may forward the binding from yet another chunk
     const forward = findChunkForward(program, importInfo.imported, chunk.key)
@@ -491,10 +516,14 @@ function extractFunctionSignature(_s: MagicString, decl: any, nameOverride?: str
   const async = decl.async ? 'async ' : ''
   const generator = decl.generator ? '*' : ''
   const name = nameOverride ?? decl.id?.name ?? ''
-  const params = omitArgs ? anonymizeParams(decl.params) : extractParams(_s, decl.params)
+  const params = omitArgs
+    ? anonymizeParams(decl.params)
+    : extractParams(_s, decl.params)
 
   const body = '{}'
-  return `${async}function${generator ? `* ` : ' '}${name}(${params}) ${body}`
+  return `${async}function${generator
+    ? `* `
+    : ' '}${name}(${params}) ${body}`
 }
 
 /**
@@ -575,7 +604,9 @@ function extractClassSkeleton(s: MagicString, decl: any, nameOverride?: string, 
 
 function extractClassMember(s: MagicString, member: any, omitArgs = true): string | null {
   const isStatic = member.static ? 'static ' : ''
-  const accessibility = member.accessibility ? `${member.accessibility} ` : ''
+  const accessibility = member.accessibility
+    ? `${member.accessibility} `
+    : ''
 
   if (member.type === 'MethodDefinition') {
     const key = member.computed
@@ -588,7 +619,9 @@ function extractClassMember(s: MagicString, member: any, omitArgs = true): strin
 
     const async = value.async ? 'async ' : ''
     const generator = value.generator ? '*' : ''
-    const params = omitArgs ? anonymizeParams(value.params) : extractParams(s, value.params)
+    const params = omitArgs
+      ? anonymizeParams(value.params)
+      : extractParams(s, value.params)
 
     if (member.kind === 'constructor') {
       return `${accessibility}constructor(${params}) {}`

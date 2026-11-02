@@ -5,7 +5,10 @@ export default defineConfig({
   presets: [
     // Plain numeric z-index utilities are used in a couple of overlays here,
     // so opt out of the design preset's z-index guardrail.
-    presetAnthonyDesign({ primary: '#3b82f6', blocklists: { plainZIndex: false } }),
+    presetAnthonyDesign({
+      primary: '#3b82f6',
+      blocklists: { plainZIndex: false },
+    }),
     presetWind4(),
     presetIcons({ scale: 1.15, warn: true }),
   ],

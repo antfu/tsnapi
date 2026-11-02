@@ -1,15 +1,16 @@
+minimumReleaseAgeExcludePrune: true
+trustPolicy: no-downgrade
+
+update:
+  ignoreDeps:
+    - typescript@7
+
+shellEmulator: true
+
+packages:
+  - 'packages/*'
+
 allowBuilds:
   esbuild: true
   simple-git-hooks: true
   vue-demi: false
-minimumReleaseAgeExcludePrune: true
-minimumReleaseAgeExclude:
-  - '@devframes/service-shiki@0.9.8'
-  - devframe@0.9.8
-shellEmulator: true
-trustPolicy: no-downgrade
-packages:
-  - 'packages/*'
-update:
-  ignoreDeps:
-    - typescript@7

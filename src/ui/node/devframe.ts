@@ -73,7 +73,12 @@ export function createInspectorDevframe(app: DevframeAppOptions): DevframeDefini
     // Resolved from `importMetaUrl` (tsnapi's own dependency). Only TS/JS
     // signatures are ever highlighted, so preload just those grammars.
     services: [
-      { package: '@devframes/service-shiki', options: { langs: ['typescript', 'javascript'] } },
+      {
+        package: '@devframes/service-shiki',
+        options: {
+          langs: ['typescript', 'javascript'],
+        },
+      },
     ],
     cli: {
       command: 'tsnapi-inspector',

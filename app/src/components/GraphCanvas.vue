@@ -40,7 +40,9 @@ function isHiddenNode(d: TreeDatum): boolean {
 function reExportTargetId(target: { packageName?: string, entryName?: string }): string | undefined {
   if (!target.packageName)
     return undefined
-  return target.entryName ? `${target.packageName}::${target.entryName}` : target.packageName
+  return target.entryName
+    ? `${target.packageName}::${target.entryName}`
+    : target.packageName
 }
 
 interface ReExportLink { sourceId: string, targetId: string }
@@ -60,7 +62,9 @@ function collectReExportLinks(node: TreeDatum, nearestVisibleId: string, out: Re
         out.push({ sourceId: nearestVisibleId, targetId })
       continue
     }
-    collectReExportLinks(child, isHiddenNode(child) ? nearestVisibleId : child.id, out)
+    collectReExportLinks(child, isHiddenNode(child)
+      ? nearestVisibleId
+      : child.id, out)
   }
 }
 

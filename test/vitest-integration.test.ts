@@ -25,6 +25,8 @@ describe('sub-exports with per-entry hooks', () => {
       }
     },
     transformSnapshot: ({ surface, content }) =>
-      surface === 'runtime' ? `${content}\n/* transformed by hook */` : null,
+      surface === 'runtime'
+        ? `${content}\n/* transformed by hook */`
+        : null,
   })
 })

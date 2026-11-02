@@ -53,7 +53,12 @@ export const sampleMembers: MemberNode[] = [
     status: 'removed',
     base: { dts: 'export declare function legacyExtract(_: string): string;', runtime: 'export function legacyExtract(_) {}' },
   }),
-  mockMember({ name: 'VERSION', kind: 'variable', status: 'unchanged', current: { runtime: 'export var VERSION /* const */', dts: 'export declare const VERSION: string;' } }),
+  mockMember({
+    name: 'VERSION',
+    kind: 'variable',
+    status: 'unchanged',
+    current: { runtime: 'export var VERSION /* const */', dts: 'export declare const VERSION: string;' },
+  }),
   mockMember({ name: 'ResolvedEntry', kind: 'type', status: 'unchanged' }),
   mockMember({
     name: '*@scope/no-snapshot',
@@ -79,11 +84,25 @@ export const sampleMembers: MemberNode[] = [
 ]
 
 export function memberNode(m: MemberNode): TreeDatum {
-  return { id: `member::${m.name}`, type: 'member', label: m.display, kind: m.kind, status: m.status, member: m }
+  return {
+    id: `member::${m.name}`,
+    type: 'member',
+    label: m.display,
+    kind: m.kind,
+    status: m.status,
+    member: m,
+  }
 }
 
 function counts(over: Partial<Record<DiffStatus, number>> = {}): Record<DiffStatus, number> {
-  return { added: 0, removed: 0, modified: 0, widened: 0, unchanged: 0, ...over }
+  return {
+    added: 0,
+    removed: 0,
+    modified: 0,
+    widened: 0,
+    unchanged: 0,
+    ...over,
+  }
 }
 
 export const samplePackage: PackageNode = {
@@ -114,11 +133,23 @@ export const samplePayload: WorkspacePayload = {
     kind: 'ref',
     ref: 'v1.1.0',
     label: 'v1.1.0',
-    resolved: { sha: '8e5981afeea3', shortSha: '8e5981a', name: 'v1.1.0', type: 'tag', subject: 'chore: release v1.1.0', date: daysAgo(5) },
+    resolved: {
+      sha: '8e5981afeea3',
+      shortSha: '8e5981a',
+      name: 'v1.1.0',
+      type: 'tag',
+      subject: 'chore: release v1.1.0',
+      date: daysAgo(5),
+    },
   },
   compare: { kind: 'working', ref: 'WORKING_TREE', label: 'Working tree' },
   packages: [
-    { ...samplePackage, entries: [{ name: '.', members: sampleMembers }] },
+    {
+      ...samplePackage,
+      entries: [
+        { name: '.', members: sampleMembers },
+      ],
+    },
     noSnapshotPackage,
   ],
 }

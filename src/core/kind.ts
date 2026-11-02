@@ -6,7 +6,19 @@ export interface Entry {
   kind: EntryKind
 }
 
-export const KIND_ORDER: EntryKind[] = ['interface', 'type', 'enum', 'class', 'namespace', 'function', 'variable', 'default', 're-export', 'referenced', 'other']
+export const KIND_ORDER: EntryKind[] = [
+  'interface',
+  'type',
+  'enum',
+  'class',
+  'namespace',
+  'function',
+  'variable',
+  'default',
+  're-export',
+  'referenced',
+  'other',
+]
 export const KIND_LABELS: Record<EntryKind, string> = {
   'interface': 'Interfaces',
   'type': 'Types',

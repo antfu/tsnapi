@@ -37,7 +37,12 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
   } = options
 
   const ext: SnapshotExtensions = { runtime: extensionRuntime, dts: extensionDts }
-  const extractOptions = { omitArgumentNames, typeWidening, categorizedExports, referenceTracingDepth }
+  const extractOptions = {
+    omitArgumentNames,
+    typeWidening,
+    categorizedExports,
+    referenceTracingDepth,
+  }
 
   return {
     name: 'tsnapi',
@@ -98,13 +103,27 @@ export default function rolldownPlugin(options: ApiSnapshotOptions = {}): {
         const breaking: import('./core/breaking.ts').BreakingChange[] = []
 
         for (const [stem, jsChunk] of jsChunks) {
-          const entryName = stem === 'index' ? '.' : `./${stem}`
+          const entryName = stem === 'index'
+            ? '.'
+            : `./${stem}`
           if (!hooks.includeEntry(entryName))
             continue
           const dtsChunk = dtsChunks.get(stem)
-          const runtime = await extractRuntime(jsChunk.fileName, jsChunk.code, { chunkSources: jsChunkSources, ...extractOptions, transformEntries: hooks.transformEntriesFor(entryName, 'runtime') })
-          const dts = dtsChunk ? await extractDts(dtsChunk.fileName, dtsChunk.code, { chunkSources: dtsChunkSources, ...extractOptions, transformEntries: hooks.transformEntriesFor(entryName, 'dts') }) : ''
-          const header = showHeader ? generateHeader(packageName, entryName) : undefined
+          const runtime = await extractRuntime(jsChunk.fileName, jsChunk.code, {
+            chunkSources: jsChunkSources,
+            ...extractOptions,
+            transformEntries: hooks.transformEntriesFor(entryName, 'runtime'),
+          })
+          const dts = dtsChunk
+            ? await extractDts(dtsChunk.fileName, dtsChunk.code, {
+                chunkSources: dtsChunkSources,
+                ...extractOptions,
+                transformEntries: hooks.transformEntriesFor(entryName, 'dts'),
+              })
+            : ''
+          const header = showHeader
+            ? generateHeader(packageName, entryName)
+            : undefined
           const current = {
             runtime: hooks.transformSnapshot(entryName, 'runtime', runtime),
             dts: hooks.transformSnapshot(entryName, 'dts', dts),

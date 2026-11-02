@@ -25,7 +25,9 @@ function parseUiArgs(argv: string[]): ParsedUiArgs {
   let allHistory = false
   const rest: string[] = []
 
-  const normalizeRef = (v: string): string => (v === 'working' || v === 'WORKING_TREE') ? WORKING_TREE : v
+  const normalizeRef = (v: string): string => (v === 'working' || v === 'WORKING_TREE')
+    ? WORKING_TREE
+    : v
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -54,7 +56,14 @@ function parseUiArgs(argv: string[]): ParsedUiArgs {
   if (action === 'build' && !argv.includes('--compare'))
     compare = base
 
-  return { action, base, compare, port, allHistory, rest }
+  return {
+    action,
+    base,
+    compare,
+    port,
+    allHistory,
+    rest,
+  }
 }
 
 /**
@@ -79,5 +88,10 @@ export async function runUi(argv: string[], version: string): Promise<void> {
   const handle = createCac(definition, { defaultPort: parsed.port ?? 4599 })
   // cac's `parse` drops the first two argv entries (node + script), so prepend
   // placeholders before the subcommand.
-  await handle.parse(['node', 'tsnapi', parsed.action, ...parsed.rest])
+  await handle.parse([
+    'node',
+    'tsnapi',
+    parsed.action,
+    ...parsed.rest,
+  ])
 }

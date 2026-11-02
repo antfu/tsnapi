@@ -349,7 +349,9 @@ await describePackagesApiSnapshots({
 ```ts
 await describePackagesApiSnapshots({
   transformSnapshot: ({ entryName, surface, content }) =>
-    surface === 'dts' ? content.replaceAll('\u00A0', ' ') : null, // null keeps content unchanged
+    surface === 'dts'
+      ? content.replaceAll('\u00A0', ' ')
+      : null, // null keeps content unchanged
 })
 ```
 

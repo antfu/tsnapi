@@ -14,5 +14,7 @@ export default defineConfig({
   // against a stale dist (see test/api.test.ts). tsnapi's own public API is
   // snapshotted via `describePackagesApiSnapshots` in the test suite rather
   // than the build-time plugin, so the two never fight over the same files.
-  plugins: [StaleGuardRecorder()],
+  plugins: [
+    StaleGuardRecorder(),
+  ],
 })

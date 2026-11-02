@@ -260,7 +260,9 @@ function resolvePackageDir(name, cwd) {
 export { resolvePackageEntries as a, resolvePackageDir as i };
 `
     const result = await extractRuntime('index.mjs', entryCode, {
-      chunkSources: new Map([['./core-abc123.mjs', chunkCode]]),
+      chunkSources: new Map([
+        ['./core-abc123.mjs', chunkCode],
+      ]),
     })
     expect(result).toMatchInlineSnapshot(`
       "// #region Functions
@@ -284,7 +286,9 @@ function createShared(options) {
 export { createShared as t, defineThing as r };
 `
     const result = await extractRuntime('node/index.mjs', entryCode, {
-      chunkSources: new Map([['./shared-abc123.mjs', chunkCode]]),
+      chunkSources: new Map([
+        ['./shared-abc123.mjs', chunkCode],
+      ]),
     })
     expect(result).toMatchInlineSnapshot(`
       "// #region Functions
@@ -334,7 +338,9 @@ import { createShared, other } from "external";
 export { createShared as t, other as n };
 `
     const result = await extractRuntime('index.mjs', entryCode, {
-      chunkSources: new Map([['./shared-abc123.mjs', chunkCode]]),
+      chunkSources: new Map([
+        ['./shared-abc123.mjs', chunkCode],
+      ]),
     })
     expect(result).toMatchInlineSnapshot(`
       "// #region Default Export

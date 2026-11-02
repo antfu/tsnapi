@@ -18,7 +18,9 @@ function writeEntry(runtime: string, dts: string): void {
   writeFileSync(join(dir, 'index.d.mts'), dts)
 }
 
-const files = [{ name: '.', runtime: 'index.mjs', dts: 'index.d.mts' }]
+const files = [
+  { name: '.', runtime: 'index.mjs', dts: 'index.d.mts' },
+]
 
 async function snap(options?: Parameters<typeof snapshotFiles>[2]) {
   return snapshotFiles(files, dir, { header: false, ...options })

@@ -32,8 +32,11 @@ const MARKER: Record<DiffRow['kind'], string> = { context: ' ', add: '+', del: '
 
 /** The pre-tokenized line for a row, from whichever side it belongs to (or `null` → plain). */
 function lineTokens(row: DiffRow): ThemedToken[] | null {
-  if (row.kind === 'del')
-    return row.oldIndex != null ? (oldTokens.value?.[row.oldIndex] ?? null) : null
+  if (row.kind === 'del') {
+    return row.oldIndex != null
+      ? (oldTokens.value?.[row.oldIndex] ?? null)
+      : null
+  }
   if (row.newIndex != null)
     return newTokens.value?.[row.newIndex] ?? null
   if (row.oldIndex != null)

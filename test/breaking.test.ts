@@ -13,7 +13,13 @@ describe('analyzeApiChanges', () => {
       `export declare function greet(_: string): string;`,
     )
     const change = await analyzeApiChanges('index', snap, snap)
-    expect(change).toEqual({ entryName: 'index', removed: [], modified: [], widened: [], added: [] })
+    expect(change).toEqual({
+      entryName: 'index',
+      removed: [],
+      modified: [],
+      widened: [],
+      added: [],
+    })
     expect(isBreakingChange(change)).toBe(false)
   })
 
@@ -180,7 +186,13 @@ describe('analyzeApiChanges', () => {
 describe('formatBreakingChanges', () => {
   it('lists removed and narrowed members', () => {
     const message = formatBreakingChanges([
-      { entryName: 'index', removed: ['old'], modified: ['changed'], widened: ['grew'], added: ['fresh'] },
+      {
+        entryName: 'index',
+        removed: ['old'],
+        modified: ['changed'],
+        widened: ['grew'],
+        added: ['fresh'],
+      },
     ])
     expect(message).toContain('Breaking API changes detected')
     expect(message).toContain('removed')
@@ -192,7 +204,13 @@ describe('formatBreakingChanges', () => {
 
   it('does not surface additive (widened/added) entries in the error', () => {
     const message = formatBreakingChanges([
-      { entryName: 'index', removed: ['old'], modified: [], widened: ['grew'], added: ['fresh'] },
+      {
+        entryName: 'index',
+        removed: ['old'],
+        modified: [],
+        widened: ['grew'],
+        added: ['fresh'],
+      },
     ])
     expect(message).not.toContain('grew')
     expect(message).not.toContain('fresh')
@@ -200,7 +218,13 @@ describe('formatBreakingChanges', () => {
 
   it('omits purely additive entries', () => {
     const message = formatBreakingChanges([
-      { entryName: 'index', removed: [], modified: [], widened: ['grew'], added: ['fresh'] },
+      {
+        entryName: 'index',
+        removed: [],
+        modified: [],
+        widened: ['grew'],
+        added: ['fresh'],
+      },
     ])
     expect(message).not.toContain('index')
   })

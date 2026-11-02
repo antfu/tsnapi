@@ -98,7 +98,9 @@ describe('snapshotPackage with hooks', () => {
       outputDir,
       entryFilter: ({ entryName }) => entryName !== './utils',
       transformSnapshot: ({ surface, content }) =>
-        surface === 'dts' ? `${content}\n/* transformed */\n` : null,
+        surface === 'dts'
+          ? `${content}\n/* transformed */\n`
+          : null,
     })
 
     expect(result.hasChanges).toBe(false)

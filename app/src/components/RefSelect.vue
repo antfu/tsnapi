@@ -41,7 +41,9 @@ const TYPE_ICON: Record<RefOption['type'], string> = {
 const selected = computed(() => props.options.find(o => o.value === model.value))
 
 function ago(opt: RefOption): string {
-  return opt.date ? formatTimeAgo(new Date(opt.date)) : ''
+  return opt.date
+    ? formatTimeAgo(new Date(opt.date))
+    : ''
 }
 </script>
 

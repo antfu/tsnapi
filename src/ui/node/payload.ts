@@ -23,7 +23,15 @@ import {
 import { gitShowFile, isGitRepo, listCommits, listNamedRefs, repoRoot, resolveRef } from './git.ts'
 import { WORKING_TREE } from './types.ts'
 
-const EMPTY_COUNTS = (): Record<DiffStatus, number> => ({ added: 0, removed: 0, modified: 0, widened: 0, unchanged: 0 })
+function EMPTY_COUNTS(): Record<DiffStatus, number> {
+  return {
+    added: 0,
+    removed: 0,
+    modified: 0,
+    widened: 0,
+    unchanged: 0,
+  }
+}
 
 const LEADING_DOT_SLASH_RE = /^\.\//
 function entryNameToStem(name: string): string {
@@ -145,8 +153,17 @@ function makeRefSide(root: string, ref: string, meta: SideMeta): Side {
 async function resolveSide(root: string, ref: string, git: boolean): Promise<Side> {
   if (ref === WORKING_TREE)
     return makeWorkingSide(root)
-  const resolved = git ? await resolveRef(root, ref) : null
-  const meta: SideMeta = { kind: 'ref', ref, label: resolved ? (resolved.name || resolved.shortSha) : ref, resolved }
+  const resolved = git
+    ? await resolveRef(root, ref)
+    : null
+  const meta: SideMeta = {
+    kind: 'ref',
+    ref,
+    label: resolved
+      ? (resolved.name || resolved.shortSha)
+      : ref,
+    resolved,
+  }
   return makeRefSide(root, ref, meta)
 }
 
@@ -160,7 +177,9 @@ async function resolveSide(root: string, ref: string, git: boolean): Promise<Sid
 export function resolveReExportTarget(specifier: string, ctxs: PackageCtx[]): ReExportTarget {
   for (const ctx of ctxs) {
     if (specifier === ctx.name) {
-      const entryName = ctx.entryStems.some(e => e.name === '.') ? '.' : undefined
+      const entryName = ctx.entryStems.some(e => e.name === '.')
+        ? '.'
+        : undefined
       return { specifier, packageName: ctx.name, entryName }
     }
     if (specifier.startsWith(`${ctx.name}/`)) {
@@ -168,7 +187,9 @@ export function resolveReExportTarget(specifier: string, ctxs: PackageCtx[]): Re
       return {
         specifier,
         packageName: ctx.name,
-        entryName: ctx.entryStems.some(e => e.name === entryName) ? entryName : undefined,
+        entryName: ctx.entryStems.some(e => e.name === entryName)
+          ? entryName
+          : undefined,
       }
     }
   }
@@ -176,7 +197,9 @@ export function resolveReExportTarget(specifier: string, ctxs: PackageCtx[]): Re
 }
 
 function reExportTargetOf(kind: MemberNode['kind'], source: string | undefined, ctxs: PackageCtx[]): ReExportTarget | undefined {
-  return kind === 're-export' && source ? resolveReExportTarget(source, ctxs) : undefined
+  return kind === 're-export' && source
+    ? resolveReExportTarget(source, ctxs)
+    : undefined
 }
 
 function toMemberNode(m: DiffMember, ctxs: PackageCtx[]): MemberNode {
@@ -216,7 +239,13 @@ async function buildPackage(
   const counts = EMPTY_COUNTS()
 
   if (pkg.entryStems.length === 0) {
-    return { name: pkg.name, dir: pkg.relDir || '.', entries: [], status: 'no-api', counts }
+    return {
+      name: pkg.name,
+      dir: pkg.relDir || '.',
+      entries: [],
+      status: 'no-api',
+      counts,
+    }
   }
 
   const entries: EntryNode[] = []
@@ -238,7 +267,9 @@ async function buildPackage(
     }
     else {
       const file = compareFile ?? baseFile
-      members = file ? await singleSideMembers(file, ctxs) : []
+      members = file
+        ? await singleSideMembers(file, ctxs)
+        : []
     }
 
     for (const m of members)
@@ -250,7 +281,9 @@ async function buildPackage(
   }
 
   // No committed snapshot for this package at the compare side, at all.
-  const status: PackageNode['status'] = (!anyMembers || !anyCompareData) ? 'no-snapshot' : 'ok'
+  const status: PackageNode['status'] = (!anyMembers || !anyCompareData)
+    ? 'no-snapshot'
+    : 'ok'
 
   return {
     name: pkg.name,
@@ -278,7 +311,10 @@ async function buildPackageCtxs(root: string): Promise<PackageCtx[]> {
       relDir: relative(root, dir),
       name,
       outputDir: '__snapshots__/tsnapi',
-      entryStems: entries.map(e => ({ name: e.name, stem: entryNameToStem(e.name) })),
+      entryStems: entries.map(e => ({
+        name: e.name,
+        stem: entryNameToStem(e.name),
+      })),
     })
   }
   return ctxs.sort((a, b) => a.name.localeCompare(b.name))
@@ -331,15 +367,30 @@ function snapshotHistoryPaths(ctxs: PackageCtx[]): string[] {
 export async function buildRefs(cwd: string, options?: { all?: boolean, limit?: number }): Promise<RefsPayload> {
   const root = (await repoRoot(cwd)) ?? resolve(cwd)
   const git = await isGitRepo(cwd)
-  if (!git)
-    return { git: false, branches: [], tags: [], commits: [], head: null }
+  if (!git) {
+    return {
+      git: false,
+      branches: [],
+      tags: [],
+      commits: [],
+      head: null,
+    }
+  }
 
   const ctxs = await buildPackageCtxs(root)
-  const scoped = options?.all ? [] : snapshotHistoryPaths(ctxs)
+  const scoped = options?.all
+    ? []
+    : snapshotHistoryPaths(ctxs)
   const [{ branches, tags }, commits, head] = await Promise.all([
     listNamedRefs(root),
     listCommits(root, scoped, options?.limit ?? 100),
     resolveRef(root, 'HEAD'),
   ])
-  return { git: true, branches, tags, commits, head }
+  return {
+    git: true,
+    branches,
+    tags,
+    commits,
+    head,
+  }
 }
